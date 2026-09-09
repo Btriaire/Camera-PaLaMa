@@ -167,15 +167,24 @@ export default function Editor({
         </button>
       </div>
 
-      <div className="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden bg-black">
-        <div className="relative" style={{ aspectRatio: `${previewSize.width} / ${previewSize.height}`, maxWidth: "100%", maxHeight: "100%" }}>
-          <canvas ref={originalCanvasRef} className="absolute inset-0 h-full w-full object-contain" />
-          <canvas
-            ref={editedCanvasRef}
-            className="absolute inset-0 h-full w-full object-contain transition-opacity"
-            style={{ opacity: comparing ? 0 : 1 }}
-          />
-        </div>
+      <div className="relative flex-1 min-h-0 overflow-hidden bg-black">
+        {/*
+          No aspect-ratio wrapper here on purpose: a div sized only by
+          aspect-ratio + max-width/height, with no in-flow content, has
+          nothing to compute its size FROM once its children are
+          `absolute` (those don't contribute to a parent's intrinsic
+          size) — it collapses to 0x0, and inset-0 canvases inside a
+          0x0 positioned ancestor render at zero size. object-contain on
+          the canvases themselves (using their own width/height
+          attributes as the intrinsic ratio) does the letterboxing
+          correctly against this div's real, flex-driven h-full/w-full.
+        */}
+        <canvas ref={originalCanvasRef} className="absolute inset-0 h-full w-full object-contain" />
+        <canvas
+          ref={editedCanvasRef}
+          className="absolute inset-0 h-full w-full object-contain transition-opacity"
+          style={{ opacity: comparing ? 0 : 1 }}
+        />
 
         <button
           onPointerDown={() => setComparing(true)}
