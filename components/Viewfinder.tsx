@@ -24,30 +24,30 @@ import {
 // texture is capped at 1080 on its long edge for a smooth 60fps loop; the
 // actual capture (see useCamera.capture) grabs a full independent still at
 // the sensor's native resolution, unrelated to this preview's size.
+//
+// `camera` is created once by the parent (app/page.tsx) and passed down —
+// this component must never call useCamera() itself. The <video>/<canvas>
+// below stay mounted for the page's whole lifetime; the camera picker is
+// an overlay drawn on top, never a replacement of this JSX, specifically
+// so neither element (nor the MediaStream attached to the video) is ever
+// torn down just because a screen was opened over it.
 export default function Viewfinder({
+  camera,
+  active,
   presetId,
   onSelectPreset,
   onCapture,
   onOpenGallery,
 }: {
+  camera: ReturnType<typeof useCamera>;
+  active: boolean;
   presetId: string | null;
   onSelectPreset: (id: string | null) => void;
   onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => void;
   onOpenGallery: () => void;
 }) {
-  const {
-    videoRef,
-    ready,
-    error,
-    capabilities,
-    torchOn,
-    setTorch,
-    zoom,
-    setZoom,
-    flip,
-    trackSettings,
-    capture,
-  } = useCamera();
+  const { videoRef, ready, error, capabilities, torchOn, setTorch, zoom, setZoom, flip, trackSettings, capture } =
+    camera;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<GLRenderer | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -67,7 +67,7 @@ export default function Viewfinder({
   useEffect(() => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    if (!canvas || !ready) return;
+    if (!canvas || !ready || !active) return;
 
     try {
       rendererRef.current = new GLRenderer(canvas);
@@ -96,7 +96,7 @@ export default function Viewfinder({
       rendererRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, presetId, evBias]);
+  }, [ready, active, presetId, evBias]);
 
   const handleShutter = async () => {
     if (capturing) return;
@@ -111,19 +111,6 @@ export default function Viewfinder({
       setCapturing(false);
     }
   };
-
-  if (pickerOpen) {
-    return (
-      <CameraPicker
-        activePresetId={presetId}
-        onSelect={(id) => {
-          onSelectPreset(id);
-          setPickerOpen(false);
-        }}
-        onClose={() => setPickerOpen(false)}
-      />
-    );
-  }
 
   return (
     <div className="relative flex-1 h-dvh bg-black overflow-hidden">
@@ -259,6 +246,19 @@ export default function Viewfinder({
       {!ready && !error && (
         <div className="absolute inset-0 flex items-center justify-center text-white/50">
           <CameraIcon className="w-10 h-10 animate-pulse" />
+        </div>
+      )}
+
+      {pickerOpen && (
+        <div className="absolute inset-0 z-40">
+          <CameraPicker
+            activePresetId={presetId}
+            onSelect={(id) => {
+              onSelectPreset(id);
+              setPickerOpen(false);
+            }}
+            onClose={() => setPickerOpen(false)}
+          />
         </div>
       )}
     </div>

@@ -1,8 +1,34 @@
 "use client";
 
 import { PRESETS } from "@/lib/presets";
-import { HudSkin } from "@/lib/types";
+import { HudSkin, Preset } from "@/lib/types";
 import { BackIcon, CheckIcon } from "@/components/Icons";
+
+type RGB = [number, number, number];
+const lerp = (a: RGB, b: RGB, t: number): RGB => [
+  a[0] + (b[0] - a[0]) * t,
+  a[1] + (b[1] - a[1]) * t,
+  a[2] + (b[2] - a[2]) * t,
+];
+
+// A quick decorative approximation of each preset's color character, so
+// the picker reads visually instead of as a plain text list — not a real
+// render of the shader, just enough of a hint (warm/cool, tinted, mono)
+// to tell cards apart at a glance.
+function swatchGradient(p: Preset): string {
+  const adj = p.adjustments;
+  const temp = (adj.temperature ?? 0) / 100;
+  const warm: RGB = [255, 180, 120];
+  const cool: RGB = [140, 190, 255];
+  const neutral: RGB = [190, 190, 190];
+  const base = temp > 0 ? lerp(neutral, warm, temp) : lerp(neutral, cool, -temp);
+  const tinted = lerp(base, adj.tintColor ?? neutral, (adj.tintStrength ?? 0) / 100);
+  const gray = (tinted[0] + tinted[1] + tinted[2]) / 3;
+  const final = lerp(tinted, [gray, gray, gray], (adj.monochrome ?? 0) / 100);
+  const c1 = `rgb(${final.map((v) => Math.round(v)).join(",")})`;
+  const c2 = `rgb(${final.map((v) => Math.round(v * 0.55)).join(",")})`;
+  return `linear-gradient(135deg, ${c1}, ${c2})`;
+}
 
 const HUD_LABEL: Record<HudSkin, string> = {
   film: "Pellicule",
@@ -58,16 +84,23 @@ export default function CameraPicker({
         <Section title="Pellicule &amp; caméras">
           {vintage.map((p) => (
             <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">{p.label}</div>
-                {activePresetId === p.id && <CheckIcon className="w-4 h-4" />}
-              </div>
-              <div className="mt-0.5 text-xs text-white/40">{p.blurb}</div>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/50">
-                <Tag>{HUD_LABEL[p.hud]}</Tag>
-                {p.era && <Tag>{p.era}</Tag>}
-                {p.iso && <Tag>ISO {p.iso}</Tag>}
-                {p.kelvin && <Tag>{p.kelvin}K</Tag>}
+              <div
+                className="h-11 w-11 shrink-0 rounded-xl"
+                style={{ backgroundImage: swatchGradient(p) }}
+                aria-hidden
+              />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold">{p.label}</div>
+                  {activePresetId === p.id && <CheckIcon className="w-4 h-4" />}
+                </div>
+                <div className="mt-0.5 text-xs text-white/40">{p.blurb}</div>
+                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/50">
+                  <Tag>{HUD_LABEL[p.hud]}</Tag>
+                  {p.era && <Tag>{p.era}</Tag>}
+                  {p.iso && <Tag>ISO {p.iso}</Tag>}
+                  {p.kelvin && <Tag>{p.kelvin}K</Tag>}
+                </div>
               </div>
             </Card>
           ))}
@@ -76,11 +109,18 @@ export default function CameraPicker({
         <Section title="Filtres modernes">
           {modern.map((p) => (
             <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">{p.label}</div>
-                {activePresetId === p.id && <CheckIcon className="w-4 h-4" />}
+              <div
+                className="h-11 w-11 shrink-0 rounded-xl"
+                style={{ backgroundImage: swatchGradient(p) }}
+                aria-hidden
+              />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold">{p.label}</div>
+                  {activePresetId === p.id && <CheckIcon className="w-4 h-4" />}
+                </div>
+                <div className="mt-0.5 text-xs text-white/40">{p.blurb}</div>
               </div>
-              <div className="mt-0.5 text-xs text-white/40">{p.blurb}</div>
             </Card>
           ))}
         </Section>
@@ -110,7 +150,9 @@ function Card({
   return (
     <button
       onClick={onClick}
-      className={`rounded-2xl border px-4 py-3 text-left ${active ? "border-white bg-white/10" : "border-white/15"}`}
+      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left ${
+        active ? "border-white bg-white/10" : "border-white/15"
+      }`}
     >
       {children}
     </button>

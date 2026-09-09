@@ -6,7 +6,7 @@ import { exportPhoto } from "@/lib/export";
 import { uploadPhoto } from "@/lib/storage";
 import { Adjustments, NEUTRAL_ADJUSTMENTS } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
-import AdjustSlider from "./AdjustSlider";
+import Dial from "./Dial";
 import {
   BackIcon,
   CheckIcon,
@@ -229,32 +229,32 @@ export default function Editor({
             ))}
           </div>
         ) : (
-          <div className="max-h-[42dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <SliderSection title="Lumière">
-              <AdjustSlider label="Exposition" value={adjustments.exposure} onChange={(v) => setField("exposure", v)} />
-              <AdjustSlider label="Contraste" value={adjustments.contrast} onChange={(v) => setField("contrast", v)} />
-              <AdjustSlider label="Hautes lumières" value={adjustments.highlights} onChange={(v) => setField("highlights", v)} />
-              <AdjustSlider label="Ombres" value={adjustments.shadows} onChange={(v) => setField("shadows", v)} />
-            </SliderSection>
-            <SliderSection title="Couleur">
-              <AdjustSlider label="Saturation" value={adjustments.saturation} onChange={(v) => setField("saturation", v)} />
-              <AdjustSlider label="Température" value={adjustments.temperature} onChange={(v) => setField("temperature", v)} />
-              <AdjustSlider label="Teinte" value={adjustments.tint} onChange={(v) => setField("tint", v)} />
-              <AdjustSlider label="Noir & blanc" value={adjustments.monochrome} min={0} onChange={(v) => setField("monochrome", v)} />
-              <AdjustSlider label="Virage couleur" value={adjustments.tintStrength} min={0} onChange={(v) => setField("tintStrength", v)} />
-            </SliderSection>
-            <SliderSection title="Netteté">
-              <AdjustSlider label="Netteté" value={adjustments.sharpen} min={0} onChange={(v) => setField("sharpen", v)} />
-              <AdjustSlider label="Réduction de bruit" value={adjustments.denoise} min={0} onChange={(v) => setField("denoise", v)} />
-            </SliderSection>
-            <SliderSection title="Effets pellicule">
-              <AdjustSlider label="Vignettage" value={adjustments.vignette} min={0} onChange={(v) => setField("vignette", v)} />
-              <AdjustSlider label="Grain" value={adjustments.grain} min={0} onChange={(v) => setField("grain", v)} />
-              <AdjustSlider label="Délavé" value={adjustments.fade} min={0} onChange={(v) => setField("fade", v)} />
-              <AdjustSlider label="Aberration chromatique" value={adjustments.chromaticAberration} min={0} onChange={(v) => setField("chromaticAberration", v)} />
-              <AdjustSlider label="Fuite de lumière" value={adjustments.lightLeak} min={0} onChange={(v) => setField("lightLeak", v)} />
-              <AdjustSlider label="Lignes de balayage" value={adjustments.scanlines} min={0} onChange={(v) => setField("scanlines", v)} />
-            </SliderSection>
+          <div className="max-h-[48dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <DialSection title="Lumière" accent="#fbbf24">
+              <Dial label="Exposition" value={adjustments.exposure} accent="#fbbf24" onChange={(v) => setField("exposure", v)} />
+              <Dial label="Contraste" value={adjustments.contrast} accent="#fbbf24" onChange={(v) => setField("contrast", v)} />
+              <Dial label="Hautes lumières" value={adjustments.highlights} accent="#fbbf24" onChange={(v) => setField("highlights", v)} />
+              <Dial label="Ombres" value={adjustments.shadows} accent="#fbbf24" onChange={(v) => setField("shadows", v)} />
+            </DialSection>
+            <DialSection title="Couleur" accent="#f472b6">
+              <Dial label="Saturation" value={adjustments.saturation} accent="#f472b6" onChange={(v) => setField("saturation", v)} />
+              <Dial label="Température" value={adjustments.temperature} accent="#f472b6" onChange={(v) => setField("temperature", v)} />
+              <Dial label="Teinte" value={adjustments.tint} accent="#f472b6" onChange={(v) => setField("tint", v)} />
+              <Dial label="Noir & blanc" value={adjustments.monochrome} min={0} accent="#f472b6" onChange={(v) => setField("monochrome", v)} />
+              <Dial label="Virage couleur" value={adjustments.tintStrength} min={0} accent="#f472b6" onChange={(v) => setField("tintStrength", v)} />
+            </DialSection>
+            <DialSection title="Netteté" accent="#22d3ee">
+              <Dial label="Netteté" value={adjustments.sharpen} min={0} accent="#22d3ee" onChange={(v) => setField("sharpen", v)} />
+              <Dial label="Réduction de bruit" value={adjustments.denoise} min={0} accent="#22d3ee" onChange={(v) => setField("denoise", v)} />
+            </DialSection>
+            <DialSection title="Effets pellicule" accent="#a78bfa">
+              <Dial label="Vignettage" value={adjustments.vignette} min={0} accent="#a78bfa" onChange={(v) => setField("vignette", v)} />
+              <Dial label="Grain" value={adjustments.grain} min={0} accent="#a78bfa" onChange={(v) => setField("grain", v)} />
+              <Dial label="Délavé" value={adjustments.fade} min={0} accent="#a78bfa" onChange={(v) => setField("fade", v)} />
+              <Dial label="Aberration chromatique" value={adjustments.chromaticAberration} min={0} accent="#a78bfa" onChange={(v) => setField("chromaticAberration", v)} />
+              <Dial label="Fuite de lumière" value={adjustments.lightLeak} min={0} accent="#a78bfa" onChange={(v) => setField("lightLeak", v)} />
+              <Dial label="Lignes de balayage" value={adjustments.scanlines} min={0} accent="#a78bfa" onChange={(v) => setField("scanlines", v)} />
+            </DialSection>
           </div>
         )}
 
@@ -276,11 +276,22 @@ export default function Editor({
   );
 }
 
-function SliderSection({ title, children }: { title: string; children: React.ReactNode }) {
+function DialSection({
+  title,
+  accent,
+  children,
+}: {
+  title: string;
+  accent: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="pt-2">
-      <div className="px-4 pt-2 text-[11px] font-medium uppercase tracking-wide text-white/30">{title}</div>
-      {children}
+    <div className="pt-3">
+      <div className="flex items-center gap-1.5 px-4 pb-2">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+        <span className="text-[11px] font-medium uppercase tracking-wide text-white/40">{title}</span>
+      </div>
+      <div className="grid grid-cols-4 gap-y-4 px-2 pb-1">{children}</div>
     </div>
   );
 }
