@@ -7,7 +7,9 @@ import { uploadPhoto } from "@/lib/storage";
 import { Adjustments, NEUTRAL_ADJUSTMENTS } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
 import Dial from "./Dial";
+import CameraPicker from "./CameraPicker";
 import {
+  ApertureIcon,
   BackIcon,
   CheckIcon,
   CloudUploadIcon,
@@ -43,7 +45,7 @@ export default function Editor({
         ...PRESETS.find((p) => p.id === initialPresetId)?.adjustments,
       }
   );
-  const [tab, setTab] = useState<"styles" | "adjust">("styles");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [busy, setBusy] = useState<"save" | "download" | null>(null);
   const [saved, setSaved] = useState(false);
@@ -187,49 +189,20 @@ export default function Editor({
       </div>
 
       <div className="border-t border-white/10 bg-zinc-950">
-        <div className="flex">
+        <div className="flex items-center justify-between px-4 py-3">
           <button
-            onClick={() => setTab("styles")}
-            className={`flex-1 py-2.5 text-sm font-medium ${tab === "styles" ? "text-white border-b-2 border-white" : "text-white/40"}`}
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-1.5 rounded-full border border-white/25 px-3 py-1.5 text-xs font-medium"
           >
-            Styles
+            <ApertureIcon className="w-4 h-4" />
+            {PRESETS.find((p) => p.id === presetId)?.label ?? "Naturel"}
           </button>
-          <button
-            onClick={() => setTab("adjust")}
-            className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 ${
-              tab === "adjust" ? "text-white border-b-2 border-white" : "text-white/40"
-            }`}
-          >
-            <SlidersIcon className="w-4 h-4" /> Réglages
-          </button>
+          <span className="flex items-center gap-1.5 text-[11px] text-white/40">
+            <SlidersIcon className="w-3.5 h-3.5" /> Réglages
+          </span>
         </div>
 
-        {tab === "styles" ? (
-          <div className="flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              onClick={() => applyPreset(null)}
-              className={`shrink-0 rounded-2xl border px-3 py-2 text-left ${
-                presetId === null ? "border-white bg-white/10" : "border-white/15"
-              }`}
-            >
-              <div className="text-xs font-semibold">Naturel</div>
-              <div className="text-[11px] text-white/40">Sans style</div>
-            </button>
-            {PRESETS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => applyPreset(p.id)}
-                className={`shrink-0 w-36 rounded-2xl border px-3 py-2 text-left ${
-                  presetId === p.id ? "border-white bg-white/10" : "border-white/15"
-                }`}
-              >
-                <div className="text-xs font-semibold">{p.label}</div>
-                <div className="text-[11px] text-white/40 line-clamp-1">{p.blurb}</div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="max-h-[48dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="max-h-[48dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
             <DialSection title="Lumière" accent="#fbbf24">
               <Dial label="Exposition" value={adjustments.exposure} accent="#fbbf24" onChange={(v) => setField("exposure", v)} />
               <Dial label="Contraste" value={adjustments.contrast} accent="#fbbf24" onChange={(v) => setField("contrast", v)} />
@@ -255,8 +228,7 @@ export default function Editor({
               <Dial label="Fuite de lumière" value={adjustments.lightLeak} min={0} accent="#a78bfa" onChange={(v) => setField("lightLeak", v)} />
               <Dial label="Lignes de balayage" value={adjustments.scanlines} min={0} accent="#a78bfa" onChange={(v) => setField("scanlines", v)} />
             </DialSection>
-          </div>
-        )}
+        </div>
 
         <div className="flex justify-center gap-6 border-t border-white/10 px-4 py-3">
           <button onClick={() => applyPreset(null)} className="text-sm text-white/50">
@@ -272,6 +244,19 @@ export default function Editor({
           </button>
         </div>
       </div>
+
+      {pickerOpen && (
+        <div className="fixed inset-0 z-50">
+          <CameraPicker
+            activePresetId={presetId}
+            onSelect={(id) => {
+              applyPreset(id);
+              setPickerOpen(false);
+            }}
+            onClose={() => setPickerOpen(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

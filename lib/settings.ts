@@ -29,3 +29,19 @@ export function saveSettings(settings: Settings) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(KEY, JSON.stringify(settings));
 }
+
+const INTRO_KEY = "camera-palama:intro-seen";
+
+export function hasSeenIntro(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(INTRO_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function markIntroSeen() {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(INTRO_KEY, "1");
+}

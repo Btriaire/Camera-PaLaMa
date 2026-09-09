@@ -66,6 +66,7 @@ export default function Viewfinder({
   const [shotCount, setShotCount] = useState(0);
   const [timerIndex, setTimerIndex] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [flash, setFlash] = useState(false);
   const countdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeStart = useRef<number | null>(null);
   const battery = useBattery();
@@ -121,6 +122,8 @@ export default function Viewfinder({
   const runCapture = async () => {
     if (capturing) return;
     setCapturing(true);
+    setFlash(true);
+    setTimeout(() => setFlash(false), 150);
     try {
       const shot = await capture();
       if (shot) {
@@ -213,6 +216,12 @@ export default function Viewfinder({
         elapsedSeconds={elapsedSeconds}
         batteryLevel={battery}
         now={now}
+      />
+
+      <div
+        className={`absolute inset-0 z-30 bg-white pointer-events-none transition-opacity duration-150 ${
+          flash ? "opacity-80" : "opacity-0"
+        }`}
       />
 
       {countdown !== null && (

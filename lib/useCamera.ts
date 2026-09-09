@@ -40,7 +40,12 @@ export type TrackSettings = {
 // Wraps getUserMedia + ImageCapture behind one hook: start/stop the stream,
 // flip front/back, toggle torch, adjust zoom, and take the highest-resolution
 // still the current device/browser will actually give us.
-export function useCamera() {
+//
+// `autoStart: false` skips the automatic getUserMedia call on mount — the
+// caller triggers it later via `requestAccess()`, e.g. after a friendly
+// "why we need this" screen instead of jumping straight to the browser's
+// native permission prompt with no context.
+export function useCamera(autoStart: boolean = true) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const trackRef = useRef<MediaStreamTrack | null>(null);
@@ -127,10 +132,12 @@ export function useCamera() {
   }, [stop]);
 
   useEffect(() => {
-    start("environment");
+    if (autoStart) start("environment");
     return () => stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const requestAccess = useCallback(() => start("environment"), [start]);
 
   const flip = useCallback(() => {
     start(facing === "environment" ? "user" : "environment");
@@ -202,5 +209,6 @@ export function useCamera() {
     trackSettings,
     capture,
     stop,
+    requestAccess,
   };
 }

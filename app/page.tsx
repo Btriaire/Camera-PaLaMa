@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Viewfinder from "@/components/Viewfinder";
 import Editor from "@/components/Editor";
 import Gallery from "@/components/Gallery";
+import IntroScreen from "@/components/IntroScreen";
 import { useCamera } from "@/lib/useCamera";
-import { getSettings } from "@/lib/settings";
+import { getSettings, hasSeenIntro, markIntroSeen } from "@/lib/settings";
 import { Adjustments, SavedPhotoMeta } from "@/lib/types";
 
 type CapturedPhoto = { bitmap: ImageBitmap; width: number; height: number };
@@ -19,17 +20,30 @@ type Mode = "shoot" | "edit" | "gallery";
 // freshly-remounted <video> silently missing its srcObject — which is
 // exactly why picking a preset used to freeze the preview.
 export default function CameraApp() {
-  const camera = useCamera();
+  const camera = useCamera(false); // never auto-starts; see the intro effect below
   const [mode, setMode] = useState<Mode>("shoot");
   const [presetId, setPresetId] = useState<string | null>(null);
+  const [showIntro, setShowIntro] = useState(false);
 
   // Applied after mount, not as a lazy useState initializer, so server and
   // client agree on the very first render (localStorage doesn't exist on
-  // the server) — this only ever runs client-side, once.
+  // the server) — this only ever runs client-side, once. A returning
+  // visitor (intro already seen) starts the camera immediately; a first
+  // visitor sees IntroScreen instead, which starts it on "Activer".
   useEffect(() => {
     const stored = getSettings().defaultPresetId;
     if (stored) setPresetId(stored);
+    if (hasSeenIntro()) camera.requestAccess();
+    else setShowIntro(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleIntroContinue = () => {
+    markIntroSeen();
+    setShowIntro(false);
+    camera.requestAccess();
+  };
+
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [initialAdjustments, setInitialAdjustments] = useState<Adjustments | undefined>(undefined);
 
@@ -77,6 +91,12 @@ export default function CameraApp() {
             onClose={handleEditorClose}
             onSaved={() => {}}
           />
+        </div>
+      )}
+
+      {showIntro && (
+        <div className="fixed inset-0 z-[60]">
+          <IntroScreen onContinue={handleIntroContinue} />
         </div>
       )}
     </div>
