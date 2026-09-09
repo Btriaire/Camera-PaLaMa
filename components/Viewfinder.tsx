@@ -2,10 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCamera } from "@/lib/useCamera";
+import { useBattery } from "@/lib/useBattery";
+import { useClock } from "@/lib/useClock";
 import { GLRenderer } from "@/lib/gl/renderer";
 import { Adjustments, NEUTRAL_ADJUSTMENTS } from "@/lib/types";
-import { PRESETS } from "@/lib/presets";
-import { CameraIcon, FlashIcon, FlipCameraIcon, GalleryGridIcon } from "@/components/Icons";
+import { getPreset } from "@/lib/presets";
+import Hud from "./Hud";
+import CameraPicker from "./CameraPicker";
+import {
+  ApertureIcon,
+  CameraIcon,
+  FlashIcon,
+  FlipCameraIcon,
+  GalleryGridIcon,
+  GridIcon,
+} from "@/components/Icons";
 
 // Live viewfinder: shows the camera feed through the same WebGL filter
 // pipeline used for the final export, so the vintage-camera look you frame
@@ -21,7 +32,7 @@ export default function Viewfinder({
 }: {
   presetId: string | null;
   onSelectPreset: (id: string | null) => void;
-  onCapture: (bitmap: ImageBitmap, width: number, height: number) => void;
+  onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => void;
   onOpenGallery: () => void;
 }) {
   const {
@@ -34,15 +45,24 @@ export default function Viewfinder({
     zoom,
     setZoom,
     flip,
+    trackSettings,
     capture,
   } = useCamera();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<GLRenderer | null>(null);
   const rafRef = useRef<number | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
+  const [evBias, setEvBias] = useState(0);
+  const [shotCount, setShotCount] = useState(0);
+  const battery = useBattery();
+  const { elapsedSeconds, now } = useClock();
 
-  const preset = PRESETS.find((p) => p.id === presetId) ?? null;
-  const adjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
+  const preset = getPreset(presetId);
+  const baseAdjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
+  const adjustments: Adjustments = { ...baseAdjustments, exposure: baseAdjustments.exposure + evBias };
+  const hudSkin = preset?.hud ?? "modern";
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -76,23 +96,57 @@ export default function Viewfinder({
       rendererRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, presetId]);
+  }, [ready, presetId, evBias]);
 
   const handleShutter = async () => {
     if (capturing) return;
     setCapturing(true);
     try {
       const shot = await capture();
-      if (shot) onCapture(shot.bitmap, shot.width, shot.height);
+      if (shot) {
+        setShotCount((n) => n + 1);
+        onCapture(shot.bitmap, shot.width, shot.height, adjustments);
+      }
     } finally {
       setCapturing(false);
     }
   };
 
+  if (pickerOpen) {
+    return (
+      <CameraPicker
+        activePresetId={presetId}
+        onSelect={(id) => {
+          onSelectPreset(id);
+          setPickerOpen(false);
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
+    );
+  }
+
   return (
     <div className="relative flex-1 h-dvh bg-black overflow-hidden">
       <video ref={videoRef} playsInline muted className="absolute inset-0 h-full w-full object-cover opacity-0" />
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full object-cover" />
+
+      <Hud
+        skin={hudSkin}
+        preset={preset}
+        resolution={
+          trackSettings.width && trackSettings.height
+            ? { width: trackSettings.width, height: trackSettings.height }
+            : null
+        }
+        fps={trackSettings.frameRate}
+        zoom={zoom}
+        showGrid={showGrid}
+        evBias={evBias}
+        shotCount={shotCount}
+        elapsedSeconds={elapsedSeconds}
+        batteryLevel={battery}
+        now={now}
+      />
 
       {error && (
         <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-white/70">
@@ -113,6 +167,13 @@ export default function Viewfinder({
         </button>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowGrid((g) => !g)}
+            aria-label="Grille"
+            className={`rounded-full p-2.5 backdrop-blur ${showGrid ? "bg-white text-black" : "bg-black/40 text-white"}`}
+          >
+            <GridIcon className="w-5 h-5" />
+          </button>
           {capabilities.torch && (
             <button
               onClick={() => setTorch(!torchOn)}
@@ -153,26 +214,34 @@ export default function Viewfinder({
       )}
 
       <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div className="flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center justify-between px-4">
           <button
-            onClick={() => onSelectPreset(null)}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium ${
-              presetId === null ? "border-white bg-white text-black" : "border-white/25 bg-black/30 text-white/80"
-            }`}
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur"
           >
-            Naturel
+            <ApertureIcon className="w-4 h-4" />
+            {preset?.label ?? "Naturel"}
           </button>
-          {PRESETS.map((p) => (
+
+          <div className="flex items-center gap-2 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
             <button
-              key={p.id}
-              onClick={() => onSelectPreset(p.id)}
-              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium ${
-                presetId === p.id ? "border-white bg-white text-black" : "border-white/25 bg-black/30 text-white/80"
-              }`}
+              onClick={() => setEvBias((v) => Math.max(-2, Math.round((v - 0.5) * 10) / 10))}
+              aria-label="Diminuer l'exposition"
+              className="px-1.5 text-sm text-white/80"
             >
-              {p.label}
+              −
             </button>
-          ))}
+            <span className="w-10 text-center text-[11px] font-mono tabular-nums text-white/70">
+              {evBias > 0 ? `+${evBias.toFixed(1)}` : evBias.toFixed(1)}
+            </span>
+            <button
+              onClick={() => setEvBias((v) => Math.min(2, Math.round((v + 0.5) * 10) / 10))}
+              aria-label="Augmenter l'exposition"
+              className="px-1.5 text-sm text-white/80"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center justify-center pb-2">

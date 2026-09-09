@@ -15,9 +15,9 @@ export default function CameraApp() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [initialAdjustments, setInitialAdjustments] = useState<Adjustments | undefined>(undefined);
 
-  const handleCapture = (bitmap: ImageBitmap, width: number, height: number) => {
+  const handleCapture = (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => {
     setPhoto({ bitmap, width, height });
-    setInitialAdjustments(undefined);
+    setInitialAdjustments(adjustments);
     setMode("edit");
   };
 

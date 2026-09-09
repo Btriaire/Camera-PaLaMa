@@ -31,6 +31,12 @@ export type CapturedPhoto = {
   height: number;
 };
 
+export type TrackSettings = {
+  width: number | null;
+  height: number | null;
+  frameRate: number | null;
+};
+
 // Wraps getUserMedia + ImageCapture behind one hook: start/stop the stream,
 // flip front/back, toggle torch, adjust zoom, and take the highest-resolution
 // still the current device/browser will actually give us.
@@ -48,6 +54,11 @@ export function useCamera() {
   });
   const [torchOn, setTorchOn] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [trackSettings, setTrackSettings] = useState<TrackSettings>({
+    width: null,
+    height: null,
+    frameRate: null,
+  });
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -98,6 +109,12 @@ export function useCamera() {
       setTorchOn(false);
       setZoom(caps.zoom?.min ?? 1);
       setFacing(nextFacing);
+      const settings = track.getSettings?.() ?? {};
+      setTrackSettings({
+        width: settings.width ?? null,
+        height: settings.height ?? null,
+        frameRate: settings.frameRate ?? null,
+      });
       setReady(true);
     } catch (e) {
       setReady(false);
@@ -182,6 +199,7 @@ export function useCamera() {
     setTorch,
     zoom,
     setZoom: applyZoom,
+    trackSettings,
     capture,
     stop,
   };

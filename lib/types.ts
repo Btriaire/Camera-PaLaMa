@@ -43,10 +43,23 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   scanlines: 0,
 };
 
+// Which viewfinder HUD chrome a preset wears while shooting (see
+// components/Hud.tsx). "modern" means no cosplay overlay — these presets
+// are contemporary-filter looks, not a specific historic device.
+export type HudSkin = "film" | "cinema" | "camcorder" | "cctv" | "modern";
+
 export type Preset = {
   id: string;
   label: string;
   blurb: string; // one line of flavor text shown under the name
+  category: "vintage" | "modern"; // grouping in the camera picker
+  hud: HudSkin;
+  era?: string; // e.g. "1968" — shown as a spec badge, vintage presets only
+  // Flavor "spec" badges shown in the HUD. Real numbers where one exists —
+  // film stocks' ISO/white-balance are their actual historical ratings, not
+  // invented — approximate stand-ins elsewhere (documented in presets.ts).
+  iso?: number;
+  kelvin?: number;
   adjustments: Partial<Adjustments>;
 };
 

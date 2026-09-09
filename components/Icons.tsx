@@ -101,6 +101,28 @@ export function GalleryGridIcon({ className = base }: IconProps) {
   );
 }
 
+export function GridIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <rect x="4" y="4" width="16" height="16" rx="1.5" />
+      <path strokeLinecap="round" d="M4 9.5h16M4 14.5h16M9.5 4v16M14.5 4v16" />
+    </svg>
+  );
+}
+
+export function ApertureIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="8.5" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 7.5 9.3 12M12 7.5l4.3 1.2M9.3 12l-2.6 3.9M16.3 8.7l1.9 4M6.7 15.9h5M17.3 15.9l-2.3-4.2M11.7 15.9 9.3 12"
+      />
+    </svg>
+  );
+}
+
 export function CheckIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="2">
