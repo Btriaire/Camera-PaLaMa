@@ -6,9 +6,11 @@ import { useBattery } from "@/lib/useBattery";
 import { useClock } from "@/lib/useClock";
 import { GLRenderer } from "@/lib/gl/renderer";
 import { Adjustments, NEUTRAL_ADJUSTMENTS } from "@/lib/types";
-import { getPreset } from "@/lib/presets";
+import { getPreset, PRESETS } from "@/lib/presets";
+import { getSettings } from "@/lib/settings";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
+import Dashboard from "./Dashboard";
 import {
   ApertureIcon,
   CameraIcon,
@@ -16,7 +18,12 @@ import {
   FlipCameraIcon,
   GalleryGridIcon,
   GridIcon,
+  SettingsIcon,
+  TimerIcon,
 } from "@/components/Icons";
+
+const PRESET_ORDER: (string | null)[] = [null, ...PRESETS.map((p) => p.id)];
+const TIMER_STEPS = [0, 3, 10] as const;
 
 // Live viewfinder: shows the camera feed through the same WebGL filter
 // pipeline used for the final export, so the vintage-camera look you frame
@@ -27,10 +34,10 @@ import {
 //
 // `camera` is created once by the parent (app/page.tsx) and passed down —
 // this component must never call useCamera() itself. The <video>/<canvas>
-// below stay mounted for the page's whole lifetime; the camera picker is
-// an overlay drawn on top, never a replacement of this JSX, specifically
-// so neither element (nor the MediaStream attached to the video) is ever
-// torn down just because a screen was opened over it.
+// below stay mounted for the page's whole lifetime; every overlay (camera
+// picker, dashboard) is drawn on top of this JSX, never a replacement of
+// it, specifically so neither element (nor the MediaStream attached to the
+// video) is ever torn down just because a screen was opened over it.
 export default function Viewfinder({
   camera,
   active,
@@ -53,9 +60,14 @@ export default function Viewfinder({
   const rafRef = useRef<number | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [evBias, setEvBias] = useState(0);
   const [shotCount, setShotCount] = useState(0);
+  const [timerIndex, setTimerIndex] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeStart = useRef<number | null>(null);
   const battery = useBattery();
   const { elapsedSeconds, now } = useClock();
 
@@ -63,6 +75,7 @@ export default function Viewfinder({
   const baseAdjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
   const adjustments: Adjustments = { ...baseAdjustments, exposure: baseAdjustments.exposure + evBias };
   const hudSkin = preset?.hud ?? "modern";
+  const timerSeconds = TIMER_STEPS[timerIndex];
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -98,7 +111,14 @@ export default function Viewfinder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, active, presetId, evBias]);
 
-  const handleShutter = async () => {
+  useEffect(() => {
+    setShowGrid(getSettings().gridDefault);
+    return () => {
+      if (countdownTimeout.current) clearTimeout(countdownTimeout.current);
+    };
+  }, []);
+
+  const runCapture = async () => {
     if (capturing) return;
     setCapturing(true);
     try {
@@ -112,10 +132,70 @@ export default function Viewfinder({
     }
   };
 
+  // Recursive setTimeout chain kicked off from a click handler (never from
+  // an effect body) — each tick's setState happens inside a timer callback,
+  // the pattern React's docs actually recommend for "do something after a
+  // delay," rather than modeling a stopwatch as derived render state.
+  const armCountdown = (seconds: number) => {
+    setCountdown(seconds);
+    const tick = (remaining: number) => {
+      countdownTimeout.current = setTimeout(() => {
+        if (remaining <= 1) {
+          setCountdown(null);
+          runCapture();
+        } else {
+          setCountdown(remaining - 1);
+          tick(remaining - 1);
+        }
+      }, 1000);
+    };
+    tick(seconds);
+  };
+
+  const cancelCountdown = () => {
+    if (countdownTimeout.current) clearTimeout(countdownTimeout.current);
+    countdownTimeout.current = null;
+    setCountdown(null);
+  };
+
+  const handleShutter = () => {
+    if (capturing) return;
+    if (countdown !== null) {
+      cancelCountdown();
+      return;
+    }
+    if (timerSeconds === 0) {
+      runCapture();
+    } else {
+      armCountdown(timerSeconds);
+    }
+  };
+
+  const handleCanvasPointerDown = (e: React.PointerEvent) => {
+    swipeStart.current = e.clientX;
+  };
+  const handleCanvasPointerUp = (e: React.PointerEvent) => {
+    if (swipeStart.current === null) return;
+    const delta = e.clientX - swipeStart.current;
+    swipeStart.current = null;
+    if (Math.abs(delta) < 70) return;
+    const currentIndex = PRESET_ORDER.indexOf(presetId);
+    const nextIndex =
+      delta < 0
+        ? Math.min(PRESET_ORDER.length - 1, currentIndex + 1)
+        : Math.max(0, currentIndex - 1);
+    if (nextIndex !== currentIndex) onSelectPreset(PRESET_ORDER[nextIndex]);
+  };
+
   return (
     <div className="relative flex-1 h-dvh bg-black overflow-hidden">
       <video ref={videoRef} playsInline muted className="absolute inset-0 h-full w-full object-cover opacity-0" />
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full object-cover" />
+      <canvas
+        ref={canvasRef}
+        onPointerDown={handleCanvasPointerDown}
+        onPointerUp={handleCanvasPointerUp}
+        className="absolute inset-0 h-full w-full object-cover touch-none"
+      />
 
       <Hud
         skin={hudSkin}
@@ -135,6 +215,12 @@ export default function Viewfinder({
         now={now}
       />
 
+      {countdown !== null && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/30">
+          <span className="text-8xl font-light text-white/90 tabular-nums">{countdown}</span>
+        </div>
+      )}
+
       {error && (
         <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-white/70">
           {error}
@@ -145,15 +231,34 @@ export default function Viewfinder({
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-4"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <button
-          onClick={onOpenGallery}
-          aria-label="Galerie"
-          className="rounded-full bg-black/40 p-2.5 text-white backdrop-blur"
-        >
-          <GalleryGridIcon />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenGallery}
+            aria-label="Galerie"
+            className="rounded-full bg-black/40 p-2.5 text-white backdrop-blur"
+          >
+            <GalleryGridIcon />
+          </button>
+          <button
+            onClick={() => setDashboardOpen(true)}
+            aria-label="Tableau de bord"
+            className="rounded-full bg-black/40 p-2.5 text-white backdrop-blur"
+          >
+            <SettingsIcon />
+          </button>
+        </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setTimerIndex((i) => (i + 1) % TIMER_STEPS.length)}
+            aria-label="Retardateur"
+            className={`flex items-center gap-1 rounded-full p-2.5 backdrop-blur ${
+              timerSeconds > 0 ? "bg-white text-black" : "bg-black/40 text-white"
+            }`}
+          >
+            <TimerIcon className="w-5 h-5" />
+            {timerSeconds > 0 && <span className="pr-0.5 text-xs font-medium">{timerSeconds}</span>}
+          </button>
           <button
             onClick={() => setShowGrid((g) => !g)}
             aria-label="Grille"
@@ -234,7 +339,7 @@ export default function Viewfinder({
         <div className="flex items-center justify-center pb-2">
           <button
             onClick={handleShutter}
-            disabled={!ready || capturing}
+            disabled={!ready}
             aria-label="Déclencher"
             className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-white/80 disabled:opacity-40"
           >
@@ -258,6 +363,19 @@ export default function Viewfinder({
               setPickerOpen(false);
             }}
             onClose={() => setPickerOpen(false)}
+          />
+        </div>
+      )}
+
+      {dashboardOpen && (
+        <div className="absolute inset-0 z-40">
+          <Dashboard
+            onClose={() => setDashboardOpen(false)}
+            onOpenGallery={() => {
+              setDashboardOpen(false);
+              onOpenGallery();
+            }}
+            onSettingsChange={(s) => setShowGrid(s.gridDefault)}
           />
         </div>
       )}

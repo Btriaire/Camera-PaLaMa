@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Viewfinder from "@/components/Viewfinder";
 import Editor from "@/components/Editor";
 import Gallery from "@/components/Gallery";
 import { useCamera } from "@/lib/useCamera";
+import { getSettings } from "@/lib/settings";
 import { Adjustments, SavedPhotoMeta } from "@/lib/types";
 
 type CapturedPhoto = { bitmap: ImageBitmap; width: number; height: number };
@@ -21,6 +22,14 @@ export default function CameraApp() {
   const camera = useCamera();
   const [mode, setMode] = useState<Mode>("shoot");
   const [presetId, setPresetId] = useState<string | null>(null);
+
+  // Applied after mount, not as a lazy useState initializer, so server and
+  // client agree on the very first render (localStorage doesn't exist on
+  // the server) — this only ever runs client-side, once.
+  useEffect(() => {
+    const stored = getSettings().defaultPresetId;
+    if (stored) setPresetId(stored);
+  }, []);
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [initialAdjustments, setInitialAdjustments] = useState<Adjustments | undefined>(undefined);
 
