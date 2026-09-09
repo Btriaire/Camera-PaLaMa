@@ -1,0 +1,16 @@
+# Camera-PaLaMa sur le VPS. Lance :  docker compose up -d --build
+# Le reverse proxy (nginx) tape sur 127.0.0.1:${HOST_PORT:-3501}.
+# (3501, pas 3500 : ce port est déjà pris par flip-library sur le même VPS.)
+services:
+  camera-palama:
+    build: .
+    image: camera-palama
+    container_name: camera-palama
+    ports:
+      - "127.0.0.1:${HOST_PORT:-3501}:3000"
+    environment:
+      - PHOTOS_DIR=/data/photos
+    volumes:
+      # Persiste les photos enregistrées entre deux rebuilds — voir lib/photoStore.server.ts.
+      - ./data/photos:/data/photos
+    restart: unless-stopped
