@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GLRenderer } from "@/lib/gl/renderer";
 import { exportPhoto } from "@/lib/export";
 import { uploadPhoto } from "@/lib/storage";
-import { Adjustments, NEUTRAL_ADJUSTMENTS } from "@/lib/types";
+import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
 import Dial from "./Dial";
 import CameraPicker from "./CameraPicker";
@@ -37,7 +37,7 @@ export default function Editor({
   initialPresetId?: string | null;
   initialAdjustments?: Adjustments;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (meta: SavedPhotoMeta) => void;
 }) {
   const computeInitial = (): Adjustments =>
     initialAdjustments ?? {
@@ -173,7 +173,7 @@ export default function Editor({
       });
       if (result) {
         setSaved(true);
-        onSaved?.();
+        onSaved?.(result);
       }
     } finally {
       setBusy(null);

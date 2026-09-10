@@ -5,9 +5,10 @@ import { useCamera } from "@/lib/useCamera";
 import { useBattery } from "@/lib/useBattery";
 import { useClock } from "@/lib/useClock";
 import { GLRenderer } from "@/lib/gl/renderer";
-import { Adjustments, NEUTRAL_ADJUSTMENTS } from "@/lib/types";
+import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { getPreset, PRESETS } from "@/lib/presets";
 import { getSettings } from "@/lib/settings";
+import { photoUrl } from "@/lib/storage";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
@@ -45,6 +46,7 @@ export default function Viewfinder({
   onSelectPreset,
   onCapture,
   onOpenGallery,
+  lastPhoto,
 }: {
   camera: ReturnType<typeof useCamera>;
   active: boolean;
@@ -52,6 +54,7 @@ export default function Viewfinder({
   onSelectPreset: (id: string | null) => void;
   onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => void;
   onOpenGallery: () => void;
+  lastPhoto: SavedPhotoMeta | null;
 }) {
   const { videoRef, ready, error, capabilities, torchOn, setTorch, zoom, setZoom, flip, trackSettings, capture } =
     camera;
@@ -345,15 +348,32 @@ export default function Viewfinder({
           </div>
         </div>
 
-        <div className="flex items-center justify-center pb-2">
+        <div className="grid grid-cols-3 items-center pb-2 px-6">
+          <div className="flex justify-start">
+            {lastPhoto ? (
+              <button
+                onClick={onOpenGallery}
+                aria-label="Dernière photo"
+                className="h-11 w-11 overflow-hidden rounded-xl border-2 border-white/70"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoUrl(lastPhoto.id)} alt="" className="h-full w-full object-cover" />
+              </button>
+            ) : (
+              <div className="h-11 w-11" aria-hidden />
+            )}
+          </div>
+
           <button
             onClick={handleShutter}
             disabled={!ready}
             aria-label="Déclencher"
-            className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-white/80 disabled:opacity-40"
+            className="flex h-[72px] w-[72px] items-center justify-center justify-self-center rounded-full border-4 border-white/80 disabled:opacity-40"
           >
             <span className={`h-14 w-14 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
           </button>
+
+          <div className="h-11 w-11" aria-hidden />
         </div>
       </div>
 

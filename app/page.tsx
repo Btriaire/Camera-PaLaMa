@@ -7,6 +7,7 @@ import Gallery from "@/components/Gallery";
 import IntroScreen from "@/components/IntroScreen";
 import { useCamera } from "@/lib/useCamera";
 import { getSettings, hasSeenIntro, markIntroSeen } from "@/lib/settings";
+import { listPhotos } from "@/lib/storage";
 import { Adjustments, SavedPhotoMeta } from "@/lib/types";
 
 type CapturedPhoto = { bitmap: ImageBitmap; width: number; height: number };
@@ -24,6 +25,10 @@ export default function CameraApp() {
   const [mode, setMode] = useState<Mode>("shoot");
   const [presetId, setPresetId] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(false);
+  // The last saved shot's thumbnail, shown small in a corner of the
+  // viewfinder while shooting — like a camera roll peek. Seeded from the
+  // library on mount, then updated instantly on each save (no refetch).
+  const [lastPhoto, setLastPhoto] = useState<SavedPhotoMeta | null>(null);
 
   // Applied after mount, not as a lazy useState initializer, so server and
   // client agree on the very first render (localStorage doesn't exist on
@@ -35,6 +40,7 @@ export default function CameraApp() {
     if (stored) setPresetId(stored);
     if (hasSeenIntro()) camera.requestAccess();
     else setShowIntro(true);
+    listPhotos().then((items) => setLastPhoto(items[0] ?? null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -65,6 +71,10 @@ export default function CameraApp() {
     setMode("shoot");
   };
 
+  const handleEditorSaved = (meta: SavedPhotoMeta) => {
+    setLastPhoto(meta);
+  };
+
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-black">
       <Viewfinder
@@ -74,6 +84,7 @@ export default function CameraApp() {
         onSelectPreset={setPresetId}
         onCapture={handleCapture}
         onOpenGallery={() => setMode("gallery")}
+        lastPhoto={lastPhoto}
       />
 
       {mode === "gallery" && (
@@ -89,7 +100,7 @@ export default function CameraApp() {
             initialPresetId={presetId}
             initialAdjustments={initialAdjustments}
             onClose={handleEditorClose}
-            onSaved={() => {}}
+            onSaved={handleEditorSaved}
           />
         </div>
       )}
