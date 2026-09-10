@@ -53,6 +53,21 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+// Quick-tap zoom levels, the way a real camera app's 0.5/1/2/3 row works --
+// always the device's actual min and max (so the full range stays reachable
+// with one tap) plus whichever "round" focal lengths fall inside it.
+const ZOOM_CANDIDATES = [0.5, 1, 2, 3, 5, 10];
+function zoomPresets(min: number, max: number): number[] {
+  const inRange = ZOOM_CANDIDATES.filter((v) => v >= min - 0.01 && v <= max + 0.01);
+  return Array.from(new Set([min, ...inRange, max]))
+    .sort((a, b) => a - b)
+    .slice(0, 4);
+}
+
+function formatZoom(v: number): string {
+  return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}×`;
+}
+
 // Live viewfinder: shows the camera feed through the same WebGL filter
 // pipeline used for the final export, so the vintage-camera look you frame
 // with is the look you get — no surprise after the shutter. The preview
@@ -122,6 +137,17 @@ export default function Viewfinder({
   const [flash, setFlash] = useState(false);
   const countdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeStart = useRef<number | null>(null);
+  // Two-finger pinch-to-zoom on the canvas, tracked alongside the existing
+  // single-finger swipe-to-change-preset gesture: activePointers holds
+  // every finger currently down, pinchStart captures the distance/zoom at
+  // the moment a second finger joins, and becamePinch suppresses the swipe
+  // logic on release once a gesture has ever been a pinch (so lifting the
+  // second finger first doesn't also fire a preset swap).
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStart = useRef<{ distance: number; zoom: number } | null>(null);
+  const becamePinch = useRef(false);
+  const [zoomBadgeVisible, setZoomBadgeVisible] = useState(false);
+  const zoomBadgeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const burstActive = useRef(false);
   const burstShots = useRef<CapturedPhoto[]>([]);
   const burstLoopPromise = useRef<Promise<void> | null>(null);
@@ -204,6 +230,18 @@ export default function Viewfinder({
       if (countdownTimeout.current) clearTimeout(countdownTimeout.current);
     };
   }, []);
+
+  // Flashes the "1.8×" readout on every zoom change (pinch or a chip tap)
+  // and fades it back out after a beat, like the iPhone camera's zoom HUD.
+  useEffect(() => {
+    if (!capabilities.zoom) return;
+    setZoomBadgeVisible(true);
+    if (zoomBadgeTimeout.current) clearTimeout(zoomBadgeTimeout.current);
+    zoomBadgeTimeout.current = setTimeout(() => setZoomBadgeVisible(false), 1200);
+    return () => {
+      if (zoomBadgeTimeout.current) clearTimeout(zoomBadgeTimeout.current);
+    };
+  }, [zoom, capabilities.zoom]);
 
   const captureOnce = async () => {
     setCapturing(true);
@@ -305,19 +343,46 @@ export default function Viewfinder({
   };
 
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
-    swipeStart.current = e.clientX;
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.current.size === 1) {
+      swipeStart.current = e.clientX;
+      becamePinch.current = false;
+    } else if (activePointers.current.size === 2 && capabilities.zoom) {
+      becamePinch.current = true;
+      const [a, b] = Array.from(activePointers.current.values());
+      pinchStart.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+    }
   };
+
+  const handleCanvasPointerMove = (e: React.PointerEvent) => {
+    if (!activePointers.current.has(e.pointerId)) return;
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.current.size === 2 && pinchStart.current && capabilities.zoom) {
+      const [a, b] = Array.from(activePointers.current.values());
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      const scale = distance / Math.max(1, pinchStart.current.distance);
+      setZoom(clamp(pinchStart.current.zoom * scale, capabilities.zoom.min, capabilities.zoom.max));
+    }
+  };
+
   const handleCanvasPointerUp = (e: React.PointerEvent) => {
-    if (swipeStart.current === null) return;
-    const delta = e.clientX - swipeStart.current;
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size < 2) pinchStart.current = null;
+    if (activePointers.current.size > 0) return;
+
+    if (!becamePinch.current && swipeStart.current !== null) {
+      const delta = e.clientX - swipeStart.current;
+      if (Math.abs(delta) >= 70) {
+        const currentIndex = PRESET_ORDER.indexOf(presetId);
+        const nextIndex =
+          delta < 0
+            ? Math.min(PRESET_ORDER.length - 1, currentIndex + 1)
+            : Math.max(0, currentIndex - 1);
+        if (nextIndex !== currentIndex) onSelectPreset(PRESET_ORDER[nextIndex]);
+      }
+    }
     swipeStart.current = null;
-    if (Math.abs(delta) < 70) return;
-    const currentIndex = PRESET_ORDER.indexOf(presetId);
-    const nextIndex =
-      delta < 0
-        ? Math.min(PRESET_ORDER.length - 1, currentIndex + 1)
-        : Math.max(0, currentIndex - 1);
-    if (nextIndex !== currentIndex) onSelectPreset(PRESET_ORDER[nextIndex]);
+    becamePinch.current = false;
   };
 
   return (
@@ -326,7 +391,9 @@ export default function Viewfinder({
       <canvas
         ref={canvasRef}
         onPointerDown={handleCanvasPointerDown}
+        onPointerMove={handleCanvasPointerMove}
         onPointerUp={handleCanvasPointerUp}
+        onPointerCancel={handleCanvasPointerUp}
         className="absolute inset-0 h-full w-full object-cover touch-none"
       />
 
@@ -439,18 +506,32 @@ export default function Viewfinder({
       </div>
 
       {capabilities.zoom && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 rounded-full bg-black/40 px-1.5 py-3 backdrop-blur">
-          <input
-            type="range"
-            aria-label="Zoom"
-            min={capabilities.zoom.min}
-            max={capabilities.zoom.max}
-            step={capabilities.zoom.step}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="h-28 accent-white"
-            style={{ writingMode: "vertical-lr" as React.CSSProperties["writingMode"], direction: "rtl" }}
-          />
+        <div className="absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-full bg-black/40 px-1.5 py-2 backdrop-blur">
+          {zoomPresets(capabilities.zoom.min, capabilities.zoom.max)
+            .slice()
+            .reverse()
+            .map((level) => (
+              <button
+                key={level}
+                onClick={() => setZoom(level)}
+                aria-label={`Zoom ${formatZoom(level)}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-mono tabular-nums transition-colors ${
+                  Math.abs(zoom - level) < 0.05 ? "bg-white text-black font-semibold" : "text-white/80"
+                }`}
+              >
+                {formatZoom(level)}
+              </button>
+            ))}
+        </div>
+      )}
+
+      {capabilities.zoom && (
+        <div
+          className={`pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-1 text-sm font-mono tabular-nums text-white backdrop-blur transition-opacity duration-300 ${
+            zoomBadgeVisible ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {formatZoom(zoom)}
         </div>
       )}
 
