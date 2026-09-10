@@ -27,6 +27,28 @@ import {
 const PRESET_ORDER: (string | null)[] = [null, ...PRESETS.map((p) => p.id)];
 const TIMER_STEPS = [0, 3, 10] as const;
 
+// Real camera-dial steps, not a continuous slider -- ISO and white balance
+// always click through fixed stops on an actual camera/light meter.
+const ISO_STEPS = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800] as const;
+const KELVIN_STEPS = [2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 9000, 10000] as const;
+
+function nearestStepIndex(steps: readonly number[], value: number): number {
+  let best = 0;
+  let bestDiff = Infinity;
+  steps.forEach((s, i) => {
+    const diff = Math.abs(s - value);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = i;
+    }
+  });
+  return best;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 // Live viewfinder: shows the camera feed through the same WebGL filter
 // pipeline used for the final export, so the vintage-camera look you frame
 // with is the look you get — no surprise after the shutter. The preview
@@ -81,6 +103,10 @@ export default function Viewfinder({
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [evBias, setEvBias] = useState(0);
+  const [isoIndex, setIsoIndex] = useState(() => nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
+  const [kelvinIndex, setKelvinIndex] = useState(() =>
+    nearestStepIndex(KELVIN_STEPS, getPreset(presetId)?.kelvin ?? 5500)
+  );
   const [shotCount, setShotCount] = useState(0);
   const [timerIndex, setTimerIndex] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -97,9 +123,35 @@ export default function Viewfinder({
 
   const preset = getPreset(presetId);
   const baseAdjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
-  const adjustments: Adjustments = { ...baseAdjustments, exposure: baseAdjustments.exposure + evBias };
+  const isoValue = ISO_STEPS[isoIndex];
+  const kelvinValue = KELVIN_STEPS[kelvinIndex];
+  // ISO and white balance are camera-body settings, not film-specific --
+  // but each film DOES have a native box speed / color balance (already on
+  // Preset, previously used only as a HUD flavor badge), so switching
+  // pellicule re-baselines the dials to that film's real rating, exactly
+  // like loading a fresh roll. From there the user can push/pull like real
+  // film processing: exposure nudges gently with ISO stops (grain climbs
+  // faster, the actual signature of a high-ISO shot), and K rides the same
+  // warm/cool axis a Lightroom-style temperature slider uses -- moving the
+  // dial to a higher K number warms the image, not the literal color of a
+  // higher-Kelvin light source.
+  const isoStops = Math.log2(isoValue / 400);
+  const isoExposureBias = isoStops * 8;
+  const isoGrainBias = Math.max(0, isoStops) * 22;
+  const kelvinTempBias = (kelvinValue - 5500) / 45;
+  const adjustments: Adjustments = {
+    ...baseAdjustments,
+    exposure: clamp(baseAdjustments.exposure + evBias + isoExposureBias, -100, 100),
+    grain: clamp(baseAdjustments.grain + isoGrainBias, 0, 100),
+    temperature: clamp(baseAdjustments.temperature + kelvinTempBias, -100, 100),
+  };
   const hudSkin = preset?.hud ?? "modern";
   const timerSeconds = TIMER_STEPS[timerIndex];
+
+  useEffect(() => {
+    setIsoIndex(nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
+    setKelvinIndex(nearestStepIndex(KELVIN_STEPS, getPreset(presetId)?.kelvin ?? 5500));
+  }, [presetId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -133,7 +185,7 @@ export default function Viewfinder({
       rendererRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, active, presetId, evBias]);
+  }, [ready, active, presetId, evBias, isoIndex, kelvinIndex]);
 
   useEffect(() => {
     setShowGrid(getSettings().gridDefault);
@@ -203,6 +255,9 @@ export default function Viewfinder({
       setCapturing(false);
     }
   };
+
+  const cycleIso = (dir: 1 | -1) => setIsoIndex((i) => clamp(i + dir, 0, ISO_STEPS.length - 1));
+  const cycleKelvin = (dir: 1 | -1) => setKelvinIndex((i) => clamp(i + dir, 0, KELVIN_STEPS.length - 1));
 
   const handleShutterDown = () => {
     if (countdown !== null || timerSeconds > 0 || capturing) return;
@@ -276,6 +331,8 @@ export default function Viewfinder({
         zoom={zoom}
         showGrid={showGrid}
         evBias={evBias}
+        iso={isoValue}
+        kelvin={kelvinValue}
         shotCount={shotCount}
         elapsedSeconds={elapsedSeconds}
         batteryLevel={battery}
@@ -371,16 +428,59 @@ export default function Viewfinder({
       )}
 
       <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div className="flex items-center justify-between px-4">
+        <div
+          className="flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur"
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur"
           >
             <ApertureIcon className="w-4 h-4" />
             {preset?.label ?? "Naturel"}
           </button>
 
-          <div className="flex items-center gap-2 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
+          <div className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
+            <button
+              onClick={() => cycleIso(-1)}
+              disabled={isoIndex === 0}
+              aria-label="Diminuer l'ISO"
+              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+            >
+              −
+            </button>
+            <span className="w-14 text-center text-[11px] font-mono tabular-nums text-white/70">ISO {isoValue}</span>
+            <button
+              onClick={() => cycleIso(1)}
+              disabled={isoIndex === ISO_STEPS.length - 1}
+              aria-label="Augmenter l'ISO"
+              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
+
+          <div className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
+            <button
+              onClick={() => cycleKelvin(-1)}
+              disabled={kelvinIndex === 0}
+              aria-label="Refroidir la balance des blancs"
+              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+            >
+              −
+            </button>
+            <span className="w-14 text-center text-[11px] font-mono tabular-nums text-white/70">{kelvinValue}K</span>
+            <button
+              onClick={() => cycleKelvin(1)}
+              disabled={kelvinIndex === KELVIN_STEPS.length - 1}
+              aria-label="Réchauffer la balance des blancs"
+              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
+
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
             <button
               onClick={() => setEvBias((v) => Math.max(-2, Math.round((v - 0.5) * 10) / 10))}
               aria-label="Diminuer l'exposition"

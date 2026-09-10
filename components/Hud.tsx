@@ -8,10 +8,11 @@ import { HudSkin, Preset } from "@/lib/types";
 // grid: a contemporary filter isn't standing in for a specific old device,
 // so it doesn't get one.
 //
-// Every number here is either genuinely live (resolution/fps from the
-// active track, zoom, battery, the clock) or a preset's real/representative
-// spec badge (see the comment in lib/presets.ts) — nothing is invented to
-// look more "pro".
+// Every number here is genuinely live: resolution/fps from the active
+// track, zoom, battery, the clock, and now ISO/white-balance too, which
+// start at a preset's real film-stock rating (see lib/presets.ts) but
+// track whatever the viewfinder's ISO/K dials are actually set to —
+// nothing here is invented to look more "pro".
 export default function Hud({
   skin,
   preset,
@@ -20,6 +21,8 @@ export default function Hud({
   zoom,
   showGrid,
   evBias,
+  iso,
+  kelvin,
   shotCount,
   elapsedSeconds,
   batteryLevel,
@@ -32,6 +35,8 @@ export default function Hud({
   zoom: number;
   showGrid: boolean;
   evBias: number;
+  iso: number;
+  kelvin: number;
   shotCount: number;
   elapsedSeconds: number;
   batteryLevel: number | null;
@@ -48,7 +53,7 @@ export default function Hud({
       {skin === "film" && (
         <>
           <div className={`absolute left-3 top-16 flex items-center gap-2 text-[11px] text-white/70 ${mono}`}>
-            {preset?.iso && <Badge>ISO {preset.iso}</Badge>}
+            <Badge>ISO {iso}</Badge>
             {preset?.era && <Badge>{preset.era}</Badge>}
           </div>
           {battery && (
@@ -58,7 +63,7 @@ export default function Hud({
           <div className="absolute bottom-[168px] left-0 right-0 flex flex-col items-center gap-1">
             <EvScale value={evBias} />
             <div className={`flex items-center gap-3 text-[10px] text-white/50 ${mono}`}>
-              {preset?.kelvin && <span>{preset.kelvin}K</span>}
+              <span>{kelvin}K</span>
               <span>×{zoom.toFixed(1)}</span>
               <span>N°{shotCount}</span>
             </div>
@@ -79,8 +84,8 @@ export default function Hud({
           )}
           <Reticle circular />
           <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-white/60 ${mono}`}>
-            {preset?.iso && <span>ISO {preset.iso}</span>}
-            {preset?.kelvin && <span>{preset.kelvin}K</span>}
+            <span>ISO {iso}</span>
+            <span>{kelvin}K</span>
             <span>{clock}</span>
           </div>
         </>
@@ -99,8 +104,8 @@ export default function Hud({
           </div>
           <Reticle thin />
           <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-white/60 ${mono}`}>
-            {preset?.iso && <span>ISO {preset.iso}</span>}
-            {preset?.kelvin && <span>WB {preset.kelvin}K</span>}
+            <span>ISO {iso}</span>
+            <span>WB {kelvin}K</span>
             <EvScale value={evBias} compact />
           </div>
         </>
