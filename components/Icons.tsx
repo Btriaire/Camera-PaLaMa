@@ -71,6 +71,19 @@ export function StrobeIcon({ className = base }: IconProps) {
   );
 }
 
+export function SparkleIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3.5c.6 3 2 4.4 5 5-3 .6-4.4 2-5 5-.6-3-2-4.4-5-5 3-.6 4.4-2 5-5Z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 15c.35 1.7 1.15 2.5 2.85 2.85-1.7.35-2.5 1.15-2.85 2.85-.35-1.7-1.15-2.5-2.85-2.85 1.7-.35 2.5-1.15 2.85-2.85Z" />
+    </svg>
+  );
+}
+
 export function CloudUploadIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">

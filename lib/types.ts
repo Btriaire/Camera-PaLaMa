@@ -10,6 +10,7 @@ export type Adjustments = {
   highlights: number; // -100..100, recover/blow highlights
   shadows: number; // -100..100, lift/crush shadows
   sharpen: number; // 0..100, unsharp-mask style edge boost
+  superContrast: number; // 0..100, local/mid-frequency contrast ("clarity") — distinct from contrast
   denoise: number; // 0..100, cheap blur-blend
   vignette: number; // 0..100
   grain: number; // 0..100, film grain
@@ -31,6 +32,7 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   highlights: 0,
   shadows: 0,
   sharpen: 0,
+  superContrast: 0,
   denoise: 0,
   vignette: 0,
   grain: 0,

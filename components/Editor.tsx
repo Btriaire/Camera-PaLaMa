@@ -5,6 +5,7 @@ import { GLRenderer } from "@/lib/gl/renderer";
 import { exportPhoto } from "@/lib/export";
 import { shareOrDownloadPhoto } from "@/lib/sharePhoto";
 import { uploadPhoto } from "@/lib/storage";
+import { superResolve, superResOutputSize } from "@/lib/superRes";
 import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
 import Dial from "./Dial";
@@ -17,7 +18,7 @@ import {
   CompareIcon,
   RedoIcon,
   ShareIcon,
-  SlidersIcon,
+  SparkleIcon,
   UndoIcon,
 } from "@/components/Icons";
 
@@ -56,6 +57,12 @@ export default function Editor({
   const [comparing, setComparing] = useState(false);
   const [busy, setBusy] = useState<"save" | "download" | null>(null);
   const [saved, setSaved] = useState(false);
+  // Real AI upscaling (lib/superRes.ts) is a one-shot, resolution-changing
+  // operation, not a reversible slider — it lives outside Adjustments/
+  // history on purpose, as an opt-in step applied right before export.
+  const [superRes, setSuperRes] = useState(false);
+  const [superResProgress, setSuperResProgress] = useState<number | null>(null);
+  const superResSize = useMemo(() => superResOutputSize(photo.width, photo.height), [photo.width, photo.height]);
 
   const editedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const originalCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -90,22 +97,36 @@ export default function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photo.bitmap]);
 
-  // Edited preview, re-rendered from the source on every adjustment change.
+  // Edited canvas: create the WebGL context once per source photo and
+  // dispose it in this same effect — under React Strict Mode's dev-only
+  // mount/cleanup/remount cycle, creating and disposing in two separate
+  // effects (as this used to) lets the disposal from one outlive the
+  // renderer reference the other still uses, so a StrictMode remount ends
+  // up rendering through an already-deleted GL texture/program: draws
+  // silently no-op (GL_INVALID_OPERATION) and the edited preview goes
+  // blank instead of showing the new adjustments.
   useEffect(() => {
     const canvas = editedCanvasRef.current;
     if (!canvas) return;
-    if (!editedRenderer.current) {
-      try {
-        editedRenderer.current = new GLRenderer(canvas);
-      } catch {
-        return;
-      }
+    try {
+      editedRenderer.current = new GLRenderer(canvas);
+    } catch {
+      return;
     }
-    editedRenderer.current.uploadSource(photo.bitmap, previewSize.width, previewSize.height);
-    editedRenderer.current.render(adjustments, seed);
-  }, [adjustments, photo.bitmap, previewSize, seed]);
+    return () => {
+      editedRenderer.current?.dispose();
+      editedRenderer.current = null;
+    };
+  }, [photo.bitmap]);
 
-  useEffect(() => () => editedRenderer.current?.dispose(), []);
+  // Re-renders from the source on every adjustment change, without
+  // touching the renderer's lifecycle (owned by the effect above).
+  useEffect(() => {
+    const renderer = editedRenderer.current;
+    if (!renderer) return;
+    renderer.uploadSource(photo.bitmap, previewSize.width, previewSize.height);
+    renderer.render(adjustments, seed);
+  }, [adjustments, photo.bitmap, previewSize, seed]);
 
   const commitHistory = (next: Adjustments) => {
     setHistory((h) => [...h.slice(0, historyIndex + 1), next]);
@@ -145,12 +166,24 @@ export default function Editor({
     setPresetId(null);
   };
 
-  const runExport = () => exportPhoto(photo.bitmap, photo.width, photo.height, adjustments, seed);
+  // Renders through the shader at full resolution, then — if the AI toggle
+  // is on — routes that through the real super-resolution pass. Returns the
+  // final dimensions alongside the blob since super-res changes them.
+  const runExport = async (): Promise<{ blob: Blob; width: number; height: number }> => {
+    const blob = await exportPhoto(photo.bitmap, photo.width, photo.height, adjustments, seed);
+    if (!superRes) return { blob, width: photo.width, height: photo.height };
+    setSuperResProgress(0);
+    try {
+      return await superResolve(blob, (fraction) => setSuperResProgress(fraction));
+    } finally {
+      setSuperResProgress(null);
+    }
+  };
 
   const handleDownload = async () => {
     setBusy("download");
     try {
-      const blob = await runExport();
+      const { blob } = await runExport();
       await shareOrDownloadPhoto(blob, `photo-${Date.now()}.jpg`);
     } finally {
       setBusy(null);
@@ -160,10 +193,10 @@ export default function Editor({
   const handleSave = async () => {
     setBusy("save");
     try {
-      const blob = await runExport();
+      const { blob, width, height } = await runExport();
       const result = await uploadPhoto(blob, {
-        width: photo.width,
-        height: photo.height,
+        width,
+        height,
         presetId,
         adjustments,
       });
@@ -236,20 +269,49 @@ export default function Editor({
         >
           <CompareIcon className="w-5 h-5" />
         </button>
+
+        {superResProgress !== null && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+            <SparkleIcon className="w-8 h-8 animate-pulse text-cyan-300" />
+            <p className="text-sm text-white/80">
+              {/* The model reports progress per patch, not for the final
+                  stitch+encode step that follows — which can itself take a
+                  while, so once patches are done the label stops claiming
+                  a percentage it doesn't have and says so instead. */}
+              {superResProgress < 0.99 ? `Super-résolution IA… ${Math.round(superResProgress * 100)}%` : "Finalisation…"}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-white/10 bg-zinc-950">
-        <div className="flex items-center justify-between px-4 py-3">
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-white/25 px-3 py-1.5 text-xs font-medium"
-          >
-            <ApertureIcon className="w-4 h-4" />
-            {PRESETS.find((p) => p.id === presetId)?.label ?? "Naturel"}
-          </button>
-          <span className="flex items-center gap-1.5 text-[11px] text-white/40">
-            <SlidersIcon className="w-3.5 h-3.5" /> Réglages
-          </span>
+        <div className="flex flex-col gap-2 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-white/25 px-3 py-1.5 text-xs font-medium"
+            >
+              <ApertureIcon className="w-4 h-4" />
+              {PRESETS.find((p) => p.id === presetId)?.label ?? "Naturel"}
+            </button>
+            <button
+              onClick={() => setSuperRes((v) => !v)}
+              aria-pressed={superRes}
+              disabled={busy !== null}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                superRes ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-300" : "border-white/25 text-white/60"
+              }`}
+            >
+              <SparkleIcon className="w-3.5 h-3.5" />
+              Super-résolution IA
+            </button>
+          </div>
+          {superRes && (
+            <p className="text-[10px] text-white/40">
+              Réseau ESRGAN local (aucun envoi), ×2 → {superResSize.width}×{superResSize.height}px. Prend de
+              quelques secondes à une minute selon l&apos;appareil, au moment d&apos;enregistrer.
+            </p>
+          )}
         </div>
 
         <div className="max-h-[30dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -268,6 +330,7 @@ export default function Editor({
             </DialSection>
             <DialSection title="Netteté" accent="#22d3ee">
               <Dial label="Netteté" value={adjustments.sharpen} min={0} accent="#22d3ee" onChange={(v) => setField("sharpen", v)} onCommit={(v) => commitField("sharpen", v)} />
+              <Dial label="Super Contraste" value={adjustments.superContrast} min={0} accent="#22d3ee" onChange={(v) => setField("superContrast", v)} onCommit={(v) => commitField("superContrast", v)} />
               <Dial label="Réduction de bruit" value={adjustments.denoise} min={0} accent="#22d3ee" onChange={(v) => setField("denoise", v)} onCommit={(v) => commitField("denoise", v)} />
             </DialSection>
             <DialSection title="Effets pellicule" accent="#a78bfa">

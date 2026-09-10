@@ -29,6 +29,7 @@ uniform float u_tint;
 uniform float u_highlights;
 uniform float u_shadows;
 uniform float u_sharpen;
+uniform float u_superContrast;
 uniform float u_denoise;
 uniform float u_vignette;
 uniform float u_grain;
@@ -81,6 +82,29 @@ void main() {
 
   color = mix(color, blurred, clamp(u_denoise, 0.0, 1.0));
   color = color + (color - blurred) * u_sharpen;
+
+  // Super Contrast: local/mid-frequency contrast ("clarity"), not the flat
+  // +/-100 contrast below. Sharpen's blur above samples immediate neighbor
+  // texels (fixes edges); this one samples a much wider ring, so what it
+  // pushes away from is the neighborhood's average tone, not just the
+  // adjacent pixel — the same trick behind Lightroom-style "Clarity": adds
+  // punch/depth within midtones without crushing shadows or clipping
+  // highlights the way winding up global contrast does.
+  if (u_superContrast > 0.001) {
+    vec2 r = u_texelSize * 4.0;
+    vec3 local = (
+      texture2D(u_image, uv + vec2(r.x, 0.0)).rgb +
+      texture2D(u_image, uv - vec2(r.x, 0.0)).rgb +
+      texture2D(u_image, uv + vec2(0.0, r.y)).rgb +
+      texture2D(u_image, uv - vec2(0.0, r.y)).rgb +
+      texture2D(u_image, uv + r).rgb +
+      texture2D(u_image, uv - r).rgb +
+      texture2D(u_image, uv + vec2(r.x, -r.y)).rgb +
+      texture2D(u_image, uv + vec2(-r.x, r.y)).rgb
+    ) * 0.125;
+    float detail = luma(color) - luma(local);
+    color += detail * u_superContrast * 1.8;
+  }
 
   // Exposure in stops.
   color *= pow(2.0, u_exposure);

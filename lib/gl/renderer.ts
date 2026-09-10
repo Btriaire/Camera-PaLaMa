@@ -78,7 +78,7 @@ export class GLRenderer {
     for (const name of [
       "u_image", "u_texelSize", "u_resolution", "u_seed",
       "u_exposure", "u_contrast", "u_saturation", "u_temperature", "u_tint",
-      "u_highlights", "u_shadows", "u_sharpen", "u_denoise", "u_vignette",
+      "u_highlights", "u_shadows", "u_sharpen", "u_superContrast", "u_denoise", "u_vignette",
       "u_grain", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
       "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra",
     ]) {
@@ -125,6 +125,7 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_highlights, adjustments.highlights / 100);
     gl.uniform1f(this.uniforms.u_shadows, adjustments.shadows / 100);
     gl.uniform1f(this.uniforms.u_sharpen, (adjustments.sharpen / 100) * 1.5);
+    gl.uniform1f(this.uniforms.u_superContrast, adjustments.superContrast / 100);
     gl.uniform1f(this.uniforms.u_denoise, adjustments.denoise / 100);
     gl.uniform1f(this.uniforms.u_vignette, adjustments.vignette / 100);
     gl.uniform1f(this.uniforms.u_grain, adjustments.grain / 100);
