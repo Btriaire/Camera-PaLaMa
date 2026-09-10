@@ -256,7 +256,7 @@ export default function Editor({
           </span>
         </div>
 
-        <div className="max-h-[48dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="max-h-[30dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
             <DialSection title="Lumière" accent="#fbbf24">
               <Dial label="Exposition" value={adjustments.exposure} accent="#fbbf24" onChange={(v) => setField("exposure", v)} onCommit={(v) => commitField("exposure", v)} />
               <Dial label="Contraste" value={adjustments.contrast} accent="#fbbf24" onChange={(v) => setField("contrast", v)} onCommit={(v) => commitField("contrast", v)} />
