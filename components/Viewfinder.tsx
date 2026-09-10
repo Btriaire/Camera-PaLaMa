@@ -11,6 +11,7 @@ import { getSettings } from "@/lib/settings";
 import { photoUrl } from "@/lib/storage";
 import { useDeviceTilt } from "@/lib/useDeviceTilt";
 import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
+import { cropForDigitalZoom, enhanceCroppedZoom, SUPER_ZOOM_AI_MULTIPLIER } from "@/lib/superRes";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
@@ -71,10 +72,14 @@ function clamp(value: number, min: number, max: number): number {
 // with one tap) plus whichever "round" focal lengths fall inside it.
 const ZOOM_CANDIDATES = [0.5, 1, 2, 3, 5, 10];
 function zoomPresets(min: number, max: number): number[] {
+  // max always makes the cut, even after SuperZoom stretches the range
+  // well past the last "round" candidate below it — it's the one value
+  // this row exists to make reachable with a single tap.
   const inRange = ZOOM_CANDIDATES.filter((v) => v >= min - 0.01 && v <= max + 0.01);
-  return Array.from(new Set([min, ...inRange, max]))
-    .sort((a, b) => a - b)
-    .slice(0, 4);
+  const belowMax = Array.from(new Set([min, ...inRange]))
+    .filter((v) => v < max - 0.01)
+    .sort((a, b) => a - b);
+  return [...belowMax.slice(0, 3), max];
 }
 
 function formatZoom(v: number): string {
@@ -130,8 +135,7 @@ export default function Viewfinder({
     error,
     capabilities,
     setTorch,
-    zoom,
-    setZoom,
+    setZoom: setHardwareZoom,
     flip,
     trackSettings,
     capture,
@@ -152,6 +156,17 @@ export default function Viewfinder({
   // whatever gets captured next," same idea as a flash mode.
   const [superContrastOn, setSuperContrastOn] = useState(false);
   const [superResOn, setSuperResOn] = useState(false);
+  // SuperZoom: zoom past the camera's own reported max (or, on a device
+  // that reports no zoom capability at all, past 1x) can only mean cropping
+  // in — there's no more lens to move. uiZoom is that full range, decoupled
+  // from the camera hook's own zoom (which stays hardware-only and simply
+  // gets pinned at its max once uiZoom climbs past it); a ref mirrors it so
+  // the live-preview render loop (a long-lived rAF closure, not recreated
+  // every frame) can read the current value without restarting the whole
+  // WebGL context on every pinch/slider tick.
+  const [uiZoom, setUiZoomState] = useState(1);
+  const uiZoomRef = useRef(1);
+  const [superZoomProgress, setSuperZoomProgress] = useState<number | null>(null);
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [flashMenuOpen, setFlashMenuOpen] = useState(false);
   const [stayOnCapture, setStayOnCapture] = useState(false);
@@ -185,6 +200,28 @@ export default function Viewfinder({
   const battery = useBattery();
   const { elapsedSeconds, now } = useClock();
   const tiltDeg = useDeviceTilt();
+
+  // The camera's own reported zoom ceiling (1x if it reports no zoom
+  // capability at all) — SuperZoom is what happens past this point.
+  const hardwareMaxZoom = capabilities.zoom?.max ?? 1;
+  const zoomMin = capabilities.zoom?.min ?? 1;
+  const zoomMax = hardwareMaxZoom * SUPER_ZOOM_AI_MULTIPLIER;
+  const digitalZoomFactor = uiZoom / hardwareMaxZoom;
+  const inSuperZoom = digitalZoomFactor > 1.02;
+
+  const setUiZoom = (value: number) => {
+    const clamped = clamp(value, zoomMin, zoomMax);
+    setUiZoomState(clamped);
+    uiZoomRef.current = clamped;
+    setHardwareZoom(Math.min(clamped, hardwareMaxZoom));
+  };
+
+  // Keeps uiZoom pinned to the device's actual native zoom once
+  // capabilities load in (right after the camera starts, or after a flip).
+  useEffect(() => {
+    setUiZoom(zoomMin);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomMin, hardwareMaxZoom]);
 
   const preset = getPreset(presetId);
   const baseAdjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
@@ -230,6 +267,13 @@ export default function Viewfinder({
       return;
     }
 
+    // Only allocated/used once uiZoomRef climbs past the hardware max —
+    // an honest, cheap preview of what SuperZoom will look like: a crop of
+    // the live frame stretched back up, same as any digital zoom. The AI
+    // enhancement itself is too slow for every frame; it only ever runs
+    // once, on the still actually captured (see captureOnce/handleShutterUp).
+    const zoomCropCanvas = document.createElement("canvas");
+
     let seed = 0;
     const loop = () => {
       const renderer = rendererRef.current;
@@ -237,7 +281,24 @@ export default function Viewfinder({
         const scale = Math.min(1, 1080 / Math.max(video.videoWidth, video.videoHeight));
         const w = Math.round(video.videoWidth * scale);
         const h = Math.round(video.videoHeight * scale);
-        renderer.uploadSource(video, w, h);
+        const digitalFactor = uiZoomRef.current / (capabilities.zoom?.max ?? 1);
+        if (digitalFactor > 1.02) {
+          zoomCropCanvas.width = w;
+          zoomCropCanvas.height = h;
+          const ctx = zoomCropCanvas.getContext("2d");
+          const cropW = video.videoWidth / digitalFactor;
+          const cropH = video.videoHeight / digitalFactor;
+          const cropX = (video.videoWidth - cropW) / 2;
+          const cropY = (video.videoHeight - cropH) / 2;
+          if (ctx) {
+            ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, w, h);
+            renderer.uploadSource(zoomCropCanvas, w, h);
+          } else {
+            renderer.uploadSource(video, w, h);
+          }
+        } else {
+          renderer.uploadSource(video, w, h);
+        }
         renderer.render(adjustments, seed, zebraEnabled);
         seed += 0.016;
       }
@@ -272,14 +333,13 @@ export default function Viewfinder({
   // Flashes the "1.8×" readout on every zoom change (pinch or a chip tap)
   // and fades it back out after a beat, like the iPhone camera's zoom HUD.
   useEffect(() => {
-    if (!capabilities.zoom) return;
     setZoomBadgeVisible(true);
     if (zoomBadgeTimeout.current) clearTimeout(zoomBadgeTimeout.current);
     zoomBadgeTimeout.current = setTimeout(() => setZoomBadgeVisible(false), 1200);
     return () => {
       if (zoomBadgeTimeout.current) clearTimeout(zoomBadgeTimeout.current);
     };
-  }, [zoom, capabilities.zoom]);
+  }, [uiZoom]);
 
   const captureOnce = async () => {
     setCapturing(true);
@@ -291,14 +351,33 @@ export default function Viewfinder({
     if (flashMode !== "screen") setTimeout(() => setFlash(false), 150);
     else await new Promise((r) => setTimeout(r, 200));
     try {
-      const shot = await capture();
+      let shot = await capture();
       if (shot) {
+        if (digitalZoomFactor > 1.02) {
+          shot = await applySuperZoom(shot, digitalZoomFactor);
+        }
         setShotCount((n) => n + 1);
         onCapture(shot.bitmap, shot.width, shot.height, adjustments, superResOn);
       }
     } finally {
       setCapturing(false);
       if (flashMode === "screen") setFlash(false);
+    }
+  };
+
+  // SuperZoom's actual "AI expanding beyond normal zoom": crop to the
+  // region that zoom level implies, then run the same super-resolution
+  // pass the editor's own toggle uses to reconstruct detail a plain
+  // crop+stretch would just blur away.
+  const applySuperZoom = async (shot: CapturedPhoto, factor: number): Promise<CapturedPhoto> => {
+    setSuperZoomProgress(0);
+    try {
+      const cropped = await cropForDigitalZoom(shot.bitmap, factor);
+      const result = await enhanceCroppedZoom(cropped.bitmap, (fraction) => setSuperZoomProgress(fraction));
+      const bitmap = await createImageBitmap(result.blob);
+      return { bitmap, width: result.width, height: result.height };
+    } finally {
+      setSuperZoomProgress(null);
     }
   };
 
@@ -338,6 +417,13 @@ export default function Viewfinder({
     setCapturing(true);
     const strobing = isStrobing(flashMode) && capabilities.torch;
     const interval = burstIntervalMs(flashMode);
+    // Fixed for the whole burst, not re-read per shot — the framing
+    // shouldn't shift mid-roll just because a slider tick landed between
+    // frames. Every shot gets cropped to match what SuperZoom previewed;
+    // the (slow) AI enhancement itself only ever runs on a single shot,
+    // resolved below in handleShutterUp — multiplying it across a burst
+    // would turn "hold for a roll" into "hold for several minutes."
+    const factor = digitalZoomFactor;
     let strobeOn = false;
     try {
       while (burstActive.current) {
@@ -345,7 +431,8 @@ export default function Viewfinder({
           strobeOn = !strobeOn;
           setTorch(strobeOn);
         }
-        const shot = await captureFast();
+        let shot = await captureFast();
+        if (shot && factor > 1.02) shot = await cropForDigitalZoom(shot.bitmap, factor);
         if (shot) {
           burstShots.current.push(shot);
           setBurstCount(burstShots.current.length);
@@ -391,8 +478,22 @@ export default function Viewfinder({
         setFlash(true);
         setTimeout(() => setFlash(false), 150);
       }
+      // Already cropped to the SuperZoom framing inside runBurstLoop; a
+      // single resolved shot is the one case worth paying for the AI
+      // enhancement pass on top of that crop.
+      let shot = shots[0];
+      if (digitalZoomFactor > 1.02) {
+        setSuperZoomProgress(0);
+        try {
+          const result = await enhanceCroppedZoom(shot.bitmap, (fraction) => setSuperZoomProgress(fraction));
+          const bitmap = await createImageBitmap(result.blob);
+          shot = { bitmap, width: result.width, height: result.height };
+        } finally {
+          setSuperZoomProgress(null);
+        }
+      }
       setShotCount((n) => n + 1);
-      onCapture(shots[0].bitmap, shots[0].width, shots[0].height, adjustments, superResOn);
+      onCapture(shot.bitmap, shot.width, shot.height, adjustments, superResOn);
     } else if (shots.length > 1) {
       setShotCount((n) => n + shots.length);
       setBurstReview(shots);
@@ -405,21 +506,21 @@ export default function Viewfinder({
     if (activePointers.current.size === 1) {
       swipeStart.current = e.clientX;
       becamePinch.current = false;
-    } else if (activePointers.current.size === 2 && capabilities.zoom) {
+    } else if (activePointers.current.size === 2) {
       becamePinch.current = true;
       const [a, b] = Array.from(activePointers.current.values());
-      pinchStart.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+      pinchStart.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom: uiZoom };
     }
   };
 
   const handleCanvasPointerMove = (e: React.PointerEvent) => {
     if (!activePointers.current.has(e.pointerId)) return;
     activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (activePointers.current.size === 2 && pinchStart.current && capabilities.zoom) {
+    if (activePointers.current.size === 2 && pinchStart.current) {
       const [a, b] = Array.from(activePointers.current.values());
       const distance = Math.hypot(a.x - b.x, a.y - b.y);
       const scale = distance / Math.max(1, pinchStart.current.distance);
-      setZoom(clamp(pinchStart.current.zoom * scale, capabilities.zoom.min, capabilities.zoom.max));
+      setUiZoom(pinchStart.current.zoom * scale);
     }
   };
 
@@ -464,7 +565,7 @@ export default function Viewfinder({
             : null
         }
         fps={trackSettings.frameRate}
-        zoom={zoom}
+        zoom={uiZoom}
         showGrid={showGrid}
         evBias={evBias}
         iso={isoValue}
@@ -493,6 +594,15 @@ export default function Viewfinder({
       {countdown !== null && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/30">
           <span className="text-8xl font-light text-white/90 tabular-nums">{countdown}</span>
+        </div>
+      )}
+
+      {superZoomProgress !== null && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+          <SparkleIcon className="w-8 h-8 animate-pulse text-cyan-300" />
+          <p className="text-sm text-white/80">
+            {superZoomProgress < 0.99 ? `SuperZoom IA… ${Math.round(superZoomProgress * 100)}%` : "Finalisation…"}
+          </p>
         </div>
       )}
 
@@ -591,47 +701,37 @@ export default function Viewfinder({
         </>
       )}
 
-      {capabilities.zoom && (
-        <div className="absolute right-16 top-1/2 -translate-y-1/2">
-          <ZoomSlider
-            min={capabilities.zoom.min}
-            max={capabilities.zoom.max}
-            step={capabilities.zoom.step}
-            value={zoom}
-            onChange={setZoom}
-          />
-        </div>
-      )}
+      <div className="absolute right-16 top-1/2 -translate-y-1/2">
+        <ZoomSlider min={zoomMin} max={zoomMax} step={capabilities.zoom?.step || 0.1} value={uiZoom} onChange={setUiZoom} />
+      </div>
 
-      {capabilities.zoom && (
-        <div className="absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-full bg-black/40 px-1.5 py-2 backdrop-blur">
-          {zoomPresets(capabilities.zoom.min, capabilities.zoom.max)
-            .slice()
-            .reverse()
-            .map((level) => (
-              <button
-                key={level}
-                onClick={() => setZoom(level)}
-                aria-label={`Zoom ${formatZoom(level)}`}
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-mono tabular-nums transition-colors ${
-                  Math.abs(zoom - level) < 0.05 ? "bg-white text-black font-semibold" : "text-white/80"
-                }`}
-              >
-                {formatZoom(level)}
-              </button>
-            ))}
-        </div>
-      )}
+      <div className="absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-full bg-black/40 px-1.5 py-2 backdrop-blur">
+        {zoomPresets(zoomMin, zoomMax)
+          .slice()
+          .reverse()
+          .map((level) => (
+            <button
+              key={level}
+              onClick={() => setUiZoom(level)}
+              aria-label={`Zoom ${formatZoom(level)}${level > hardwareMaxZoom + 0.01 ? " (SuperZoom IA)" : ""}`}
+              className={`flex h-8 w-8 flex-col items-center justify-center rounded-full text-[11px] font-mono tabular-nums leading-none transition-colors ${
+                Math.abs(uiZoom - level) < 0.05 ? "bg-white text-black font-semibold" : "text-white/80"
+              }`}
+            >
+              {formatZoom(level)}
+              {level > hardwareMaxZoom + 0.01 && <SparkleIcon className="w-2.5 h-2.5" />}
+            </button>
+          ))}
+      </div>
 
-      {capabilities.zoom && (
-        <div
-          className={`pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-1 text-sm font-mono tabular-nums text-white backdrop-blur transition-opacity duration-300 ${
-            zoomBadgeVisible ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          {formatZoom(zoom)}
-        </div>
-      )}
+      <div
+        className={`pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-sm font-mono tabular-nums text-white backdrop-blur transition-opacity duration-300 ${
+          zoomBadgeVisible ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {formatZoom(uiZoom)}
+        {inSuperZoom && <SparkleIcon className="w-3.5 h-3.5 text-cyan-300" />}
+      </div>
 
       <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div

@@ -97,3 +97,57 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.src = src;
   });
 }
+
+export type CroppedPhoto = { bitmap: ImageBitmap; width: number; height: number };
+
+// SuperZoom: past the camera's own zoom ceiling, "more zoom" can only ever
+// mean cropping in on the frame — no lens moves. Ordinary digital zoom just
+// stretches that crop back up and looks it (soft, blocky). This crops to
+// the same centered region, then hands it to the same super-resolution
+// pass above to synthesize the missing detail instead of just blurring it
+// back out. The AI step doubles pixel dimensions, so there's no honest
+// reason to let SuperZoom claim more than 2x past the hardware max — a
+// bigger number here wouldn't be backed by anything real.
+export const SUPER_ZOOM_AI_MULTIPLIER = SUPER_RES_SCALE;
+
+// Crop only, no AI — cheap enough to run on every frame of a live preview
+// or every shot of a burst, so the framing is always correct even when the
+// (slow) AI enhancement below only makes sense for a single capture.
+export async function cropForDigitalZoom(bitmap: ImageBitmap, digitalFactor: number): Promise<CroppedPhoto> {
+  if (digitalFactor <= 1.001) return { bitmap, width: bitmap.width, height: bitmap.height };
+  const cropWidth = Math.max(1, Math.round(bitmap.width / digitalFactor));
+  const cropHeight = Math.max(1, Math.round(bitmap.height / digitalFactor));
+  const cropX = Math.round((bitmap.width - cropWidth) / 2);
+  const cropY = Math.round((bitmap.height - cropHeight) / 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = cropWidth;
+  canvas.height = cropHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Contexte 2D indisponible");
+  ctx.drawImage(bitmap, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+  bitmap.close();
+
+  const cropped = await createImageBitmap(canvas);
+  return { bitmap: cropped, width: cropWidth, height: cropHeight };
+}
+
+// AI-enhances an already-cropped SuperZoom photo (see cropForDigitalZoom
+// above) — separate from superResolve's own internal downscale-then-2x
+// cap so a small crop isn't shrunk again before being enlarged back.
+export async function enhanceCroppedZoom(
+  bitmap: ImageBitmap,
+  onProgress?: (fraction: number) => void
+): Promise<SuperResResult> {
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Contexte 2D indisponible");
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+  if (!blob) throw new Error("Échec du recadrage SuperZoom");
+  return superResolve(blob, onProgress);
+}
