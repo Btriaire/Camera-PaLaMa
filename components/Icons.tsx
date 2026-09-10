@@ -41,6 +41,15 @@ export function FlashIcon({ className = base, off = false }: IconProps & { off?:
   );
 }
 
+export function ShareIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15V4M8.5 7.5 12 4l3.5 3.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7" />
+    </svg>
+  );
+}
+
 export function ScreenFlashIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
@@ -58,14 +67,6 @@ export function StrobeIcon({ className = base }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 3 5 12.5h3.5L7.5 21l7-9.5H11L14 3Z" />
       <path strokeLinecap="round" d="M18 6.5v3.5M21 7.5v1.5" />
-    </svg>
-  );
-}
-
-export function DownloadIcon({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5v11M8 11l4 4 4-4M5 18.5h14" />
     </svg>
   );
 }

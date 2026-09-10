@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 import { deletePhoto, photoUrl } from "@/lib/storage";
+import { shareOrDownloadPhoto } from "@/lib/sharePhoto";
 import { getPreset } from "@/lib/presets";
 import { SavedPhotoMeta } from "@/lib/types";
-import { BackIcon, DownloadIcon, SlidersIcon, TrashIcon } from "@/components/Icons";
+import { BackIcon, ShareIcon, SlidersIcon, TrashIcon } from "@/components/Icons";
 
 // Full-screen photo viewer — the missing step between "grid of thumbnails"
 // and "editor": see the shot large, read what camera/settings made it,
@@ -60,12 +61,7 @@ export default function PhotoViewer({
   const handleDownload = async () => {
     const res = await fetch(photoUrl(meta.id));
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `photo-${meta.id}.jpg`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await shareOrDownloadPhoto(blob, `photo-${meta.id}.jpg`);
   };
 
   const handleDelete = async () => {
@@ -141,9 +137,10 @@ export default function PhotoViewer({
           </button>
           <button
             onClick={handleDownload}
+            aria-label="Enregistrer dans Photos"
             className="flex items-center justify-center gap-1.5 rounded-full border border-white/25 px-4 py-2.5 text-sm text-white/80"
           >
-            <DownloadIcon className="w-4 h-4" />
+            <ShareIcon className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GLRenderer } from "@/lib/gl/renderer";
 import { exportPhoto } from "@/lib/export";
+import { shareOrDownloadPhoto } from "@/lib/sharePhoto";
 import { uploadPhoto } from "@/lib/storage";
 import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
@@ -14,8 +15,8 @@ import {
   CheckIcon,
   CloudUploadIcon,
   CompareIcon,
-  DownloadIcon,
   RedoIcon,
+  ShareIcon,
   SlidersIcon,
   UndoIcon,
 } from "@/components/Icons";
@@ -150,12 +151,7 @@ export default function Editor({
     setBusy("download");
     try {
       const blob = await runExport();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `photo-${Date.now()}.jpg`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await shareOrDownloadPhoto(blob, `photo-${Date.now()}.jpg`);
     } finally {
       setBusy(null);
     }
@@ -293,8 +289,8 @@ export default function Editor({
             disabled={busy !== null}
             className="flex items-center gap-1.5 text-sm text-white/80 disabled:opacity-50"
           >
-            <DownloadIcon className="w-4 h-4" />
-            {busy === "download" ? "Export…" : "Télécharger"}
+            <ShareIcon className="w-4 h-4" />
+            {busy === "download" ? "Export…" : "Enregistrer dans Photos"}
           </button>
         </div>
       </div>
