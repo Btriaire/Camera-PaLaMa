@@ -32,12 +32,16 @@ export default function Editor({
   photo,
   initialPresetId = null,
   initialAdjustments,
+  initialSuperRes = false,
   onClose,
   onSaved,
 }: {
   photo: CapturedPhoto;
   initialPresetId?: string | null;
   initialAdjustments?: Adjustments;
+  // Carries the viewfinder's "Super-résolution IA" toggle over so it stays
+  // armed for this photo without the user having to flip it again here.
+  initialSuperRes?: boolean;
   onClose: () => void;
   onSaved?: (meta: SavedPhotoMeta) => void;
 }) {
@@ -60,7 +64,7 @@ export default function Editor({
   // Real AI upscaling (lib/superRes.ts) is a one-shot, resolution-changing
   // operation, not a reversible slider — it lives outside Adjustments/
   // history on purpose, as an opt-in step applied right before export.
-  const [superRes, setSuperRes] = useState(false);
+  const [superRes, setSuperRes] = useState(initialSuperRes);
   const [superResProgress, setSuperResProgress] = useState<number | null>(null);
   const superResSize = useMemo(() => superResOutputSize(photo.width, photo.height), [photo.width, photo.height]);
 

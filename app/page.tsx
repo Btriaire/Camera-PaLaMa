@@ -7,6 +7,7 @@ import Gallery from "@/components/Gallery";
 import IntroScreen from "@/components/IntroScreen";
 import { useCamera } from "@/lib/useCamera";
 import { exportPhoto } from "@/lib/export";
+import { superResolve } from "@/lib/superRes";
 import { getSettings, hasSeenIntro, markIntroSeen } from "@/lib/settings";
 import { listPhotos, photoUrl, uploadPhoto } from "@/lib/storage";
 import { Adjustments, SavedPhotoMeta } from "@/lib/types";
@@ -59,6 +60,7 @@ export default function CameraApp() {
 
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [initialAdjustments, setInitialAdjustments] = useState<Adjustments | undefined>(undefined);
+  const [initialSuperRes, setInitialSuperRes] = useState(false);
   // How many "stay on viewfinder" saves are currently exporting/uploading —
   // export (GPU-bound, fast) then upload (network-bound, can genuinely take
   // a couple of seconds) both happen with zero visible feedback otherwise,
@@ -66,20 +68,31 @@ export default function CameraApp() {
   // filmstrip. Drives a pulsing placeholder tile there instead.
   const [pendingSaves, setPendingSaves] = useState(0);
 
-  const handleCapture = (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => {
+  const handleCapture = (
+    bitmap: ImageBitmap,
+    width: number,
+    height: number,
+    adjustments: Adjustments,
+    superRes: boolean
+  ) => {
     if (getSettings().stayOnCapture) {
       // Save with exactly the live style/ISO/K that took the shot and stay
       // on the viewfinder — same export pipeline the editor's own "Save"
       // uses, just triggered immediately instead of after manual edits.
+      // The viewfinder's Super-résolution IA toggle arms the same AI pass
+      // the editor offers, applied here before upload since there's no
+      // editor screen in this flow to trigger it from.
       setPendingSaves((n) => n + 1);
       exportPhoto(bitmap, width, height, adjustments, Math.random() * 1000)
-        .then((blob) => uploadPhoto(blob, { width, height, presetId, adjustments }))
+        .then((blob) => (superRes ? superResolve(blob) : Promise.resolve({ blob, width, height })))
+        .then((result) => uploadPhoto(result.blob, { width: result.width, height: result.height, presetId, adjustments }))
         .then((meta) => meta && handlePhotoSaved(meta))
         .finally(() => setPendingSaves((n) => Math.max(0, n - 1)));
       return;
     }
     setPhoto({ bitmap, width, height });
     setInitialAdjustments(adjustments);
+    setInitialSuperRes(superRes);
     setMode("edit");
   };
 
@@ -87,6 +100,7 @@ export default function CameraApp() {
     setPhoto(reopened);
     setPresetId(meta.presetId);
     setInitialAdjustments(meta.adjustments);
+    setInitialSuperRes(false); // reopening an already-saved photo, not a fresh capture
     setMode("edit");
   };
 
@@ -135,6 +149,7 @@ export default function CameraApp() {
             photo={photo}
             initialPresetId={presetId}
             initialAdjustments={initialAdjustments}
+            initialSuperRes={initialSuperRes}
             onClose={handleEditorClose}
             onSaved={handlePhotoSaved}
           />

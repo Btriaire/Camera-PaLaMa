@@ -22,16 +22,24 @@ import {
   ApertureIcon,
   CameraIcon,
   CheckIcon,
+  ContrastIcon,
   FlashIcon,
   FlipCameraIcon,
   GalleryGridIcon,
   GridIcon,
   ScreenFlashIcon,
   SettingsIcon,
+  SparkleIcon,
   StrobeIcon,
   TimerIcon,
   ZebraIcon,
 } from "@/components/Icons";
+
+// Live "on" strength for the Super Contraste quick-toggle — the dial in the
+// editor is continuous (0..100), but a viewfinder button is binary, so it
+// jumps straight to a strong-but-not-extreme value rather than exposing a
+// second slider on the shooting screen.
+const LIVE_SUPER_CONTRAST = 70;
 
 const PRESET_ORDER: (string | null)[] = [null, ...PRESETS.map((p) => p.id)];
 const TIMER_STEPS = [0, 3, 10] as const;
@@ -108,7 +116,7 @@ export default function Viewfinder({
   active: boolean;
   presetId: string | null;
   onSelectPreset: (id: string | null) => void;
-  onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => void;
+  onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments, superRes: boolean) => void;
   onOpenGallery: () => void;
   recentPhotos: SavedPhotoMeta[];
   pendingSaves: number;
@@ -137,6 +145,13 @@ export default function Viewfinder({
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [zebraEnabled, setZebraEnabled] = useState(false);
+  // Super Contraste live-previews for real (it's just another shader
+  // uniform, rendered the same on-screen as it will be in the capture).
+  // Super-résolution IA can't live-preview — it's a several-second AI pass,
+  // not a per-frame effect — so its button instead arms "run the AI pass on
+  // whatever gets captured next," same idea as a flash mode.
+  const [superContrastOn, setSuperContrastOn] = useState(false);
+  const [superResOn, setSuperResOn] = useState(false);
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [flashMenuOpen, setFlashMenuOpen] = useState(false);
   const [stayOnCapture, setStayOnCapture] = useState(false);
@@ -194,6 +209,7 @@ export default function Viewfinder({
     exposure: clamp(baseAdjustments.exposure + evBias + isoExposureBias, -100, 100),
     grain: clamp(baseAdjustments.grain + isoGrainBias, 0, 100),
     temperature: clamp(baseAdjustments.temperature + kelvinTempBias, -100, 100),
+    superContrast: superContrastOn ? LIVE_SUPER_CONTRAST : baseAdjustments.superContrast,
   };
   const hudSkin = preset?.hud ?? "modern";
   const timerSeconds = TIMER_STEPS[timerIndex];
@@ -235,7 +251,7 @@ export default function Viewfinder({
       rendererRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, active, presetId, evBias, isoIndex, kelvinIndex, zebraEnabled]);
+  }, [ready, active, presetId, evBias, isoIndex, kelvinIndex, zebraEnabled, superContrastOn]);
 
   useEffect(() => {
     setShowGrid(getSettings().gridDefault);
@@ -278,7 +294,7 @@ export default function Viewfinder({
       const shot = await capture();
       if (shot) {
         setShotCount((n) => n + 1);
-        onCapture(shot.bitmap, shot.width, shot.height, adjustments);
+        onCapture(shot.bitmap, shot.width, shot.height, adjustments, superResOn);
       }
     } finally {
       setCapturing(false);
@@ -376,7 +392,7 @@ export default function Viewfinder({
         setTimeout(() => setFlash(false), 150);
       }
       setShotCount((n) => n + 1);
-      onCapture(shots[0].bitmap, shots[0].width, shots[0].height, adjustments);
+      onCapture(shots[0].bitmap, shots[0].width, shots[0].height, adjustments, superResOn);
     } else if (shots.length > 1) {
       setShotCount((n) => n + shots.length);
       setBurstReview(shots);
@@ -689,6 +705,28 @@ export default function Viewfinder({
               +
             </button>
           </div>
+
+          <button
+            onClick={() => setSuperContrastOn((v) => !v)}
+            aria-pressed={superContrastOn}
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+              superContrastOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+            }`}
+          >
+            <ContrastIcon className="w-4 h-4" />
+            Super Contraste
+          </button>
+
+          <button
+            onClick={() => setSuperResOn((v) => !v)}
+            aria-pressed={superResOn}
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+              superResOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+            }`}
+          >
+            <SparkleIcon className="w-4 h-4" />
+            Super-résolution IA
+          </button>
         </div>
 
         {stayOnCapture && (pendingSaves > 0 || recentPhotos.length > 0) && (
