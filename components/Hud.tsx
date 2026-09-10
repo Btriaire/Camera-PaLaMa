@@ -45,6 +45,12 @@ export default function Hud({
   const mono = "font-mono tabular-nums";
   const battery = batteryLevel !== null ? `${Math.round(batteryLevel * 100)}%` : null;
   const clock = formatClock(elapsedSeconds);
+  // The top-bar icons (gallery/settings, timer/grid/flash) sit at
+  // max(0.75rem, safe-area-inset-top) plus their own ~3rem height (see
+  // Viewfinder.tsx) -- a plain "top-16" here ignored the safe-area part, so
+  // on any phone with a tall inset (notch/Dynamic Island/punch-hole) these
+  // badges crept up underneath those icons instead of sitting below them.
+  const topInset = "max(0.75rem, env(safe-area-inset-top)) + 3rem";
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
@@ -52,12 +58,20 @@ export default function Hud({
 
       {skin === "film" && (
         <>
-          <div className={`absolute left-3 top-16 flex items-center gap-2 text-[11px] text-white/70 ${mono}`}>
+          <div
+            className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/70 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
             <Badge>ISO {iso}</Badge>
             {preset?.era && <Badge>{preset.era}</Badge>}
           </div>
           {battery && (
-            <div className={`absolute right-3 top-16 text-[11px] text-white/70 ${mono}`}>{battery}</div>
+            <div
+              className={`absolute right-3 text-[11px] text-white/70 ${mono}`}
+              style={{ top: `calc(${topInset})` }}
+            >
+              {battery}
+            </div>
           )}
           <Reticle />
           <div className="absolute bottom-[168px] left-0 right-0 flex flex-col items-center gap-1">
@@ -73,14 +87,22 @@ export default function Hud({
 
       {skin === "cinema" && (
         <>
-          <div className={`absolute left-3 top-16 flex flex-col gap-0.5 text-[11px] text-white/70 ${mono}`}>
+          <div
+            className={`absolute left-3 flex flex-col gap-0.5 text-[11px] text-white/70 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
             <Badge>
               {resolution ? `${resolution.width}×${resolution.height}` : "—"} {fps ? `${Math.round(fps)}fps` : ""}
             </Badge>
             {preset && <Badge>{preset.label}</Badge>}
           </div>
           {battery && (
-            <div className={`absolute right-3 top-16 text-[11px] text-white/70 ${mono}`}>{battery}</div>
+            <div
+              className={`absolute right-3 text-[11px] text-white/70 ${mono}`}
+              style={{ top: `calc(${topInset})` }}
+            >
+              {battery}
+            </div>
           )}
           <Reticle circular />
           <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-white/60 ${mono}`}>
@@ -93,13 +115,19 @@ export default function Hud({
 
       {skin === "camcorder" && (
         <>
-          <div className={`absolute left-3 top-16 flex items-center gap-2 text-[11px] text-white/70 ${mono}`}>
+          <div
+            className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/70 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
             <span className="flex items-center gap-1 text-red-400">
               <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" /> LIVE
             </span>
             <span>{clock}</span>
           </div>
-          <div className={`absolute right-3 top-16 text-[11px] text-white/70 ${mono}`}>
+          <div
+            className={`absolute right-3 text-[11px] text-white/70 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
             {resolution ? `${resolution.width}×${resolution.height}` : "—"} {fps ? `${Math.round(fps)}fps` : ""}
           </div>
           <Reticle thin />
@@ -114,9 +142,22 @@ export default function Hud({
       {skin === "cctv" && (
         <>
           <CornerBrackets />
-          <div className={`absolute left-4 top-16 text-[11px] text-green-400/80 ${mono}`}>CAM 01</div>
-          <div className={`absolute right-4 top-16 text-[11px] text-green-400/80 ${mono}`}>{now}</div>
-          <div className="absolute left-4 top-[calc(4rem+18px)] flex items-center gap-1 text-[11px] text-red-400/80">
+          <div
+            className={`absolute left-4 text-[11px] text-green-400/80 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            CAM 01
+          </div>
+          <div
+            className={`absolute right-4 text-[11px] text-green-400/80 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            {now}
+          </div>
+          <div
+            className="absolute left-4 flex items-center gap-1 text-[11px] text-red-400/80"
+            style={{ top: `calc(${topInset} + 18px)` }}
+          >
             <span className="h-1.5 w-1.5 rounded-full bg-red-400/80 animate-pulse" /> REC
           </div>
           <div className={`absolute bottom-[168px] left-0 right-0 text-center text-[10px] text-green-400/50 ${mono}`}>
