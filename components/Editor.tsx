@@ -15,7 +15,9 @@ import {
   CloudUploadIcon,
   CompareIcon,
   DownloadIcon,
+  RedoIcon,
   SlidersIcon,
+  UndoIcon,
 } from "@/components/Icons";
 
 type CapturedPhoto = { bitmap: ImageBitmap; width: number; height: number };
@@ -37,14 +39,18 @@ export default function Editor({
   onClose: () => void;
   onSaved?: () => void;
 }) {
+  const computeInitial = (): Adjustments =>
+    initialAdjustments ?? {
+      ...NEUTRAL_ADJUSTMENTS,
+      ...PRESETS.find((p) => p.id === initialPresetId)?.adjustments,
+    };
   const [presetId, setPresetId] = useState<string | null>(initialPresetId);
-  const [adjustments, setAdjustments] = useState<Adjustments>(
-    () =>
-      initialAdjustments ?? {
-        ...NEUTRAL_ADJUSTMENTS,
-        ...PRESETS.find((p) => p.id === initialPresetId)?.adjustments,
-      }
-  );
+  const [adjustments, setAdjustments] = useState<Adjustments>(computeInitial);
+  // Undo/redo history: one entry per *committed* change — a preset tap, or
+  // a dial drag's final value on release — never one per onChange tick
+  // during a drag, or every pixel of movement would be its own undo step.
+  const [history, setHistory] = useState<Adjustments[]>(() => [computeInitial()]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [busy, setBusy] = useState<"save" | "download" | null>(null);
@@ -100,15 +106,42 @@ export default function Editor({
 
   useEffect(() => () => editedRenderer.current?.dispose(), []);
 
+  const commitHistory = (next: Adjustments) => {
+    setHistory((h) => [...h.slice(0, historyIndex + 1), next]);
+    setHistoryIndex((i) => i + 1);
+  };
+
   const applyPreset = (id: string | null) => {
     setPresetId(id);
     const preset = PRESETS.find((p) => p.id === id);
-    setAdjustments({ ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments });
+    const next = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
+    setAdjustments(next);
+    commitHistory(next);
   };
 
   const setField = <K extends keyof Adjustments>(key: K, value: Adjustments[K]) => {
     setPresetId(null); // any manual tweak makes it a custom look, not "the preset"
     setAdjustments((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const commitField = <K extends keyof Adjustments>(key: K, value: Adjustments[K]) => {
+    commitHistory({ ...adjustments, [key]: value });
+  };
+
+  const undo = () => {
+    if (historyIndex === 0) return;
+    const nextIndex = historyIndex - 1;
+    setHistoryIndex(nextIndex);
+    setAdjustments(history[nextIndex]);
+    setPresetId(null);
+  };
+
+  const redo = () => {
+    if (historyIndex >= history.length - 1) return;
+    const nextIndex = historyIndex + 1;
+    setHistoryIndex(nextIndex);
+    setAdjustments(history[nextIndex]);
+    setPresetId(null);
   };
 
   const runExport = () => exportPhoto(photo.bitmap, photo.width, photo.height, adjustments, seed);
@@ -153,10 +186,22 @@ export default function Editor({
         className="flex items-center justify-between px-4 py-3"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <button onClick={onClose} className="p-1 text-white/70">
-          <BackIcon />
-        </button>
-        <h1 className="text-sm font-medium text-white/70">Éditeur</h1>
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-1 text-white/70">
+            <BackIcon />
+          </button>
+          <button onClick={undo} disabled={historyIndex === 0} aria-label="Annuler" className="p-1 text-white/70 disabled:opacity-30">
+            <UndoIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={redo}
+            disabled={historyIndex >= history.length - 1}
+            aria-label="Rétablir"
+            className="p-1 text-white/70 disabled:opacity-30"
+          >
+            <RedoIcon className="w-5 h-5" />
+          </button>
+        </div>
         <button
           onClick={handleSave}
           disabled={busy !== null}
@@ -213,29 +258,29 @@ export default function Editor({
 
         <div className="max-h-[48dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
             <DialSection title="Lumière" accent="#fbbf24">
-              <Dial label="Exposition" value={adjustments.exposure} accent="#fbbf24" onChange={(v) => setField("exposure", v)} />
-              <Dial label="Contraste" value={adjustments.contrast} accent="#fbbf24" onChange={(v) => setField("contrast", v)} />
-              <Dial label="Hautes lumières" value={adjustments.highlights} accent="#fbbf24" onChange={(v) => setField("highlights", v)} />
-              <Dial label="Ombres" value={adjustments.shadows} accent="#fbbf24" onChange={(v) => setField("shadows", v)} />
+              <Dial label="Exposition" value={adjustments.exposure} accent="#fbbf24" onChange={(v) => setField("exposure", v)} onCommit={(v) => commitField("exposure", v)} />
+              <Dial label="Contraste" value={adjustments.contrast} accent="#fbbf24" onChange={(v) => setField("contrast", v)} onCommit={(v) => commitField("contrast", v)} />
+              <Dial label="Hautes lumières" value={adjustments.highlights} accent="#fbbf24" onChange={(v) => setField("highlights", v)} onCommit={(v) => commitField("highlights", v)} />
+              <Dial label="Ombres" value={adjustments.shadows} accent="#fbbf24" onChange={(v) => setField("shadows", v)} onCommit={(v) => commitField("shadows", v)} />
             </DialSection>
             <DialSection title="Couleur" accent="#f472b6">
-              <Dial label="Saturation" value={adjustments.saturation} accent="#f472b6" onChange={(v) => setField("saturation", v)} />
-              <Dial label="Température" value={adjustments.temperature} accent="#f472b6" onChange={(v) => setField("temperature", v)} />
-              <Dial label="Teinte" value={adjustments.tint} accent="#f472b6" onChange={(v) => setField("tint", v)} />
-              <Dial label="Noir & blanc" value={adjustments.monochrome} min={0} accent="#f472b6" onChange={(v) => setField("monochrome", v)} />
-              <Dial label="Virage couleur" value={adjustments.tintStrength} min={0} accent="#f472b6" onChange={(v) => setField("tintStrength", v)} />
+              <Dial label="Saturation" value={adjustments.saturation} accent="#f472b6" onChange={(v) => setField("saturation", v)} onCommit={(v) => commitField("saturation", v)} />
+              <Dial label="Température" value={adjustments.temperature} accent="#f472b6" onChange={(v) => setField("temperature", v)} onCommit={(v) => commitField("temperature", v)} />
+              <Dial label="Teinte" value={adjustments.tint} accent="#f472b6" onChange={(v) => setField("tint", v)} onCommit={(v) => commitField("tint", v)} />
+              <Dial label="Noir & blanc" value={adjustments.monochrome} min={0} accent="#f472b6" onChange={(v) => setField("monochrome", v)} onCommit={(v) => commitField("monochrome", v)} />
+              <Dial label="Virage couleur" value={adjustments.tintStrength} min={0} accent="#f472b6" onChange={(v) => setField("tintStrength", v)} onCommit={(v) => commitField("tintStrength", v)} />
             </DialSection>
             <DialSection title="Netteté" accent="#22d3ee">
-              <Dial label="Netteté" value={adjustments.sharpen} min={0} accent="#22d3ee" onChange={(v) => setField("sharpen", v)} />
-              <Dial label="Réduction de bruit" value={adjustments.denoise} min={0} accent="#22d3ee" onChange={(v) => setField("denoise", v)} />
+              <Dial label="Netteté" value={adjustments.sharpen} min={0} accent="#22d3ee" onChange={(v) => setField("sharpen", v)} onCommit={(v) => commitField("sharpen", v)} />
+              <Dial label="Réduction de bruit" value={adjustments.denoise} min={0} accent="#22d3ee" onChange={(v) => setField("denoise", v)} onCommit={(v) => commitField("denoise", v)} />
             </DialSection>
             <DialSection title="Effets pellicule" accent="#a78bfa">
-              <Dial label="Vignettage" value={adjustments.vignette} min={0} accent="#a78bfa" onChange={(v) => setField("vignette", v)} />
-              <Dial label="Grain" value={adjustments.grain} min={0} accent="#a78bfa" onChange={(v) => setField("grain", v)} />
-              <Dial label="Délavé" value={adjustments.fade} min={0} accent="#a78bfa" onChange={(v) => setField("fade", v)} />
-              <Dial label="Aberration chromatique" value={adjustments.chromaticAberration} min={0} accent="#a78bfa" onChange={(v) => setField("chromaticAberration", v)} />
-              <Dial label="Fuite de lumière" value={adjustments.lightLeak} min={0} accent="#a78bfa" onChange={(v) => setField("lightLeak", v)} />
-              <Dial label="Lignes de balayage" value={adjustments.scanlines} min={0} accent="#a78bfa" onChange={(v) => setField("scanlines", v)} />
+              <Dial label="Vignettage" value={adjustments.vignette} min={0} accent="#a78bfa" onChange={(v) => setField("vignette", v)} onCommit={(v) => commitField("vignette", v)} />
+              <Dial label="Grain" value={adjustments.grain} min={0} accent="#a78bfa" onChange={(v) => setField("grain", v)} onCommit={(v) => commitField("grain", v)} />
+              <Dial label="Délavé" value={adjustments.fade} min={0} accent="#a78bfa" onChange={(v) => setField("fade", v)} onCommit={(v) => commitField("fade", v)} />
+              <Dial label="Aberration chromatique" value={adjustments.chromaticAberration} min={0} accent="#a78bfa" onChange={(v) => setField("chromaticAberration", v)} onCommit={(v) => commitField("chromaticAberration", v)} />
+              <Dial label="Fuite de lumière" value={adjustments.lightLeak} min={0} accent="#a78bfa" onChange={(v) => setField("lightLeak", v)} onCommit={(v) => commitField("lightLeak", v)} />
+              <Dial label="Lignes de balayage" value={adjustments.scanlines} min={0} accent="#a78bfa" onChange={(v) => setField("scanlines", v)} onCommit={(v) => commitField("scanlines", v)} />
             </DialSection>
         </div>
 

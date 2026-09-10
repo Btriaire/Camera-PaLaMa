@@ -13,6 +13,7 @@ export default function Dial({
   min = -100,
   max = 100,
   onChange,
+  onCommit,
   accent = "#ffffff",
 }: {
   label: string;
@@ -20,10 +21,14 @@ export default function Dial({
   min?: number;
   max?: number;
   onChange: (value: number) => void;
+  // Fired once, on release, with the final value — the moment to record an
+  // undo step. onChange fires continuously during the drag for live
+  // preview and would flood the history with one entry per pixel.
+  onCommit?: (value: number) => void;
   accent?: string;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ startY: number; startValue: number } | null>(null);
+  const dragRef = useRef<{ startY: number; startValue: number; lastValue: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
   const range = max - min;
@@ -51,7 +56,7 @@ export default function Dial({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     wrapperRef.current?.setPointerCapture(e.pointerId);
-    dragRef.current = { startY: e.clientY, startValue: value };
+    dragRef.current = { startY: e.clientY, startValue: value, lastValue: value };
     setDragging(true);
   };
 
@@ -60,10 +65,15 @@ export default function Dial({
     const deltaY = dragRef.current.startY - e.clientY;
     const deltaValue = (deltaY / 140) * range;
     const next = Math.min(max, Math.max(min, dragRef.current.startValue + deltaValue));
-    onChange(Math.round(next * 10) / 10);
+    const rounded = Math.round(next * 10) / 10;
+    dragRef.current.lastValue = rounded;
+    onChange(rounded);
   };
 
   const endDrag = () => {
+    if (dragRef.current && dragRef.current.lastValue !== dragRef.current.startValue) {
+      onCommit?.(dragRef.current.lastValue);
+    }
     dragRef.current = null;
     setDragging(false);
   };

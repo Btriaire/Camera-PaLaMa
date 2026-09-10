@@ -153,6 +153,24 @@ export function ChevronRightIcon({ className = "w-4 h-4" }: IconProps) {
   );
 }
 
+export function UndoIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.7">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 7.5H14.5A5 5 0 0 1 19.5 12.5A5 5 0 0 1 14.5 17.5H10" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 4 6 7.5 10 11" />
+    </svg>
+  );
+}
+
+export function RedoIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.7">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 7.5H9.5A5 5 0 0 0 4.5 12.5A5 5 0 0 0 9.5 17.5H14" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 4 18 7.5 14 11" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="2">
