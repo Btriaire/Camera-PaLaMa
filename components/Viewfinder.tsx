@@ -550,6 +550,7 @@ export default function Viewfinder({
       {pickerOpen && (
         <div className="absolute inset-0 z-40">
           <CameraPicker
+            camera={camera}
             activePresetId={presetId}
             onSelect={(id) => {
               onSelectPreset(id);

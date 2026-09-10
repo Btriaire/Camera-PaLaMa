@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { GLRenderer, ImageSource } from "@/lib/gl/renderer";
 import { PRESETS } from "@/lib/presets";
-import { HudSkin, Preset } from "@/lib/types";
+import { HudSkin, NEUTRAL_ADJUSTMENTS, Preset } from "@/lib/types";
+import { useCamera } from "@/lib/useCamera";
 import { BackIcon, CheckIcon } from "@/components/Icons";
 
 type RGB = [number, number, number];
@@ -11,10 +14,9 @@ const lerp = (a: RGB, b: RGB, t: number): RGB => [
   a[2] + (b[2] - a[2]) * t,
 ];
 
-// A quick decorative approximation of each preset's color character, so
-// the picker reads visually instead of as a plain text list — not a real
-// render of the shader, just enough of a hint (warm/cool, tinted, mono)
-// to tell cards apart at a glance.
+// A quick decorative approximation of each preset's color character —
+// shown as soon as the picker opens, then swapped for a real thumbnail
+// (see below) once one's ready. Never a real render of the shader itself.
 function swatchGradient(p: Preset): string {
   const adj = p.adjustments;
   const temp = (adj.temperature ?? 0) / 100;
@@ -28,6 +30,61 @@ function swatchGradient(p: Preset): string {
   const c1 = `rgb(${final.map((v) => Math.round(v)).join(",")})`;
   const c2 = `rgb(${final.map((v) => Math.round(v * 0.55)).join(",")})`;
   return `linear-gradient(135deg, ${c1}, ${c2})`;
+}
+
+// Key used for the "Naturel" (no preset) entry in the thumbnails map —
+// presets are keyed by their real id, which is never this string.
+const NATURAL_KEY = "__natural__";
+
+function sourceDims(source: ImageSource): { width: number; height: number } {
+  if (source instanceof HTMLVideoElement) return { width: source.videoWidth, height: source.videoHeight };
+  if (typeof HTMLImageElement !== "undefined" && source instanceof HTMLImageElement) {
+    return { width: source.naturalWidth, height: source.naturalHeight };
+  }
+  return { width: source.width, height: source.height };
+}
+
+// Renders one small thumbnail per camera/preset from a single real
+// source -- the live viewfinder frame while shooting, or the actual
+// photo being edited when this picker is reopened from the editor --
+// using the same GLRenderer as the live preview and the final export, so
+// every card shows what THIS scene/shot would actually look like with
+// that film/filter, not a generic stock photo or the abstract color
+// swatch above. One texture upload, then one cheap draw call per preset
+// reusing it, each read back via toDataURL (preserveDrawingBuffer is
+// already on for the shared GLRenderer).
+function usePresetThumbnails(source: ImageSource | null) {
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!source) return;
+    const { width: sw, height: sh } = sourceDims(source);
+    if (!sw || !sh) return;
+    const canvas = document.createElement("canvas");
+    let renderer: GLRenderer;
+    try {
+      renderer = new GLRenderer(canvas);
+    } catch {
+      return;
+    }
+
+    const scale = Math.min(1, 160 / Math.max(sw, sh));
+    const w = Math.round(sw * scale);
+    const h = Math.round(sh * scale);
+    renderer.uploadSource(source, w, h);
+
+    const next: Record<string, string> = {};
+    renderer.render(NEUTRAL_ADJUSTMENTS, 0);
+    next[NATURAL_KEY] = canvas.toDataURL("image/jpeg", 0.75);
+    for (const p of PRESETS) {
+      renderer.render({ ...NEUTRAL_ADJUSTMENTS, ...p.adjustments }, 0);
+      next[p.id] = canvas.toDataURL("image/jpeg", 0.75);
+    }
+    setThumbs(next);
+    renderer.dispose();
+  }, [source]);
+
+  return thumbs;
 }
 
 const HUD_LABEL: Record<HudSkin, string> = {
@@ -44,16 +101,25 @@ const HUD_LABEL: Record<HudSkin, string> = {
 // so the on-screen readouts and the resulting image match the camera you
 // picked, not just a filter name.
 export default function CameraPicker({
+  camera,
+  photoSource,
   activePresetId,
   onSelect,
   onClose,
 }: {
+  // Pass `camera` when shooting (thumbnails come from the live feed), or
+  // `photoSource` when reopening this picker from the editor (thumbnails
+  // come from the actual photo being edited). Neither is required so both
+  // callers only pass the one they have.
+  camera?: ReturnType<typeof useCamera>;
+  photoSource?: ImageBitmap | null;
   activePresetId: string | null;
   onSelect: (id: string | null) => void;
   onClose: () => void;
 }) {
   const vintage = PRESETS.filter((p) => p.category === "vintage");
   const modern = PRESETS.filter((p) => p.category === "modern");
+  const thumbs = usePresetThumbnails(camera?.videoRef.current ?? photoSource ?? null);
 
   return (
     <div className="flex flex-col h-dvh bg-zinc-950 text-white">
@@ -70,25 +136,24 @@ export default function CameraPicker({
       <div className="flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <button
           onClick={() => onSelect(null)}
-          className={`mb-4 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left ${
+          className={`mb-4 flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left ${
             activePresetId === null ? "border-white bg-white/10" : "border-white/15"
           }`}
         >
-          <div>
-            <div className="text-sm font-semibold">Naturel</div>
-            <div className="text-xs text-white/40">Aucun style, l&apos;image brute</div>
+          <Thumb src={thumbs[NATURAL_KEY]} gradient="linear-gradient(135deg, #c9c9c9, #6e6e6e)" />
+          <div className="flex-1 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold">Naturel</div>
+              <div className="text-xs text-white/40">Aucun style, l&apos;image brute</div>
+            </div>
+            {activePresetId === null && <CheckIcon />}
           </div>
-          {activePresetId === null && <CheckIcon />}
         </button>
 
         <Section title="Pellicule &amp; caméras">
           {vintage.map((p) => (
             <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-              <div
-                className="h-11 w-11 shrink-0 rounded-xl"
-                style={{ backgroundImage: swatchGradient(p) }}
-                aria-hidden
-              />
+              <Thumb src={thumbs[p.id]} gradient={swatchGradient(p)} />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">{p.label}</div>
@@ -109,11 +174,7 @@ export default function CameraPicker({
         <Section title="Filtres modernes">
           {modern.map((p) => (
             <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-              <div
-                className="h-11 w-11 shrink-0 rounded-xl"
-                style={{ backgroundImage: swatchGradient(p) }}
-                aria-hidden
-              />
+              <Thumb src={thumbs[p.id]} gradient={swatchGradient(p)} />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">{p.label}</div>
@@ -161,4 +222,17 @@ function Card({
 
 function Tag({ children }: { children: React.ReactNode }) {
   return <span className="rounded-full bg-white/10 px-2 py-0.5">{children}</span>;
+}
+
+// The color-swatch gradient shows instantly; once useCameraThumbnails
+// finishes its one-time render pass, the real photo fades in on top of it.
+function Thumb({ src, gradient }: { src?: string; gradient: string }) {
+  return (
+    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl" style={{ backgroundImage: gradient }}>
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      )}
+    </div>
+  );
 }

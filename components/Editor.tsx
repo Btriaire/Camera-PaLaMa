@@ -302,6 +302,7 @@ export default function Editor({
       {pickerOpen && (
         <div className="fixed inset-0 z-50">
           <CameraPicker
+            photoSource={photo.bitmap}
             activePresetId={presetId}
             onSelect={(id) => {
               applyPreset(id);
