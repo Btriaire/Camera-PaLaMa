@@ -10,6 +10,7 @@ import { getPreset, PRESETS } from "@/lib/presets";
 import { getSettings } from "@/lib/settings";
 import { photoUrl } from "@/lib/storage";
 import { useDeviceTilt } from "@/lib/useDeviceTilt";
+import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
@@ -20,11 +21,14 @@ import ZoomSlider from "./ZoomSlider";
 import {
   ApertureIcon,
   CameraIcon,
+  CheckIcon,
   FlashIcon,
   FlipCameraIcon,
   GalleryGridIcon,
   GridIcon,
+  ScreenFlashIcon,
   SettingsIcon,
+  StrobeIcon,
   TimerIcon,
   ZebraIcon,
 } from "@/components/Icons";
@@ -69,6 +73,12 @@ function formatZoom(v: number): string {
   return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}×`;
 }
 
+function FlashModeIcon({ mode, className }: { mode: FlashMode; className: string }) {
+  if (mode === "screen") return <ScreenFlashIcon className={className} />;
+  if (mode === "strobe" || mode === "strobeFast") return <StrobeIcon className={className} />;
+  return <FlashIcon className={className} off={mode === "off"} />;
+}
+
 // Live viewfinder: shows the camera feed through the same WebGL filter
 // pipeline used for the final export, so the vintage-camera look you frame
 // with is the look you get — no surprise after the shutter. The preview
@@ -111,7 +121,6 @@ export default function Viewfinder({
     ready,
     error,
     capabilities,
-    torchOn,
     setTorch,
     zoom,
     setZoom,
@@ -128,6 +137,8 @@ export default function Viewfinder({
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [zebraEnabled, setZebraEnabled] = useState(false);
+  const [flashMode, setFlashMode] = useState<FlashMode>("off");
+  const [flashMenuOpen, setFlashMenuOpen] = useState(false);
   const [stayOnCapture, setStayOnCapture] = useState(false);
   const [evBias, setEvBias] = useState(0);
   const [isoIndex, setIsoIndex] = useState(() => nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
@@ -234,6 +245,14 @@ export default function Viewfinder({
     };
   }, []);
 
+  // "Torche" is the one mode that's a continuous light while framing, not
+  // just something that fires at capture time -- keep the hardware torch
+  // synced to it (and only it; strobe/screen modes drive the torch or the
+  // screen flash themselves, right at capture time).
+  useEffect(() => {
+    setTorch(flashMode === "torch");
+  }, [flashMode, setTorch]);
+
   // Flashes the "1.8×" readout on every zoom change (pinch or a chip tap)
   // and fades it back out after a beat, like the iPhone camera's zoom HUD.
   useEffect(() => {
@@ -248,8 +267,13 @@ export default function Viewfinder({
 
   const captureOnce = async () => {
     setCapturing(true);
+    // "Flash écran" needs the screen genuinely lit *while* the shot is
+    // taken (it's the light source, for a front camera with no physical
+    // flash) -- so it stays on through the capture, not a 150ms blink like
+    // every other mode's after-the-fact shutter feedback.
     setFlash(true);
-    setTimeout(() => setFlash(false), 150);
+    if (flashMode !== "screen") setTimeout(() => setFlash(false), 150);
+    else await new Promise((r) => setTimeout(r, 200));
     try {
       const shot = await capture();
       if (shot) {
@@ -258,6 +282,7 @@ export default function Viewfinder({
       }
     } finally {
       setCapturing(false);
+      if (flashMode === "screen") setFlash(false);
     }
   };
 
@@ -291,19 +316,29 @@ export default function Viewfinder({
   // release. A quick tap still resolves to exactly one shot (the loop's
   // first capture) and goes straight to the editor as before; holding
   // longer collects several and opens BurstReview to pick which to keep.
+  // In a strobe mode, the torch also toggles on/off once per shot, synced
+  // to the same loop -- strobeFast just runs the whole loop at double speed.
   const runBurstLoop = async () => {
     setCapturing(true);
+    const strobing = isStrobing(flashMode) && capabilities.torch;
+    const interval = burstIntervalMs(flashMode);
+    let strobeOn = false;
     try {
       while (burstActive.current) {
+        if (strobing) {
+          strobeOn = !strobeOn;
+          setTorch(strobeOn);
+        }
         const shot = await captureFast();
         if (shot) {
           burstShots.current.push(shot);
           setBurstCount(burstShots.current.length);
         }
         if (!burstActive.current) break;
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, interval));
       }
     } finally {
+      if (strobing) setTorch(false);
       setCapturing(false);
     }
   };
@@ -316,6 +351,7 @@ export default function Viewfinder({
     burstActive.current = true;
     burstShots.current = [];
     setBurstCount(0);
+    if (flashMode === "screen") setFlash(true);
     burstLoopPromise.current = runBurstLoop();
   };
 
@@ -335,14 +371,17 @@ export default function Viewfinder({
     burstShots.current = [];
     setBurstCount(0);
     if (shots.length === 1) {
-      setFlash(true);
-      setTimeout(() => setFlash(false), 150);
+      if (flashMode !== "screen") {
+        setFlash(true);
+        setTimeout(() => setFlash(false), 150);
+      }
       setShotCount((n) => n + 1);
       onCapture(shots[0].bitmap, shots[0].width, shots[0].height, adjustments);
     } else if (shots.length > 1) {
       setShotCount((n) => n + shots.length);
       setBurstReview(shots);
     }
+    if (flashMode === "screen") setFlash(false);
   };
 
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
@@ -491,15 +530,13 @@ export default function Viewfinder({
           >
             <ZebraIcon className="w-9 h-9" />
           </button>
-          {capabilities.torch && (
-            <button
-              onClick={() => setTorch(!torchOn)}
-              aria-label="Flash"
-              className={`p-1 drop-shadow-lg ${torchOn ? "text-amber-300" : "text-white"}`}
-            >
-              <FlashIcon className="w-9 h-9" off={!torchOn} />
-            </button>
-          )}
+          <button
+            onClick={() => setFlashMenuOpen((v) => !v)}
+            aria-label="Mode flash"
+            className={`p-1 drop-shadow-lg ${flashMode !== "off" ? "text-amber-300" : "text-white"}`}
+          >
+            <FlashModeIcon mode={flashMode} className="w-9 h-9" />
+          </button>
           {capabilities.canSwitch && (
             <button onClick={flip} aria-label="Changer de caméra" className="p-1 text-white drop-shadow-lg">
               <FlipCameraIcon className="w-9 h-9" />
@@ -507,6 +544,36 @@ export default function Viewfinder({
           )}
         </div>
       </div>
+
+      {flashMenuOpen && (
+        <>
+          <button className="fixed inset-0 z-30" aria-label="Fermer le menu flash" onClick={() => setFlashMenuOpen(false)} />
+          <div
+            className="absolute right-4 z-40 w-72 rounded-2xl border border-white/15 bg-zinc-950/95 p-2 backdrop-blur"
+            style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.25rem)" }}
+          >
+            {FLASH_MODES.filter((m) => !m.needsTorch || capabilities.torch).map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setFlashMode(m.id);
+                  setFlashMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ${
+                  flashMode === m.id ? "bg-white/10" : ""
+                }`}
+              >
+                <FlashModeIcon mode={m.id} className="h-5 w-5 shrink-0 text-white" />
+                <span className="flex-1">
+                  <span className="block text-sm font-medium text-white">{m.label}</span>
+                  <span className="block text-[11px] leading-tight text-white/40">{m.blurb}</span>
+                </span>
+                {flashMode === m.id && <CheckIcon className="h-4 w-4 shrink-0 text-white" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {capabilities.zoom && (
         <div className="absolute right-16 top-1/2 -translate-y-1/2">
