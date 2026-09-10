@@ -195,6 +195,20 @@ export function useCamera(autoStart: boolean = true) {
     return { bitmap, width: video.videoWidth, height: video.videoHeight };
   }, []);
 
+  // Fast path for burst mode: grabs the current decoded preview frame
+  // directly instead of round-tripping through ImageCapture.takePhoto(),
+  // which drives the full sensor pipeline (autofocus + full-res readout +
+  // encode) and can take over a second per call on real hardware — far too
+  // slow to repeat every ~100ms. A single shot still uses capture() for the
+  // best possible quality; burst trades some resolution for actually being
+  // fast enough to be a burst.
+  const captureFast = useCallback(async (): Promise<CapturedPhoto | null> => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) return null;
+    const bitmap = await createImageBitmap(video);
+    return { bitmap, width: video.videoWidth, height: video.videoHeight };
+  }, []);
+
   return {
     videoRef,
     ready,
@@ -208,6 +222,7 @@ export function useCamera(autoStart: boolean = true) {
     setZoom: applyZoom,
     trackSettings,
     capture,
+    captureFast,
     stop,
     requestAccess,
   };

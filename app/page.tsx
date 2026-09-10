@@ -71,7 +71,7 @@ export default function CameraApp() {
     setMode("shoot");
   };
 
-  const handleEditorSaved = (meta: SavedPhotoMeta) => {
+  const handlePhotoSaved = (meta: SavedPhotoMeta) => {
     setLastPhoto(meta);
   };
 
@@ -85,6 +85,7 @@ export default function CameraApp() {
         onCapture={handleCapture}
         onOpenGallery={() => setMode("gallery")}
         lastPhoto={lastPhoto}
+        onBurstSaved={handlePhotoSaved}
       />
 
       {mode === "gallery" && (
@@ -100,7 +101,7 @@ export default function CameraApp() {
             initialPresetId={presetId}
             initialAdjustments={initialAdjustments}
             onClose={handleEditorClose}
-            onSaved={handleEditorSaved}
+            onSaved={handlePhotoSaved}
           />
         </div>
       )}

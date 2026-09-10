@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useCamera } from "@/lib/useCamera";
+import { CapturedPhoto, useCamera } from "@/lib/useCamera";
 import { useBattery } from "@/lib/useBattery";
 import { useClock } from "@/lib/useClock";
 import { GLRenderer } from "@/lib/gl/renderer";
@@ -12,6 +12,7 @@ import { photoUrl } from "@/lib/storage";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
+import BurstReview from "./BurstReview";
 import {
   ApertureIcon,
   CameraIcon,
@@ -47,6 +48,7 @@ export default function Viewfinder({
   onCapture,
   onOpenGallery,
   lastPhoto,
+  onBurstSaved,
 }: {
   camera: ReturnType<typeof useCamera>;
   active: boolean;
@@ -55,9 +57,22 @@ export default function Viewfinder({
   onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => void;
   onOpenGallery: () => void;
   lastPhoto: SavedPhotoMeta | null;
+  onBurstSaved: (meta: SavedPhotoMeta) => void;
 }) {
-  const { videoRef, ready, error, capabilities, torchOn, setTorch, zoom, setZoom, flip, trackSettings, capture } =
-    camera;
+  const {
+    videoRef,
+    ready,
+    error,
+    capabilities,
+    torchOn,
+    setTorch,
+    zoom,
+    setZoom,
+    flip,
+    trackSettings,
+    capture,
+    captureFast,
+  } = camera;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<GLRenderer | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -72,6 +87,11 @@ export default function Viewfinder({
   const [flash, setFlash] = useState(false);
   const countdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeStart = useRef<number | null>(null);
+  const burstActive = useRef(false);
+  const burstShots = useRef<CapturedPhoto[]>([]);
+  const burstLoopPromise = useRef<Promise<void> | null>(null);
+  const [burstCount, setBurstCount] = useState(0);
+  const [burstReview, setBurstReview] = useState<CapturedPhoto[] | null>(null);
   const battery = useBattery();
   const { elapsedSeconds, now } = useClock();
 
@@ -122,8 +142,7 @@ export default function Viewfinder({
     };
   }, []);
 
-  const runCapture = async () => {
-    if (capturing) return;
+  const captureOnce = async () => {
     setCapturing(true);
     setFlash(true);
     setTimeout(() => setFlash(false), 150);
@@ -148,7 +167,7 @@ export default function Viewfinder({
       countdownTimeout.current = setTimeout(() => {
         if (remaining <= 1) {
           setCountdown(null);
-          runCapture();
+          captureOnce();
         } else {
           setCountdown(remaining - 1);
           tick(remaining - 1);
@@ -164,16 +183,58 @@ export default function Viewfinder({
     setCountdown(null);
   };
 
-  const handleShutter = () => {
-    if (capturing) return;
+  // Burst mode: holding the shutter repeatedly calls capture() until
+  // release. A quick tap still resolves to exactly one shot (the loop's
+  // first capture) and goes straight to the editor as before; holding
+  // longer collects several and opens BurstReview to pick which to keep.
+  const runBurstLoop = async () => {
+    setCapturing(true);
+    try {
+      while (burstActive.current) {
+        const shot = await captureFast();
+        if (shot) {
+          burstShots.current.push(shot);
+          setBurstCount(burstShots.current.length);
+        }
+        if (!burstActive.current) break;
+        await new Promise((r) => setTimeout(r, 120));
+      }
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const handleShutterDown = () => {
+    if (countdown !== null || timerSeconds > 0 || capturing) return;
+    burstActive.current = true;
+    burstShots.current = [];
+    setBurstCount(0);
+    burstLoopPromise.current = runBurstLoop();
+  };
+
+  const handleShutterUp = async () => {
     if (countdown !== null) {
       cancelCountdown();
       return;
     }
-    if (timerSeconds === 0) {
-      runCapture();
-    } else {
+    if (timerSeconds > 0) {
       armCountdown(timerSeconds);
+      return;
+    }
+    if (!burstActive.current) return;
+    burstActive.current = false;
+    await burstLoopPromise.current;
+    const shots = burstShots.current;
+    burstShots.current = [];
+    setBurstCount(0);
+    if (shots.length === 1) {
+      setFlash(true);
+      setTimeout(() => setFlash(false), 150);
+      setShotCount((n) => n + 1);
+      onCapture(shots[0].bitmap, shots[0].width, shots[0].height, adjustments);
+    } else if (shots.length > 1) {
+      setShotCount((n) => n + shots.length);
+      setBurstReview(shots);
     }
   };
 
@@ -356,14 +417,25 @@ export default function Viewfinder({
             )}
           </div>
 
-          <button
-            onClick={handleShutter}
-            disabled={!ready}
-            aria-label="Déclencher"
-            className="flex h-[72px] w-[72px] items-center justify-center justify-self-center rounded-full border-4 border-white/80 disabled:opacity-40"
-          >
-            <span className={`h-14 w-14 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
-          </button>
+          <div className="relative justify-self-center">
+            <button
+              onPointerDown={handleShutterDown}
+              onPointerUp={handleShutterUp}
+              onPointerLeave={handleShutterUp}
+              disabled={!ready}
+              aria-label="Déclencher"
+              className={`flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 disabled:opacity-40 ${
+                burstCount > 0 ? "border-amber-300" : "border-white/80"
+              }`}
+            >
+              <span className={`h-14 w-14 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
+            </button>
+            {burstCount > 0 && (
+              <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-300 px-1 text-[11px] font-bold text-black">
+                {burstCount}
+              </span>
+            )}
+          </div>
 
           <div className="h-11 w-11" aria-hidden />
         </div>
@@ -397,6 +469,20 @@ export default function Viewfinder({
               onOpenGallery();
             }}
             onSettingsChange={(s) => setShowGrid(s.gridDefault)}
+          />
+        </div>
+      )}
+
+      {burstReview && (
+        <div className="absolute inset-0 z-40">
+          <BurstReview
+            shots={burstReview}
+            adjustments={adjustments}
+            presetId={presetId}
+            onDone={(lastSaved) => {
+              setBurstReview(null);
+              if (lastSaved) onBurstSaved(lastSaved);
+            }}
           />
         </div>
       )}
