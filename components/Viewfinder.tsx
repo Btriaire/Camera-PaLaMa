@@ -10,6 +10,7 @@ import { getPreset, PRESETS } from "@/lib/presets";
 import { getSettings } from "@/lib/settings";
 import { photoUrl } from "@/lib/storage";
 import { useDeviceTilt } from "@/lib/useDeviceTilt";
+import { useStabilizer } from "@/lib/useStabilizer";
 import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
 import { cropForDigitalZoom, enhanceCroppedZoom, SUPER_ZOOM_AI_MULTIPLIER } from "@/lib/superRes";
 import {
@@ -42,6 +43,7 @@ import {
   ScreenFlashIcon,
   SettingsIcon,
   SparkleIcon,
+  StabilizerIcon,
   StrobeIcon,
   TimerIcon,
   ZebraIcon,
@@ -52,6 +54,11 @@ import {
 // jumps straight to a strong-but-not-extreme value rather than exposing a
 // second slider on the shooting screen.
 const LIVE_SUPER_CONTRAST = 70;
+
+// How much the stabilizer crops in to get shift margin — a real phone's
+// own EIS typically sacrifices somewhere in this range too; more margin
+// smooths bigger shakes but costs more of the frame permanently.
+const STABILIZER_ZOOM = 1.12;
 
 const PRESET_ORDER: (string | null)[] = [null, ...PRESETS.map((p) => p.id)];
 const TIMER_STEPS = [0, 3, 10] as const;
@@ -166,6 +173,17 @@ export default function Viewfinder({
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [zebraEnabled, setZebraEnabled] = useState(false);
+  // On by default, like a phone's own EIS -- the button is there to turn
+  // it off (e.g. on a tripod, where the crop margin only costs framing for
+  // nothing), not to opt in.
+  const [stabilizerOn, setStabilizerOn] = useState(true);
+  // Mirrors stabilizerOn for the render loop's long-lived rAF closure,
+  // same reasoning as uiZoomRef below: toggling it shouldn't tear down and
+  // recreate the whole WebGL context every time.
+  const stabilizerOnRef = useRef(true);
+  useEffect(() => {
+    stabilizerOnRef.current = stabilizerOn;
+  }, [stabilizerOn]);
   // Super Contraste live-previews for real (it's just another shader
   // uniform, rendered the same on-screen as it will be in the capture).
   // Super-résolution IA can't live-preview — it's a several-second AI pass,
@@ -231,6 +249,7 @@ export default function Viewfinder({
   const battery = useBattery();
   const { elapsedSeconds, now } = useClock();
   const tiltDeg = useDeviceTilt();
+  const stabilizer = useStabilizer();
 
   // The camera's own reported zoom ceiling (1x if it reports no zoom
   // capability at all) — SuperZoom is what happens past this point.
@@ -313,14 +332,26 @@ export default function Viewfinder({
         const w = Math.round(video.videoWidth * scale);
         const h = Math.round(video.videoHeight * scale);
         const digitalFactor = uiZoomRef.current / (capabilities.zoom?.max ?? 1);
-        if (digitalFactor > 1.02) {
+        // No point paying a permanent 12% FOV crop for compensation that
+        // has nothing to compensate with — see useStabilizer's own note on
+        // why availableRef can be false for the whole session (iOS Safari).
+        const stabOn = stabilizerOnRef.current && stabilizer.availableRef.current;
+        const totalZoom = Math.max(digitalFactor, 1) * (stabOn ? STABILIZER_ZOOM : 1);
+        if (totalZoom > 1.02) {
           zoomCropCanvas.width = w;
           zoomCropCanvas.height = h;
           const ctx = zoomCropCanvas.getContext("2d");
-          const cropW = video.videoWidth / digitalFactor;
-          const cropH = video.videoHeight / digitalFactor;
-          const cropX = (video.videoWidth - cropW) / 2;
-          const cropY = (video.videoHeight - cropH) / 2;
+          const cropW = video.videoWidth / totalZoom;
+          const cropH = video.videoHeight / totalZoom;
+          // The shift only ever draws on the stabilizer's own slice of the
+          // zoom (never SuperZoom's), so a deliberate zoom-in stays
+          // centered on what was framed instead of drifting with shake.
+          const marginX = stabOn ? (video.videoWidth - video.videoWidth / STABILIZER_ZOOM) / 2 : 0;
+          const marginY = stabOn ? (video.videoHeight - video.videoHeight / STABILIZER_ZOOM) / 2 : 0;
+          const shiftX = stabOn ? stabilizer.shakeXRef.current * marginX : 0;
+          const shiftY = stabOn ? stabilizer.shakeYRef.current * marginY : 0;
+          const cropX = (video.videoWidth - cropW) / 2 + shiftX;
+          const cropY = (video.videoHeight - cropH) / 2 + shiftY;
           if (ctx) {
             ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, w, h);
             renderer.uploadSource(zoomCropCanvas, w, h);
@@ -975,6 +1006,18 @@ export default function Viewfinder({
               +
             </button>
           </div>
+
+          <button
+            onClick={() => setStabilizerOn((v) => !v)}
+            aria-pressed={stabilizerOn}
+            aria-label="Stabilisateur électronique"
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+              stabilizerOn ? "border-emerald-300/70 bg-emerald-300/15 text-emerald-300" : "border-white/25 bg-black/40 text-white"
+            }`}
+          >
+            <StabilizerIcon className="w-4 h-4" />
+            {stabilizerOn && !stabilizer.available ? "Stabilisateur (capteur indisponible)" : "Stabilisateur"}
+          </button>
 
           <button
             onClick={() => setSuperContrastOn((v) => !v)}
