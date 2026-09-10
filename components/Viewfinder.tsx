@@ -9,10 +9,13 @@ import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { getPreset, PRESETS } from "@/lib/presets";
 import { getSettings } from "@/lib/settings";
 import { photoUrl } from "@/lib/storage";
+import { useDeviceTilt } from "@/lib/useDeviceTilt";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
 import BurstReview from "./BurstReview";
+import Histogram from "./Histogram";
+import LevelIndicator from "./LevelIndicator";
 import {
   ApertureIcon,
   CameraIcon,
@@ -22,6 +25,7 @@ import {
   GridIcon,
   SettingsIcon,
   TimerIcon,
+  ZebraIcon,
 } from "@/components/Icons";
 
 const PRESET_ORDER: (string | null)[] = [null, ...PRESETS.map((p) => p.id)];
@@ -105,6 +109,7 @@ export default function Viewfinder({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [zebraEnabled, setZebraEnabled] = useState(false);
   const [stayOnCapture, setStayOnCapture] = useState(false);
   const [evBias, setEvBias] = useState(0);
   const [isoIndex, setIsoIndex] = useState(() => nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
@@ -124,6 +129,7 @@ export default function Viewfinder({
   const [burstReview, setBurstReview] = useState<CapturedPhoto[] | null>(null);
   const battery = useBattery();
   const { elapsedSeconds, now } = useClock();
+  const tiltDeg = useDeviceTilt();
 
   const preset = getPreset(presetId);
   const baseAdjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
@@ -176,7 +182,7 @@ export default function Viewfinder({
         const w = Math.round(video.videoWidth * scale);
         const h = Math.round(video.videoHeight * scale);
         renderer.uploadSource(video, w, h);
-        renderer.render(adjustments, seed);
+        renderer.render(adjustments, seed, zebraEnabled);
         seed += 0.016;
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -189,7 +195,7 @@ export default function Viewfinder({
       rendererRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, active, presetId, evBias, isoIndex, kelvinIndex]);
+  }, [ready, active, presetId, evBias, isoIndex, kelvinIndex, zebraEnabled]);
 
   useEffect(() => {
     setShowGrid(getSettings().gridDefault);
@@ -345,6 +351,15 @@ export default function Viewfinder({
       />
 
       <div
+        className="pointer-events-none absolute left-1/2 -translate-x-1/2"
+        style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3rem)" }}
+      >
+        <Histogram canvasRef={canvasRef} />
+      </div>
+
+      <LevelIndicator tiltDeg={tiltDeg} />
+
+      <div
         className={`absolute inset-0 z-30 bg-white pointer-events-none transition-opacity duration-150 ${
           flash ? "opacity-80" : "opacity-0"
         }`}
@@ -398,6 +413,13 @@ export default function Viewfinder({
             className={`p-1 drop-shadow-lg ${showGrid ? "text-amber-300" : "text-white"}`}
           >
             <GridIcon className="w-9 h-9" />
+          </button>
+          <button
+            onClick={() => setZebraEnabled((z) => !z)}
+            aria-label="Alerte de surexposition (zébrures)"
+            className={`p-1 drop-shadow-lg ${zebraEnabled ? "text-amber-300" : "text-white"}`}
+          >
+            <ZebraIcon className="w-9 h-9" />
           </button>
           {capabilities.torch && (
             <button

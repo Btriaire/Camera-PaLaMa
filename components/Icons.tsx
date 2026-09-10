@@ -110,6 +110,15 @@ export function GridIcon({ className = base }: IconProps) {
   );
 }
 
+export function ZebraIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <rect x="4" y="4" width="16" height="16" rx="1.5" />
+      <path strokeLinecap="round" d="M4 8.5 8.5 4M4 13.5 13.5 4M7 20 20 7M12 20 20 12M17 20 20 17" />
+    </svg>
+  );
+}
+
 export function ApertureIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">

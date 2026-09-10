@@ -80,7 +80,7 @@ export class GLRenderer {
       "u_exposure", "u_contrast", "u_saturation", "u_temperature", "u_tint",
       "u_highlights", "u_shadows", "u_sharpen", "u_denoise", "u_vignette",
       "u_grain", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
-      "u_chromaticAberration", "u_lightLeak", "u_scanlines",
+      "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
@@ -100,7 +100,11 @@ export class GLRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   }
 
-  render(adjustments: Adjustments, seed = 0) {
+  // `zebra` is deliberately not part of Adjustments: it's a live-viewfinder
+  // shooting aid (overexposure warning), never something that should get
+  // baked into an exported photo. Callers that export (lib/export.ts,
+  // preset thumbnails) simply never pass it, so it defaults off there.
+  render(adjustments: Adjustments, seed = 0, zebra = false) {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.useProgram(this.program);
@@ -111,6 +115,7 @@ export class GLRenderer {
     gl.uniform2f(this.uniforms.u_texelSize, 1 / Math.max(this.sourceWidth, 1), 1 / Math.max(this.sourceHeight, 1));
     gl.uniform2f(this.uniforms.u_resolution, this.sourceWidth, this.sourceHeight);
     gl.uniform1f(this.uniforms.u_seed, seed);
+    gl.uniform1f(this.uniforms.u_zebra, zebra ? 1.0 : 0.0);
 
     gl.uniform1f(this.uniforms.u_exposure, adjustments.exposure / 50);
     gl.uniform1f(this.uniforms.u_contrast, adjustments.contrast / 100);

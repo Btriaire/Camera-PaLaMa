@@ -39,6 +39,10 @@ uniform float u_tintStrength;
 uniform float u_chromaticAberration;
 uniform float u_lightLeak;
 uniform float u_scanlines;
+// Live-viewfinder aid only, never touched by the export path (see
+// GLRenderer.render's zebra param) -- diagonal stripes over blown
+// highlights, same idea as a video monitor's overexposure warning.
+uniform float u_zebra;
 
 float luma(vec3 c) {
   return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -133,6 +137,13 @@ void main() {
   if (u_grain > 0.001) {
     float n = hash(uv * u_resolution.xy);
     color += (n - 0.5) * u_grain * 0.25;
+  }
+
+  // Zebra stripes: diagonal black bands over near-blown highlights, in
+  // screen space so the pattern doesn't swim as the image changes.
+  if (u_zebra > 0.5 && luma(color) > 0.92) {
+    float stripe = mod(gl_FragCoord.x + gl_FragCoord.y, 16.0);
+    if (stripe < 8.0) color = mix(color, vec3(0.05), 0.55);
   }
 
   gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
