@@ -9,7 +9,15 @@
 // of a spinner.
 export type LongExposureBlend = "lighten" | "average";
 
-export const LONG_EXPOSURE_DURATIONS = [2, 5, 10, 20] as const;
+// A slider, not fixed steps — 30s tops because that's already the classic
+// bulb-mode ceiling on a real camera before you're into minutes-long
+// astrophotography territory, and past maybe 30s of frames at whatever
+// rate the camera streams there's nothing more to see in the accumulator
+// that a shorter exposure hasn't already shown.
+export const LONG_EXPOSURE_MIN_S = 1;
+export const LONG_EXPOSURE_MAX_S = 30;
+export const LONG_EXPOSURE_STEP_S = 1;
+export const LONG_EXPOSURE_DEFAULT_S = 5;
 
 export const LONG_EXPOSURE_BLENDS: { id: LongExposureBlend; label: string; blurb: string }[] = [
   {

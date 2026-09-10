@@ -12,7 +12,15 @@ import { photoUrl } from "@/lib/storage";
 import { useDeviceTilt } from "@/lib/useDeviceTilt";
 import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
 import { cropForDigitalZoom, enhanceCroppedZoom, SUPER_ZOOM_AI_MULTIPLIER } from "@/lib/superRes";
-import { LONG_EXPOSURE_BLENDS, LONG_EXPOSURE_DURATIONS, LongExposureAccumulator, LongExposureBlend } from "@/lib/longExposure";
+import {
+  LONG_EXPOSURE_BLENDS,
+  LONG_EXPOSURE_DEFAULT_S,
+  LONG_EXPOSURE_MAX_S,
+  LONG_EXPOSURE_MIN_S,
+  LONG_EXPOSURE_STEP_S,
+  LongExposureAccumulator,
+  LongExposureBlend,
+} from "@/lib/longExposure";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
@@ -20,6 +28,7 @@ import BurstReview from "./BurstReview";
 import Histogram from "./Histogram";
 import LevelIndicator from "./LevelIndicator";
 import ZoomSlider from "./ZoomSlider";
+import HorizontalSlider from "./HorizontalSlider";
 import {
   ApertureIcon,
   CameraIcon,
@@ -809,32 +818,35 @@ export default function Viewfinder({
                 {longExposureBlend === b.id && <CheckIcon className="h-4 w-4 shrink-0 text-white" />}
               </button>
             ))}
-            <div className="mt-1 flex items-center gap-1.5 border-t border-white/10 px-1 pt-2">
-              <button
-                onClick={() => {
-                  setLongExposureSeconds(0);
-                  setLongExposureMenuOpen(false);
-                }}
-                className={`flex-1 rounded-lg px-2 py-2 text-center text-xs font-medium ${
-                  longExposureSeconds === 0 ? "bg-white text-black" : "text-white/70"
-                }`}
-              >
-                Désactivé
-              </button>
-              {LONG_EXPOSURE_DURATIONS.map((s) => (
+            <div className="mt-1 flex items-center justify-between gap-2 border-t border-white/10 px-2 pt-2">
+              <span className="text-xs font-medium text-white/60">Durée</span>
+              <div className="flex items-center gap-2">
+                <span className="w-10 text-right font-mono text-sm tabular-nums text-amber-300">
+                  {longExposureSeconds > 0 ? longExposureSeconds : LONG_EXPOSURE_DEFAULT_S}s
+                </span>
                 <button
-                  key={s}
-                  onClick={() => {
-                    setLongExposureSeconds(s);
-                    setLongExposureMenuOpen(false);
-                  }}
-                  className={`flex-1 rounded-lg px-2 py-2 text-center text-xs font-mono tabular-nums font-medium ${
-                    longExposureSeconds === s ? "bg-white text-black" : "text-white/70"
+                  onClick={() => setLongExposureSeconds(0)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                    longExposureSeconds === 0 ? "bg-white text-black" : "text-white/50"
                   }`}
                 >
-                  {s}s
+                  Désactivé
                 </button>
-              ))}
+              </div>
+            </div>
+            <div className="px-2 pb-1 pt-2">
+              <HorizontalSlider
+                ariaLabel="Durée de la pose longue"
+                min={LONG_EXPOSURE_MIN_S}
+                max={LONG_EXPOSURE_MAX_S}
+                step={LONG_EXPOSURE_STEP_S}
+                value={longExposureSeconds > 0 ? longExposureSeconds : LONG_EXPOSURE_DEFAULT_S}
+                onChange={setLongExposureSeconds}
+              />
+              <div className="flex justify-between px-1 pt-1 text-[10px] text-white/40">
+                <span>{LONG_EXPOSURE_MIN_S}s</span>
+                <span>{LONG_EXPOSURE_MAX_S}s</span>
+              </div>
             </div>
           </div>
         </>
