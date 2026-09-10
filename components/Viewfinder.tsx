@@ -90,6 +90,7 @@ export default function Viewfinder({
   onCapture,
   onOpenGallery,
   recentPhotos,
+  pendingSaves,
   onOpenPhoto,
   onBurstSaved,
 }: {
@@ -100,6 +101,7 @@ export default function Viewfinder({
   onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => void;
   onOpenGallery: () => void;
   recentPhotos: SavedPhotoMeta[];
+  pendingSaves: number;
   onOpenPhoto: (meta: SavedPhotoMeta) => void;
   onBurstSaved: (meta: SavedPhotoMeta) => void;
 }) {
@@ -622,8 +624,15 @@ export default function Viewfinder({
           </div>
         </div>
 
-        {stayOnCapture && recentPhotos.length > 0 && (
+        {stayOnCapture && (pendingSaves > 0 || recentPhotos.length > 0) && (
           <div className="flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {Array.from({ length: pendingSaves }).map((_, i) => (
+              <div
+                key={`pending-${i}`}
+                aria-label="Enregistrement en cours"
+                className="h-12 w-12 shrink-0 animate-pulse rounded-lg border border-white/25 bg-white/10"
+              />
+            ))}
             {recentPhotos.slice(0, 15).map((p) => (
               <button
                 key={p.id}

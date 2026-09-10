@@ -59,15 +59,23 @@ export default function CameraApp() {
 
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [initialAdjustments, setInitialAdjustments] = useState<Adjustments | undefined>(undefined);
+  // How many "stay on viewfinder" saves are currently exporting/uploading —
+  // export (GPU-bound, fast) then upload (network-bound, can genuinely take
+  // a couple of seconds) both happen with zero visible feedback otherwise,
+  // which reads as "nothing happened" if you don't sit and watch the
+  // filmstrip. Drives a pulsing placeholder tile there instead.
+  const [pendingSaves, setPendingSaves] = useState(0);
 
   const handleCapture = (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => {
     if (getSettings().stayOnCapture) {
       // Save with exactly the live style/ISO/K that took the shot and stay
       // on the viewfinder — same export pipeline the editor's own "Save"
       // uses, just triggered immediately instead of after manual edits.
+      setPendingSaves((n) => n + 1);
       exportPhoto(bitmap, width, height, adjustments, Math.random() * 1000)
         .then((blob) => uploadPhoto(blob, { width, height, presetId, adjustments }))
-        .then((meta) => meta && handlePhotoSaved(meta));
+        .then((meta) => meta && handlePhotoSaved(meta))
+        .finally(() => setPendingSaves((n) => Math.max(0, n - 1)));
       return;
     }
     setPhoto({ bitmap, width, height });
@@ -110,6 +118,7 @@ export default function CameraApp() {
         onCapture={handleCapture}
         onOpenGallery={() => setMode("gallery")}
         recentPhotos={recentPhotos}
+        pendingSaves={pendingSaves}
         onOpenPhoto={handleOpenRecentPhoto}
         onBurstSaved={handlePhotoSaved}
       />
