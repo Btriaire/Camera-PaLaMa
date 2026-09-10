@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const BUCKETS = 32;
+const BUCKETS = 64;
 const SAMPLE_INTERVAL_MS = 200;
 
 const CHANNEL_COLOR = {
@@ -77,14 +77,14 @@ export default function Histogram({ canvasRef }: { canvasRef: React.RefObject<HT
   if (!levels) return null;
 
   return (
-    <div className="pointer-events-none relative h-9 w-32 overflow-hidden rounded-md bg-black/60 backdrop-blur">
+    <div className="pointer-events-none relative h-9 w-40 overflow-hidden rounded-md bg-black/60 backdrop-blur">
       {(["r", "g", "b"] as const).map((ch) => (
-        <div key={ch} className="absolute inset-x-1.5 inset-y-1 flex items-end gap-px mix-blend-screen">
+        <div key={ch} className="absolute inset-x-1.5 inset-y-1 flex items-end mix-blend-screen">
           {levels[ch].map((v, i) => (
             <div
               key={i}
-              className="flex-1 rounded-[1px]"
-              style={{ height: `${Math.max(3, v * 100)}%`, backgroundColor: CHANNEL_COLOR[ch] }}
+              className="flex-1"
+              style={{ height: `${Math.max(2, v * 100)}%`, backgroundColor: CHANNEL_COLOR[ch] }}
             />
           ))}
         </div>
