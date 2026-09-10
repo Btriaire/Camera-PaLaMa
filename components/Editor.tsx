@@ -359,13 +359,28 @@ export default function Editor({
             <p className="text-[10px] text-white/40">
               Réutilise le réseau ESRGAN local (aucun envoi) — pas un modèle entraîné pour débruiter, mais
               reconstruire puis rééchantillonner atténue le bruit en passant. → {denoiseSize.width}×
-              {denoiseSize.height}px.
+              {denoiseSize.height}px
+              {(denoiseSize.width < photo.width || denoiseSize.height < photo.height) && (
+                <span className="text-amber-400">
+                  {" "}
+                  — plus petit que l&apos;original ({photo.width}×{photo.height}px), la photo dépasse ce que
+                  l&apos;IA traite d&apos;un coup.
+                </span>
+              )}
+              .
             </p>
           )}
           {superRes && (
             <p className="text-[10px] text-white/40">
-              Réseau ESRGAN local (aucun envoi), ×2 → {superResSize.width}×{superResSize.height}px. Prend de
-              quelques secondes à une minute selon l&apos;appareil, au moment d&apos;enregistrer.
+              Réseau ESRGAN local (aucun envoi), ×2 → {superResSize.width}×{superResSize.height}px
+              {(superResSize.width < photo.width || superResSize.height < photo.height) && (
+                <span className="text-amber-400">
+                  {" "}
+                  — plus petit que l&apos;original ({photo.width}×{photo.height}px) : moins net qu&apos;un export
+                  classique, pas plus.
+                </span>
+              )}
+              . Le temps de traitement dépend de l&apos;appareil, au moment d&apos;enregistrer.
             </p>
           )}
         </div>

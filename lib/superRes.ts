@@ -15,13 +15,19 @@
 // tiled is the last step, stitching every patch back into one image and
 // reading the whole thing back from the GPU to encode it: that cost scales
 // with total output pixels and dominates the running time on a weak GPU,
-// so the input's long edge is capped well below the sensor's native
-// resolution to keep that final readback bounded on modest phones. A very
-// high-resolution capture gets downscaled before upscaling as a result —
-// the AI result can end up smaller than the plain export. Callers should
-// compare dimensions rather than assume "super resolution" always means
-// "bigger than the original."
-const MAX_INPUT_EDGE = 1200; // px, long edge, before the 2x pass
+// so the input's long edge is capped below the sensor's native resolution
+// to keep that final readback bounded. 2000px clears most phones' actual
+// capture size (a 12MP shot's long edge is usually under 4000px, so ×0.5
+// downscale ×2 upscale roughly breaks even) without the readback cost
+// exploding — a lower cap technically ran faster in testing but meant the
+// "enhanced" photo came back smaller than a plain export for any capture
+// above it, which is every modern phone: enhancing a photo into a net
+// downgrade isn't a tradeoff worth making quietly. Sensors well above this
+// (e.g. 48MP+) still get downscaled first — the AI result can still end up
+// smaller than the plain export there. Callers should compare dimensions
+// rather than assume "super resolution" always means "bigger than the
+// original."
+const MAX_INPUT_EDGE = 2000; // px, long edge, before the 2x pass
 export const SUPER_RES_SCALE = 2;
 
 export type SuperResResult = { blob: Blob; width: number; height: number };
