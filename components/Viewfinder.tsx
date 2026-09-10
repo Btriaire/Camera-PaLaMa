@@ -555,67 +555,67 @@ export default function Viewfinder({
         >
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur"
+            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-4 py-2.5 text-sm font-medium text-white backdrop-blur"
           >
-            <ApertureIcon className="w-4 h-4" />
+            <ApertureIcon className="w-5 h-5" />
             {preset?.label ?? "Naturel"}
           </button>
 
-          <div className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
             <button
               onClick={() => cycleIso(-1)}
               disabled={isoIndex === 0}
               aria-label="Diminuer l'ISO"
-              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
             >
               −
             </button>
-            <span className="w-14 text-center text-[11px] font-mono tabular-nums text-white/70">ISO {isoValue}</span>
+            <span className="w-16 text-center text-sm font-mono tabular-nums text-white/70">ISO {isoValue}</span>
             <button
               onClick={() => cycleIso(1)}
               disabled={isoIndex === ISO_STEPS.length - 1}
               aria-label="Augmenter l'ISO"
-              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
             >
               +
             </button>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
             <button
               onClick={() => cycleKelvin(-1)}
               disabled={kelvinIndex === 0}
               aria-label="Refroidir la balance des blancs"
-              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
             >
               −
             </button>
-            <span className="w-14 text-center text-[11px] font-mono tabular-nums text-white/70">{kelvinValue}K</span>
+            <span className="w-16 text-center text-sm font-mono tabular-nums text-white/70">{kelvinValue}K</span>
             <button
               onClick={() => cycleKelvin(1)}
               disabled={kelvinIndex === KELVIN_STEPS.length - 1}
               aria-label="Réchauffer la balance des blancs"
-              className="px-1.5 text-sm text-white/80 disabled:opacity-30"
+              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
             >
               +
             </button>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-2 py-1 backdrop-blur">
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
             <button
               onClick={() => setEvBias((v) => Math.max(-2, Math.round((v - 0.5) * 10) / 10))}
               aria-label="Diminuer l'exposition"
-              className="px-1.5 text-sm text-white/80"
+              className="px-2 text-lg leading-none text-white/80"
             >
               −
             </button>
-            <span className="w-10 text-center text-[11px] font-mono tabular-nums text-white/70">
+            <span className="w-12 text-center text-sm font-mono tabular-nums text-white/70">
               {evBias > 0 ? `+${evBias.toFixed(1)}` : evBias.toFixed(1)}
             </span>
             <button
               onClick={() => setEvBias((v) => Math.min(2, Math.round((v + 0.5) * 10) / 10))}
               aria-label="Augmenter l'exposition"
-              className="px-1.5 text-sm text-white/80"
+              className="px-2 text-lg leading-none text-white/80"
             >
               +
             </button>
