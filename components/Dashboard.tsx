@@ -68,6 +68,15 @@ export default function Dashboard({
           <span className="text-xs text-white/40">Voir tout</span>
         </button>
 
+        <Section title="Prise de vue">
+          <Toggle
+            label="Rester sur le viseur après une photo"
+            description="La photo est enregistrée directement ; retrouvez-la dans le film en bas de l'écran."
+            checked={settings.stayOnCapture}
+            onChange={(v) => update({ stayOnCapture: v })}
+          />
+        </Section>
+
         <Section title="Au démarrage">
           <Toggle
             label="Grille (règle des tiers)"
@@ -120,14 +129,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <button
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between rounded-2xl border border-white/15 px-4 py-3"
+      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/15 px-4 py-3"
     >
-      <span className="text-sm">{label}</span>
-      <span className={`relative h-6 w-10 rounded-full transition-colors ${checked ? "bg-white" : "bg-white/15"}`}>
+      <span className="text-left">
+        <span className="block text-sm">{label}</span>
+        {description && <span className="mt-0.5 block text-xs text-white/40">{description}</span>}
+      </span>
+      <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${checked ? "bg-white" : "bg-white/15"}`}>
         <span
           className={`absolute top-0.5 h-5 w-5 rounded-full bg-black transition-transform ${
             checked ? "translate-x-4 bg-black" : "translate-x-0.5 bg-white/60"

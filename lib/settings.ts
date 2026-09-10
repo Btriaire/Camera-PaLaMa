@@ -6,6 +6,11 @@
 export type Settings = {
   defaultPresetId: string | null;
   gridDefault: boolean;
+  // When on, taking a photo saves it immediately (with whatever style/ISO/K
+  // is live) and stays on the viewfinder instead of opening the editor —
+  // shots pile up in a filmstrip so you can keep shooting without breaking
+  // flow, and tap one later to actually edit it.
+  stayOnCapture: boolean;
 };
 
 const KEY = "camera-palama:settings";
@@ -13,6 +18,7 @@ const KEY = "camera-palama:settings";
 const DEFAULTS: Settings = {
   defaultPresetId: null,
   gridDefault: false,
+  stayOnCapture: false,
 };
 
 export function getSettings(): Settings {

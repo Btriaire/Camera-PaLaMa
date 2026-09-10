@@ -69,7 +69,8 @@ export default function Viewfinder({
   onSelectPreset,
   onCapture,
   onOpenGallery,
-  lastPhoto,
+  recentPhotos,
+  onOpenPhoto,
   onBurstSaved,
 }: {
   camera: ReturnType<typeof useCamera>;
@@ -78,9 +79,11 @@ export default function Viewfinder({
   onSelectPreset: (id: string | null) => void;
   onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => void;
   onOpenGallery: () => void;
-  lastPhoto: SavedPhotoMeta | null;
+  recentPhotos: SavedPhotoMeta[];
+  onOpenPhoto: (meta: SavedPhotoMeta) => void;
   onBurstSaved: (meta: SavedPhotoMeta) => void;
 }) {
+  const lastPhoto = recentPhotos[0] ?? null;
   const {
     videoRef,
     ready,
@@ -102,6 +105,7 @@ export default function Viewfinder({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [stayOnCapture, setStayOnCapture] = useState(false);
   const [evBias, setEvBias] = useState(0);
   const [isoIndex, setIsoIndex] = useState(() => nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
   const [kelvinIndex, setKelvinIndex] = useState(() =>
@@ -189,6 +193,7 @@ export default function Viewfinder({
 
   useEffect(() => {
     setShowGrid(getSettings().gridDefault);
+    setStayOnCapture(getSettings().stayOnCapture);
     return () => {
       if (countdownTimeout.current) clearTimeout(countdownTimeout.current);
     };
@@ -501,9 +506,25 @@ export default function Viewfinder({
           </div>
         </div>
 
+        {stayOnCapture && recentPhotos.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {recentPhotos.slice(0, 15).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onOpenPhoto(p)}
+                aria-label="Photo prise"
+                className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/25"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoUrl(p.id)} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-3 items-center pb-2 px-6">
           <div className="flex justify-start">
-            {lastPhoto ? (
+            {lastPhoto && !stayOnCapture ? (
               <button
                 onClick={onOpenGallery}
                 aria-label="Dernière photo"
@@ -570,7 +591,10 @@ export default function Viewfinder({
               setDashboardOpen(false);
               onOpenGallery();
             }}
-            onSettingsChange={(s) => setShowGrid(s.gridDefault)}
+            onSettingsChange={(s) => {
+              setShowGrid(s.gridDefault);
+              setStayOnCapture(s.stayOnCapture);
+            }}
           />
         </div>
       )}

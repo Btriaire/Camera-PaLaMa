@@ -6,9 +6,15 @@ import Editor from "@/components/Editor";
 import Gallery from "@/components/Gallery";
 import IntroScreen from "@/components/IntroScreen";
 import { useCamera } from "@/lib/useCamera";
+import { exportPhoto } from "@/lib/export";
 import { getSettings, hasSeenIntro, markIntroSeen } from "@/lib/settings";
-import { listPhotos } from "@/lib/storage";
+import { listPhotos, photoUrl, uploadPhoto } from "@/lib/storage";
 import { Adjustments, SavedPhotoMeta } from "@/lib/types";
+
+// Cap on how many recent shots the viewfinder's filmstrip (and the corner
+// peek) keep around in memory -- plenty for a shooting session, no reason
+// to grow forever.
+const MAX_RECENT_PHOTOS = 30;
 
 type CapturedPhoto = { bitmap: ImageBitmap; width: number; height: number };
 type Mode = "shoot" | "edit" | "gallery";
@@ -25,10 +31,11 @@ export default function CameraApp() {
   const [mode, setMode] = useState<Mode>("shoot");
   const [presetId, setPresetId] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(false);
-  // The last saved shot's thumbnail, shown small in a corner of the
-  // viewfinder while shooting — like a camera roll peek. Seeded from the
-  // library on mount, then updated instantly on each save (no refetch).
-  const [lastPhoto, setLastPhoto] = useState<SavedPhotoMeta | null>(null);
+  // Recent saved shots, most recent first — the corner "last photo" peek
+  // is just recentPhotos[0]; when "stay on viewfinder" is on, the whole
+  // array feeds the filmstrip. Seeded from the library on mount, then
+  // updated instantly on each save (no refetch).
+  const [recentPhotos, setRecentPhotos] = useState<SavedPhotoMeta[]>([]);
 
   // Applied after mount, not as a lazy useState initializer, so server and
   // client agree on the very first render (localStorage doesn't exist on
@@ -40,7 +47,7 @@ export default function CameraApp() {
     if (stored) setPresetId(stored);
     if (hasSeenIntro()) camera.requestAccess();
     else setShowIntro(true);
-    listPhotos().then((items) => setLastPhoto(items[0] ?? null));
+    listPhotos().then((items) => setRecentPhotos(items.slice(0, MAX_RECENT_PHOTOS)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -54,6 +61,15 @@ export default function CameraApp() {
   const [initialAdjustments, setInitialAdjustments] = useState<Adjustments | undefined>(undefined);
 
   const handleCapture = (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments) => {
+    if (getSettings().stayOnCapture) {
+      // Save with exactly the live style/ISO/K that took the shot and stay
+      // on the viewfinder — same export pipeline the editor's own "Save"
+      // uses, just triggered immediately instead of after manual edits.
+      exportPhoto(bitmap, width, height, adjustments, Math.random() * 1000)
+        .then((blob) => uploadPhoto(blob, { width, height, presetId, adjustments }))
+        .then((meta) => meta && handlePhotoSaved(meta));
+      return;
+    }
     setPhoto({ bitmap, width, height });
     setInitialAdjustments(adjustments);
     setMode("edit");
@@ -66,13 +82,22 @@ export default function CameraApp() {
     setMode("edit");
   };
 
+  // Tapping a shot in the viewfinder's filmstrip reopens that exact photo
+  // in the editor — same fetch-then-reopen path the gallery uses.
+  const handleOpenRecentPhoto = async (meta: SavedPhotoMeta) => {
+    const res = await fetch(photoUrl(meta.id));
+    const blob = await res.blob();
+    const bitmap = await createImageBitmap(blob);
+    handleReopen({ bitmap, width: meta.width || bitmap.width, height: meta.height || bitmap.height }, meta);
+  };
+
   const handleEditorClose = () => {
     setPhoto(null);
     setMode("shoot");
   };
 
   const handlePhotoSaved = (meta: SavedPhotoMeta) => {
-    setLastPhoto(meta);
+    setRecentPhotos((prev) => [meta, ...prev.filter((p) => p.id !== meta.id)].slice(0, MAX_RECENT_PHOTOS));
   };
 
   return (
@@ -84,7 +109,8 @@ export default function CameraApp() {
         onSelectPreset={setPresetId}
         onCapture={handleCapture}
         onOpenGallery={() => setMode("gallery")}
-        lastPhoto={lastPhoto}
+        recentPhotos={recentPhotos}
+        onOpenPhoto={handleOpenRecentPhoto}
         onBurstSaved={handlePhotoSaved}
       />
 
