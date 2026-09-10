@@ -121,7 +121,13 @@ export default function Viewfinder({
   active: boolean;
   presetId: string | null;
   onSelectPreset: (id: string | null) => void;
-  onCapture: (bitmap: ImageBitmap, width: number, height: number, adjustments: Adjustments, superRes: boolean) => void;
+  onCapture: (
+    bitmap: ImageBitmap,
+    width: number,
+    height: number,
+    adjustments: Adjustments,
+    aiOptions: { superRes: boolean; denoise: boolean }
+  ) => void;
   onOpenGallery: () => void;
   recentPhotos: SavedPhotoMeta[];
   pendingSaves: number;
@@ -156,6 +162,7 @@ export default function Viewfinder({
   // whatever gets captured next," same idea as a flash mode.
   const [superContrastOn, setSuperContrastOn] = useState(false);
   const [superResOn, setSuperResOn] = useState(false);
+  const [denoiseAIOn, setDenoiseAIOn] = useState(false);
   // SuperZoom: zoom past the camera's own reported max (or, on a device
   // that reports no zoom capability at all, past 1x) can only mean cropping
   // in — there's no more lens to move. uiZoom is that full range, decoupled
@@ -357,7 +364,7 @@ export default function Viewfinder({
           shot = await applySuperZoom(shot, digitalZoomFactor);
         }
         setShotCount((n) => n + 1);
-        onCapture(shot.bitmap, shot.width, shot.height, adjustments, superResOn);
+        onCapture(shot.bitmap, shot.width, shot.height, adjustments, { superRes: superResOn, denoise: denoiseAIOn });
       }
     } finally {
       setCapturing(false);
@@ -493,7 +500,7 @@ export default function Viewfinder({
         }
       }
       setShotCount((n) => n + 1);
-      onCapture(shot.bitmap, shot.width, shot.height, adjustments, superResOn);
+      onCapture(shot.bitmap, shot.width, shot.height, adjustments, { superRes: superResOn, denoise: denoiseAIOn });
     } else if (shots.length > 1) {
       setShotCount((n) => n + shots.length);
       setBurstReview(shots);
@@ -815,6 +822,17 @@ export default function Viewfinder({
           >
             <ContrastIcon className="w-4 h-4" />
             Super Contraste
+          </button>
+
+          <button
+            onClick={() => setDenoiseAIOn((v) => !v)}
+            aria-pressed={denoiseAIOn}
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+              denoiseAIOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+            }`}
+          >
+            <SparkleIcon className="w-4 h-4" />
+            Débruitage IA
           </button>
 
           <button

@@ -151,3 +151,41 @@ export async function enhanceCroppedZoom(
   if (!blob) throw new Error("Échec du recadrage SuperZoom");
   return superResolve(blob, onProgress);
 }
+
+// Débruitage IA: there IS a model trained specifically for this — MAXIM —
+// but it ships ~110MB of unquantized weights (a 27MB model.json alone) and
+// its architecture (multi-axis gated MLP + cross-gating blocks) targets
+// benchmark quality, not speed; even esrgan-slim's tiny 900KB CNN already
+// takes minutes per photo on modest hardware, so MAXIM would be a
+// multi-times-heavier download for an almost certainly worse wait. Instead
+// this reuses the same ESRGAN network Super-résolution IA already ships:
+// it was never trained to denoise, but restoring detail at 2x and
+// resampling back down suppresses noise as a side effect of the
+// reconstruction — a real, if secondary, use of the same on-device AI,
+// not a purpose-built denoiser. Like superResolve, input is capped before
+// the AI pass, so on a photo already past that cap the result comes back
+// at the capped size rather than the original's — see superResOutputSize's
+// note on the same tradeoff.
+export function aiDenoiseOutputSize(width: number, height: number) {
+  const scale = Math.min(1, MAX_INPUT_EDGE / Math.max(width, height));
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
+export async function aiDenoise(source: Blob, onProgress?: (fraction: number) => void): Promise<SuperResResult> {
+  const upscaled = await superResolve(source, onProgress);
+  const upscaledBitmap = await createImageBitmap(upscaled.blob);
+  const width = Math.round(upscaled.width / SUPER_RES_SCALE);
+  const height = Math.round(upscaled.height / SUPER_RES_SCALE);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Contexte 2D indisponible");
+  ctx.drawImage(upscaledBitmap, 0, 0, width, height);
+  upscaledBitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+  if (!blob) throw new Error("Échec du débruitage IA");
+  return { blob, width, height };
+}

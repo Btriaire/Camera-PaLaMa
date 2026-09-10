@@ -5,7 +5,7 @@ import { GLRenderer } from "@/lib/gl/renderer";
 import { exportPhoto } from "@/lib/export";
 import { shareOrDownloadPhoto } from "@/lib/sharePhoto";
 import { uploadPhoto } from "@/lib/storage";
-import { superResolve, superResOutputSize } from "@/lib/superRes";
+import { aiDenoise, aiDenoiseOutputSize, superResolve, superResOutputSize } from "@/lib/superRes";
 import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
 import Dial from "./Dial";
@@ -33,15 +33,17 @@ export default function Editor({
   initialPresetId = null,
   initialAdjustments,
   initialSuperRes = false,
+  initialDenoiseAI = false,
   onClose,
   onSaved,
 }: {
   photo: CapturedPhoto;
   initialPresetId?: string | null;
   initialAdjustments?: Adjustments;
-  // Carries the viewfinder's "Super-résolution IA" toggle over so it stays
-  // armed for this photo without the user having to flip it again here.
+  // Carries the viewfinder's "Super-résolution IA"/"Débruitage IA" toggles
+  // over so they stay armed for this photo without flipping them again here.
   initialSuperRes?: boolean;
+  initialDenoiseAI?: boolean;
   onClose: () => void;
   onSaved?: (meta: SavedPhotoMeta) => void;
 }) {
@@ -67,6 +69,12 @@ export default function Editor({
   const [superRes, setSuperRes] = useState(initialSuperRes);
   const [superResProgress, setSuperResProgress] = useState<number | null>(null);
   const superResSize = useMemo(() => superResOutputSize(photo.width, photo.height), [photo.width, photo.height]);
+  // Débruitage IA (lib/superRes.ts) is the same kind of one-shot AI step,
+  // reusing the same network — see aiDenoise's own comment for why this
+  // isn't a separately-trained denoising model.
+  const [denoiseAI, setDenoiseAI] = useState(initialDenoiseAI);
+  const [denoiseProgress, setDenoiseProgress] = useState<number | null>(null);
+  const denoiseSize = useMemo(() => aiDenoiseOutputSize(photo.width, photo.height), [photo.width, photo.height]);
 
   const editedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const originalCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -170,18 +178,34 @@ export default function Editor({
     setPresetId(null);
   };
 
-  // Renders through the shader at full resolution, then — if the AI toggle
-  // is on — routes that through the real super-resolution pass. Returns the
-  // final dimensions alongside the blob since super-res changes them.
+  // Renders through the shader at full resolution, then chains whichever
+  // AI toggles are on — denoise before super-res, since cleaning up noise
+  // before synthesizing extra detail from it makes more sense than the
+  // reverse. Returns the final dimensions alongside the blob since either
+  // step can change them.
   const runExport = async (): Promise<{ blob: Blob; width: number; height: number }> => {
-    const blob = await exportPhoto(photo.bitmap, photo.width, photo.height, adjustments, seed);
-    if (!superRes) return { blob, width: photo.width, height: photo.height };
-    setSuperResProgress(0);
-    try {
-      return await superResolve(blob, (fraction) => setSuperResProgress(fraction));
-    } finally {
-      setSuperResProgress(null);
+    let result: { blob: Blob; width: number; height: number } = {
+      blob: await exportPhoto(photo.bitmap, photo.width, photo.height, adjustments, seed),
+      width: photo.width,
+      height: photo.height,
+    };
+    if (denoiseAI) {
+      setDenoiseProgress(0);
+      try {
+        result = await aiDenoise(result.blob, (fraction) => setDenoiseProgress(fraction));
+      } finally {
+        setDenoiseProgress(null);
+      }
     }
+    if (superRes) {
+      setSuperResProgress(0);
+      try {
+        result = await superResolve(result.blob, (fraction) => setSuperResProgress(fraction));
+      } finally {
+        setSuperResProgress(null);
+      }
+    }
+    return result;
   };
 
   const handleDownload = async () => {
@@ -274,6 +298,15 @@ export default function Editor({
           <CompareIcon className="w-5 h-5" />
         </button>
 
+        {denoiseProgress !== null && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+            <SparkleIcon className="w-8 h-8 animate-pulse text-cyan-300" />
+            <p className="text-sm text-white/80">
+              {denoiseProgress < 0.99 ? `Débruitage IA… ${Math.round(denoiseProgress * 100)}%` : "Finalisation…"}
+            </p>
+          </div>
+        )}
+
         {superResProgress !== null && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
             <SparkleIcon className="w-8 h-8 animate-pulse text-cyan-300" />
@@ -290,19 +323,31 @@ export default function Editor({
 
       <div className="border-t border-white/10 bg-zinc-950">
         <div className="flex flex-col gap-2 px-4 py-3">
-          <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="flex w-fit items-center gap-1.5 rounded-full border border-white/25 px-3 py-1.5 text-xs font-medium"
+          >
+            <ApertureIcon className="w-4 h-4" />
+            {PRESETS.find((p) => p.id === presetId)?.label ?? "Naturel"}
+          </button>
+
+          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
-              onClick={() => setPickerOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-white/25 px-3 py-1.5 text-xs font-medium"
+              onClick={() => setDenoiseAI((v) => !v)}
+              aria-pressed={denoiseAI}
+              disabled={busy !== null}
+              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                denoiseAI ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-300" : "border-white/25 text-white/60"
+              }`}
             >
-              <ApertureIcon className="w-4 h-4" />
-              {PRESETS.find((p) => p.id === presetId)?.label ?? "Naturel"}
+              <SparkleIcon className="w-3.5 h-3.5" />
+              Débruitage IA
             </button>
             <button
               onClick={() => setSuperRes((v) => !v)}
               aria-pressed={superRes}
               disabled={busy !== null}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                 superRes ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-300" : "border-white/25 text-white/60"
               }`}
             >
@@ -310,6 +355,13 @@ export default function Editor({
               Super-résolution IA
             </button>
           </div>
+          {denoiseAI && (
+            <p className="text-[10px] text-white/40">
+              Réutilise le réseau ESRGAN local (aucun envoi) — pas un modèle entraîné pour débruiter, mais
+              reconstruire puis rééchantillonner atténue le bruit en passant. → {denoiseSize.width}×
+              {denoiseSize.height}px.
+            </p>
+          )}
           {superRes && (
             <p className="text-[10px] text-white/40">
               Réseau ESRGAN local (aucun envoi), ×2 → {superResSize.width}×{superResSize.height}px. Prend de
