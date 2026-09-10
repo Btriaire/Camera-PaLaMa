@@ -145,6 +145,19 @@ export function GalleryGridIcon({ className = base }: IconProps) {
   );
 }
 
+export function LongExposureIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="7" cy="17" r="3" />
+      <path
+        strokeLinecap="round"
+        d="M9.5 15.2C13 10.5 16 6.5 20.5 4.5M12.2 16.8C15 13.6 17.3 11 19.7 8.7M14.6 18.3C16.5 16.5 17.9 15 19.2 13.4"
+        opacity="0.9"
+      />
+    </svg>
+  );
+}
+
 export function GridIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">

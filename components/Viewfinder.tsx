@@ -12,6 +12,7 @@ import { photoUrl } from "@/lib/storage";
 import { useDeviceTilt } from "@/lib/useDeviceTilt";
 import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
 import { cropForDigitalZoom, enhanceCroppedZoom, SUPER_ZOOM_AI_MULTIPLIER } from "@/lib/superRes";
+import { LONG_EXPOSURE_BLENDS, LONG_EXPOSURE_DURATIONS, LongExposureAccumulator, LongExposureBlend } from "@/lib/longExposure";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
@@ -28,6 +29,7 @@ import {
   FlipCameraIcon,
   GalleryGridIcon,
   GridIcon,
+  LongExposureIcon,
   ScreenFlashIcon,
   SettingsIcon,
   SparkleIcon,
@@ -176,6 +178,15 @@ export default function Viewfinder({
   const [superZoomProgress, setSuperZoomProgress] = useState<number | null>(null);
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [flashMenuOpen, setFlashMenuOpen] = useState(false);
+  // Pose longue: 0 means off. Real-time frame accumulation (see
+  // lib/longExposure.ts) rather than AI, so the live canvas below shows
+  // the actual result building up, not a stand-in progress bar.
+  const [longExposureSeconds, setLongExposureSeconds] = useState<number>(0);
+  const [longExposureBlend, setLongExposureBlend] = useState<LongExposureBlend>("lighten");
+  const [longExposureMenuOpen, setLongExposureMenuOpen] = useState(false);
+  const [longExposureElapsedMs, setLongExposureElapsedMs] = useState<number | null>(null);
+  const longExposureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const longExposureStop = useRef(false);
   const [stayOnCapture, setStayOnCapture] = useState(false);
   const [evBias, setEvBias] = useState(0);
   const [isoIndex, setIsoIndex] = useState(() => nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
@@ -388,6 +399,44 @@ export default function Viewfinder({
     }
   };
 
+  // Pose longue: captures frames as fast as the camera will give them and
+  // composites each one live onto longExposureCanvasRef (see
+  // lib/longExposure.ts) until the chosen duration elapses or a second tap
+  // ends it early. The result then goes through onCapture exactly like any
+  // other shot, so presets/adjustments and the AI toggles above still
+  // apply to it once.
+  const runLongExposureCapture = async () => {
+    const canvas = longExposureCanvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video || video.readyState < 2 || video.videoWidth === 0) return;
+    setCapturing(true);
+    longExposureStop.current = false;
+    const durationMs = longExposureSeconds * 1000;
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    const accumulator = new LongExposureAccumulator(canvas, width, height, longExposureBlend);
+    const start = Date.now();
+    setLongExposureElapsedMs(0);
+    try {
+      while (Date.now() - start < durationMs && !longExposureStop.current) {
+        const shot = await captureFast();
+        if (shot) {
+          accumulator.addFrame(shot.bitmap);
+          shot.bitmap.close();
+        }
+        setLongExposureElapsedMs(Date.now() - start);
+      }
+      if (accumulator.frameCount === 0) return;
+      const blob = await accumulator.toBlob();
+      const bitmap = await createImageBitmap(blob);
+      setShotCount((n) => n + 1);
+      onCapture(bitmap, width, height, adjustments, { superRes: superResOn, denoise: denoiseAIOn });
+    } finally {
+      setCapturing(false);
+      setLongExposureElapsedMs(null);
+    }
+  };
+
   // Recursive setTimeout chain kicked off from a click handler (never from
   // an effect body) — each tick's setState happens inside a timer callback,
   // the pattern React's docs actually recommend for "do something after a
@@ -457,7 +506,7 @@ export default function Viewfinder({
   const cycleKelvin = (dir: 1 | -1) => setKelvinIndex((i) => clamp(i + dir, 0, KELVIN_STEPS.length - 1));
 
   const handleShutterDown = () => {
-    if (countdown !== null || timerSeconds > 0 || capturing) return;
+    if (countdown !== null || timerSeconds > 0 || capturing || longExposureSeconds > 0) return;
     burstActive.current = true;
     burstShots.current = [];
     setBurstCount(0);
@@ -466,6 +515,15 @@ export default function Viewfinder({
   };
 
   const handleShutterUp = async () => {
+    // Pose longue takes over the shutter entirely while armed: one tap
+    // starts it, a second tap (while it's running) ends it early with
+    // whatever's accumulated so far instead of waiting out the full
+    // duration — like letting go of a real bulb-exposure shutter button.
+    if (longExposureSeconds > 0) {
+      if (capturing) longExposureStop.current = true;
+      else await runLongExposureCapture();
+      return;
+    }
     if (countdown !== null) {
       cancelCountdown();
       return;
@@ -562,6 +620,15 @@ export default function Viewfinder({
         onPointerCancel={handleCanvasPointerUp}
         className="absolute inset-0 h-full w-full object-cover touch-none"
       />
+      {/* Pose longue's live accumulation — see runLongExposureCapture.
+          Always mounted (never conditionally rendered) so its ref is
+          already attached by the time a shutter tap starts a capture;
+          only visible while one is actually running. */}
+      <canvas
+        ref={longExposureCanvasRef}
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ opacity: longExposureElapsedMs !== null ? 1 : 0 }}
+      />
 
       <Hud
         skin={hudSkin}
@@ -610,6 +677,14 @@ export default function Viewfinder({
           <p className="text-sm text-white/80">
             {superZoomProgress < 0.99 ? `SuperZoom IA… ${Math.round(superZoomProgress * 100)}%` : "Finalisation…"}
           </p>
+        </div>
+      )}
+
+      {longExposureElapsedMs !== null && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-32 flex flex-col items-center gap-2">
+          <span className="rounded-full bg-black/60 px-3 py-1.5 text-sm font-mono tabular-nums text-amber-300 backdrop-blur">
+            {(longExposureElapsedMs / 1000).toFixed(1)}s / {longExposureSeconds}s — retapez pour arrêter
+          </span>
         </div>
       )}
 
@@ -704,6 +779,63 @@ export default function Viewfinder({
                 {flashMode === m.id && <CheckIcon className="h-4 w-4 shrink-0 text-white" />}
               </button>
             ))}
+          </div>
+        </>
+      )}
+
+      {longExposureMenuOpen && (
+        <>
+          <button
+            className="fixed inset-0 z-30"
+            aria-label="Fermer le menu pose longue"
+            onClick={() => setLongExposureMenuOpen(false)}
+          />
+          <div
+            className="absolute left-4 right-4 z-40 rounded-2xl border border-white/15 bg-zinc-950/95 p-2 backdrop-blur"
+            style={{ bottom: "calc(max(1.5rem, env(safe-area-inset-bottom)) + 9rem)" }}
+          >
+            {LONG_EXPOSURE_BLENDS.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setLongExposureBlend(b.id)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ${
+                  longExposureBlend === b.id ? "bg-white/10" : ""
+                }`}
+              >
+                <span className="flex-1">
+                  <span className="block text-sm font-medium text-white">{b.label}</span>
+                  <span className="block text-[11px] leading-tight text-white/40">{b.blurb}</span>
+                </span>
+                {longExposureBlend === b.id && <CheckIcon className="h-4 w-4 shrink-0 text-white" />}
+              </button>
+            ))}
+            <div className="mt-1 flex items-center gap-1.5 border-t border-white/10 px-1 pt-2">
+              <button
+                onClick={() => {
+                  setLongExposureSeconds(0);
+                  setLongExposureMenuOpen(false);
+                }}
+                className={`flex-1 rounded-lg px-2 py-2 text-center text-xs font-medium ${
+                  longExposureSeconds === 0 ? "bg-white text-black" : "text-white/70"
+                }`}
+              >
+                Désactivé
+              </button>
+              {LONG_EXPOSURE_DURATIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setLongExposureSeconds(s);
+                    setLongExposureMenuOpen(false);
+                  }}
+                  className={`flex-1 rounded-lg px-2 py-2 text-center text-xs font-mono tabular-nums font-medium ${
+                    longExposureSeconds === s ? "bg-white text-black" : "text-white/70"
+                  }`}
+                >
+                  {s}s
+                </button>
+              ))}
+            </div>
           </div>
         </>
       )}
@@ -844,6 +976,17 @@ export default function Viewfinder({
           >
             <SparkleIcon className="w-4 h-4" />
             Super-résolution IA
+          </button>
+
+          <button
+            onClick={() => setLongExposureMenuOpen((v) => !v)}
+            aria-pressed={longExposureSeconds > 0}
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+              longExposureSeconds > 0 ? "border-amber-300/70 bg-amber-300/15 text-amber-300" : "border-white/25 bg-black/40 text-white"
+            }`}
+          >
+            <LongExposureIcon className="w-4 h-4" />
+            {longExposureSeconds > 0 ? `Pose longue ${longExposureSeconds}s` : "Pose longue"}
           </button>
         </div>
 
