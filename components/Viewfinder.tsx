@@ -243,59 +243,51 @@ export default function Viewfinder({
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-4"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onOpenGallery}
-            aria-label="Galerie"
-            className="rounded-full bg-black/40 p-2.5 text-white backdrop-blur"
-          >
-            <GalleryGridIcon />
+        <div className="flex items-center gap-3">
+          <button onClick={onOpenGallery} aria-label="Galerie" className="p-1 text-white drop-shadow-lg">
+            <GalleryGridIcon className="w-9 h-9" />
           </button>
           <button
             onClick={() => setDashboardOpen(true)}
             aria-label="Tableau de bord"
-            className="rounded-full bg-black/40 p-2.5 text-white backdrop-blur"
+            className="p-1 text-white drop-shadow-lg"
           >
-            <SettingsIcon />
+            <SettingsIcon className="w-9 h-9" />
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setTimerIndex((i) => (i + 1) % TIMER_STEPS.length)}
             aria-label="Retardateur"
-            className={`flex items-center gap-1 rounded-full p-2.5 backdrop-blur ${
-              timerSeconds > 0 ? "bg-white text-black" : "bg-black/40 text-white"
-            }`}
+            className={`relative p-1 drop-shadow-lg ${timerSeconds > 0 ? "text-amber-300" : "text-white"}`}
           >
-            <TimerIcon className="w-5 h-5" />
-            {timerSeconds > 0 && <span className="pr-0.5 text-xs font-medium">{timerSeconds}</span>}
+            <TimerIcon className="w-9 h-9" />
+            {timerSeconds > 0 && (
+              <span className="absolute -bottom-0.5 -right-0.5 text-[11px] font-bold leading-none">
+                {timerSeconds}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setShowGrid((g) => !g)}
             aria-label="Grille"
-            className={`rounded-full p-2.5 backdrop-blur ${showGrid ? "bg-white text-black" : "bg-black/40 text-white"}`}
+            className={`p-1 drop-shadow-lg ${showGrid ? "text-amber-300" : "text-white"}`}
           >
-            <GridIcon className="w-5 h-5" />
+            <GridIcon className="w-9 h-9" />
           </button>
           {capabilities.torch && (
             <button
               onClick={() => setTorch(!torchOn)}
               aria-label="Flash"
-              className={`rounded-full p-2.5 backdrop-blur ${
-                torchOn ? "bg-white text-black" : "bg-black/40 text-white"
-              }`}
+              className={`p-1 drop-shadow-lg ${torchOn ? "text-amber-300" : "text-white"}`}
             >
-              <FlashIcon className="w-5 h-5" off={!torchOn} />
+              <FlashIcon className="w-9 h-9" off={!torchOn} />
             </button>
           )}
           {capabilities.canSwitch && (
-            <button
-              onClick={flip}
-              aria-label="Changer de caméra"
-              className="rounded-full bg-black/40 p-2.5 text-white backdrop-blur"
-            >
-              <FlipCameraIcon className="w-5 h-5" />
+            <button onClick={flip} aria-label="Changer de caméra" className="p-1 text-white drop-shadow-lg">
+              <FlipCameraIcon className="w-9 h-9" />
             </button>
           )}
         </div>
