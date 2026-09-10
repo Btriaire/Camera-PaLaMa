@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   deletePhoto,
+  getStorageWarning,
   listPhotos,
   readPhotoFile,
   savePhoto,
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   }
 
   const items = await listPhotos();
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, storageWarning: getStorageWarning() });
 }
 
 // POST multipart/form-data: file=<blob>, meta=<json: {width,height,presetId,adjustments}>

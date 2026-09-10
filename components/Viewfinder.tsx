@@ -193,7 +193,11 @@ export default function Viewfinder({
   const [longExposureSeconds, setLongExposureSeconds] = useState<number>(0);
   const [longExposureBlend, setLongExposureBlend] = useState<LongExposureBlend>("lighten");
   const [longExposureMenuOpen, setLongExposureMenuOpen] = useState(false);
-  const [longExposureElapsedMs, setLongExposureElapsedMs] = useState<number | null>(null);
+  // Whole seconds remaining, not raw elapsed ms — updated only when the
+  // displayed number actually changes (see runLongExposureCapture) so a
+  // 10+ fps capture loop doesn't force a React render on every single
+  // frame just to redraw a number that only needs to change once a second.
+  const [longExposureRemainingS, setLongExposureRemainingS] = useState<number | null>(null);
   const longExposureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const longExposureStop = useRef(false);
   const [stayOnCapture, setStayOnCapture] = useState(false);
@@ -421,11 +425,19 @@ export default function Viewfinder({
     setCapturing(true);
     longExposureStop.current = false;
     const durationMs = longExposureSeconds * 1000;
-    const width = video.videoWidth;
-    const height = video.videoHeight;
+    // Capped the same way the live preview is (see the render loop above):
+    // this canvas is a real, visible, repeatedly-repainted 2D surface, not
+    // an offscreen one, and redrawing it at the sensor's full resolution
+    // 10+ times a second — on top of the WebGL preview already doing the
+    // same — is real compositor load for what's fundamentally a special
+    // effect, not a resolution-critical capture.
+    const scale = Math.min(1, 1080 / Math.max(video.videoWidth, video.videoHeight));
+    const width = Math.round(video.videoWidth * scale);
+    const height = Math.round(video.videoHeight * scale);
     const accumulator = new LongExposureAccumulator(canvas, width, height, longExposureBlend);
     const start = Date.now();
-    setLongExposureElapsedMs(0);
+    let shownRemaining = longExposureSeconds;
+    setLongExposureRemainingS(shownRemaining);
     try {
       while (Date.now() - start < durationMs && !longExposureStop.current) {
         const shot = await captureFast();
@@ -433,7 +445,11 @@ export default function Viewfinder({
           accumulator.addFrame(shot.bitmap);
           shot.bitmap.close();
         }
-        setLongExposureElapsedMs(Date.now() - start);
+        const remaining = Math.max(0, Math.ceil((durationMs - (Date.now() - start)) / 1000));
+        if (remaining !== shownRemaining) {
+          shownRemaining = remaining;
+          setLongExposureRemainingS(remaining);
+        }
       }
       if (accumulator.frameCount === 0) return;
       const blob = await accumulator.toBlob();
@@ -442,7 +458,7 @@ export default function Viewfinder({
       onCapture(bitmap, width, height, adjustments, { superRes: superResOn, denoise: denoiseAIOn });
     } finally {
       setCapturing(false);
-      setLongExposureElapsedMs(null);
+      setLongExposureRemainingS(null);
     }
   };
 
@@ -636,7 +652,7 @@ export default function Viewfinder({
       <canvas
         ref={longExposureCanvasRef}
         className="absolute inset-0 h-full w-full object-cover"
-        style={{ opacity: longExposureElapsedMs !== null ? 1 : 0 }}
+        style={{ opacity: longExposureRemainingS !== null ? 1 : 0 }}
       />
 
       <Hud
@@ -689,10 +705,13 @@ export default function Viewfinder({
         </div>
       )}
 
-      {longExposureElapsedMs !== null && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-32 flex flex-col items-center gap-2">
-          <span className="rounded-full bg-black/60 px-3 py-1.5 text-sm font-mono tabular-nums text-amber-300 backdrop-blur">
-            {(longExposureElapsedMs / 1000).toFixed(1)}s / {longExposureSeconds}s — retapez pour arrêter
+      {longExposureRemainingS !== null && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3">
+          <span className="text-7xl font-light tabular-nums text-amber-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            {longExposureRemainingS}
+          </span>
+          <span className="rounded-full bg-black/60 px-3 py-1.5 text-xs text-white/70 backdrop-blur">
+            Temps restant — retapez pour arrêter
           </span>
         </div>
       )}

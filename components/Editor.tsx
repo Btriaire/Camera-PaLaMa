@@ -63,6 +63,7 @@ export default function Editor({
   const [comparing, setComparing] = useState(false);
   const [busy, setBusy] = useState<"save" | "download" | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Real AI upscaling (lib/superRes.ts) is a one-shot, resolution-changing
   // operation, not a reversible slider — it lives outside Adjustments/
   // history on purpose, as an opt-in step applied right before export.
@@ -220,6 +221,7 @@ export default function Editor({
 
   const handleSave = async () => {
     setBusy("save");
+    setSaveError(null);
     try {
       const { blob, width, height } = await runExport();
       const result = await uploadPhoto(blob, {
@@ -231,7 +233,14 @@ export default function Editor({
       if (result) {
         setSaved(true);
         onSaved?.(result);
+      } else {
+        // uploadPhoto returns null on any non-OK response rather than
+        // throwing — silently doing nothing here would look identical to
+        // a successful save that just isn't showing its checkmark yet.
+        setSaveError("Échec de l'enregistrement — réessayez, ou vérifiez le stockage du déploiement.");
       }
+    } catch {
+      setSaveError("Échec de l'enregistrement — réessayez.");
     } finally {
       setBusy(null);
     }
@@ -268,6 +277,12 @@ export default function Editor({
           {busy === "save" ? "Envoi…" : saved ? "Enregistré" : "Enregistrer"}
         </button>
       </div>
+
+      {saveError && (
+        <div className="mx-4 mb-2 rounded-xl border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-200">
+          {saveError}
+        </div>
+      )}
 
       <div className="relative flex-1 min-h-0 overflow-hidden bg-black">
         {/*

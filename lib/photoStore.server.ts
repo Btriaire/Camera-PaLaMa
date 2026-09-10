@@ -16,6 +16,24 @@ import { SavedPhotoMeta } from "./types";
 // a real writable disk is already available.
 const BLOB_ENABLED = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
+// `VERCEL` is set by every Vercel deployment automatically (build and
+// runtime alike) — a reliable signal, unlike guessing from the URL or a
+// user-set env var. Vercel without Blob means every save silently lands on
+// a filesystem that's gone by the next request: not a bug anyone would see
+// in logs, just an empty library forever. Surfaced to the client (see
+// app/api/photos/route.ts) instead of staying a silent trap.
+export function getStorageWarning(): string | null {
+  if (process.env.VERCEL && !BLOB_ENABLED) {
+    return (
+      "Ce déploiement Vercel n'a pas de stockage Blob connecté : les photos " +
+      "enregistrées ici ne survivent pas à la requête suivante (le disque " +
+      "d'une fonction Vercel est éphémère). Connectez un store dans Vercel " +
+      "→ Storage → Create Database → Blob, puis redéployez."
+    );
+  }
+  return null;
+}
+
 const PHOTOS_DIR =
   process.env.PHOTOS_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), ".data", "photos");
 

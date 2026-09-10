@@ -19,11 +19,15 @@ export default function Gallery({
   onEdit: (photo: CapturedPhoto, meta: SavedPhotoMeta) => void;
 }) {
   const [items, setItems] = useState<SavedPhotoMeta[] | null>(null);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [opening, setOpening] = useState(false);
 
   useEffect(() => {
-    listPhotos().then(setItems);
+    listPhotos().then(({ items, storageWarning }) => {
+      setItems(items);
+      setStorageWarning(storageWarning);
+    });
   }, []);
 
   const handleEdit = async (meta: SavedPhotoMeta) => {
@@ -66,11 +70,17 @@ export default function Gallery({
         <h1 className="text-lg font-semibold">Bibliothèque</h1>
       </div>
 
+      {storageWarning && (
+        <div className="mx-3 mb-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          {storageWarning}
+        </div>
+      )}
+
       {items === null ? (
         <div className="flex-1 flex items-center justify-center text-white/40">Chargement…</div>
       ) : items.length === 0 ? (
         <div className="flex-1 flex items-center justify-center px-8 text-center text-white/40">
-          Aucune photo enregistrée pour l&apos;instant.
+          {storageWarning ? "" : "Aucune photo enregistrée pour l'instant."}
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-1 overflow-y-auto px-1 pb-[max(1rem,env(safe-area-inset-bottom))]">

@@ -1,11 +1,15 @@
 import { Adjustments, SavedPhotoMeta } from "./types";
 
 // Talks to app/api/photos/route.ts — the VPS-backed photo library.
-export async function listPhotos(): Promise<SavedPhotoMeta[]> {
+// storageWarning is non-null when the server detected it can't actually
+// persist saves in this deployment (see getStorageWarning) — worth
+// surfacing wherever the library is shown, not just where it's empty,
+// since a save can "succeed" from the UI's point of view and still vanish.
+export async function listPhotos(): Promise<{ items: SavedPhotoMeta[]; storageWarning: string | null }> {
   const res = await fetch("/api/photos", { cache: "no-store" });
-  if (!res.ok) return [];
+  if (!res.ok) return { items: [], storageWarning: null };
   const data = await res.json();
-  return data.items ?? [];
+  return { items: data.items ?? [], storageWarning: data.storageWarning ?? null };
 }
 
 export function photoUrl(id: string): string {

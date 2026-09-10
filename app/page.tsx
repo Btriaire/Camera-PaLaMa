@@ -48,7 +48,7 @@ export default function CameraApp() {
     if (stored) setPresetId(stored);
     if (hasSeenIntro()) camera.requestAccess();
     else setShowIntro(true);
-    listPhotos().then((items) => setRecentPhotos(items.slice(0, MAX_RECENT_PHOTOS)));
+    listPhotos().then(({ items }) => setRecentPhotos(items.slice(0, MAX_RECENT_PHOTOS)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
