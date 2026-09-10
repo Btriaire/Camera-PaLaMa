@@ -564,6 +564,7 @@ export default function Viewfinder({
       {dashboardOpen && (
         <div className="absolute inset-0 z-40">
           <Dashboard
+            camera={camera}
             onClose={() => setDashboardOpen(false)}
             onOpenGallery={() => {
               setDashboardOpen(false);

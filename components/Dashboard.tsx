@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { listPhotos } from "@/lib/storage";
 import { PRESETS } from "@/lib/presets";
 import { getSettings, saveSettings, Settings } from "@/lib/settings";
+import { useCamera } from "@/lib/useCamera";
+import { NATURAL_KEY, usePresetThumbnails } from "@/lib/usePresetThumbnails";
 import { BackIcon, CheckIcon, GalleryGridIcon } from "@/components/Icons";
+import PresetThumb, { NATURAL_GRADIENT, swatchGradient } from "@/components/PresetThumb";
 
 // A small dashboard, not a settings dump: what you have (photo count, style
 // count) and the few things worth defaulting (grid on at launch, which
@@ -12,16 +15,19 @@ import { BackIcon, CheckIcon, GalleryGridIcon } from "@/components/Icons";
 // preference, stored in localStorage since there's no account/server side
 // to this app.
 export default function Dashboard({
+  camera,
   onClose,
   onOpenGallery,
   onSettingsChange,
 }: {
+  camera: ReturnType<typeof useCamera>;
   onClose: () => void;
   onOpenGallery: () => void;
   onSettingsChange: (settings: Settings) => void;
 }) {
   const [settings, setSettings] = useState<Settings>(() => getSettings());
   const [photoCount, setPhotoCount] = useState<number | null>(null);
+  const thumbs = usePresetThumbnails(camera.videoRef.current);
 
   useEffect(() => {
     listPhotos().then((items) => setPhotoCount(items.length));
@@ -74,6 +80,8 @@ export default function Dashboard({
           <div className="flex flex-col gap-2">
             <PresetRow
               label="Naturel"
+              thumbSrc={thumbs[NATURAL_KEY]}
+              gradient={NATURAL_GRADIENT}
               active={settings.defaultPresetId === null}
               onClick={() => update({ defaultPresetId: null })}
             />
@@ -81,6 +89,8 @@ export default function Dashboard({
               <PresetRow
                 key={p.id}
                 label={p.label}
+                thumbSrc={thumbs[p.id]}
+                gradient={swatchGradient(p)}
                 active={settings.defaultPresetId === p.id}
                 onClick={() => update({ defaultPresetId: p.id })}
               />
@@ -128,15 +138,28 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
   );
 }
 
-function PresetRow({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function PresetRow({
+  label,
+  thumbSrc,
+  gradient,
+  active,
+  onClick,
+}: {
+  label: string;
+  thumbSrc?: string;
+  gradient: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-between rounded-2xl border px-4 py-2.5 text-left text-sm ${
+      className={`flex items-center gap-3 rounded-2xl border px-4 py-2.5 text-left text-sm ${
         active ? "border-white bg-white/10" : "border-white/15"
       }`}
     >
-      {label}
+      <PresetThumb src={thumbSrc} gradient={gradient} className="h-9 w-9" />
+      <span className="flex-1">{label}</span>
       {active && <CheckIcon className="w-4 h-4" />}
     </button>
   );
