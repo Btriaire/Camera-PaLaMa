@@ -16,6 +16,7 @@ import Dashboard from "./Dashboard";
 import BurstReview from "./BurstReview";
 import Histogram from "./Histogram";
 import LevelIndicator from "./LevelIndicator";
+import ZoomSlider from "./ZoomSlider";
 import {
   ApertureIcon,
   CameraIcon,
@@ -504,6 +505,18 @@ export default function Viewfinder({
           )}
         </div>
       </div>
+
+      {capabilities.zoom && (
+        <div className="absolute right-16 top-1/2 -translate-y-1/2">
+          <ZoomSlider
+            min={capabilities.zoom.min}
+            max={capabilities.zoom.max}
+            step={capabilities.zoom.step}
+            value={zoom}
+            onChange={setZoom}
+          />
+        </div>
+      )}
 
       {capabilities.zoom && (
         <div className="absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-full bg-black/40 px-1.5 py-2 backdrop-blur">
