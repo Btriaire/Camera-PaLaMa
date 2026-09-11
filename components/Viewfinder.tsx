@@ -11,6 +11,7 @@ import { getSettings } from "@/lib/settings";
 import { photoUrl } from "@/lib/storage";
 import { useDeviceTilt } from "@/lib/useDeviceTilt";
 import { useStabilizer } from "@/lib/useStabilizer";
+import { computeStabilizedCrop, shakeAxis } from "@/lib/stabilizerCrop";
 import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
 import { cropForDigitalZoom, enhanceCroppedZoom, SUPER_ZOOM_AI_MULTIPLIER } from "@/lib/superRes";
 import {
@@ -57,8 +58,15 @@ const LIVE_SUPER_CONTRAST = 70;
 
 // How much the stabilizer crops in to get shift margin — a real phone's
 // own EIS typically sacrifices somewhere in this range too; more margin
-// smooths bigger shakes but costs more of the frame permanently.
+// smooths bigger shakes but costs more of the frame permanently. Shake
+// saturates the full margin at SHAKE_DEADZONE_DEG of tilt from baseline.
+// "Ultra-stabilisateur" trades more of the frame for a bigger margin and
+// reacts to smaller tilts (a lower deadzone), for handheld Pose longue or
+// otherwise shaky situations where the base amount doesn't cut it.
 const STABILIZER_ZOOM = 1.12;
+const SHAKE_DEADZONE_DEG = 4;
+const STABILIZER_ZOOM_STRONG = 1.35;
+const SHAKE_DEADZONE_DEG_STRONG = 2;
 
 const PRESET_ORDER: (string | null)[] = [null, ...PRESETS.map((p) => p.id)];
 const TIMER_STEPS = [0, 3, 10] as const;
@@ -177,13 +185,24 @@ export default function Viewfinder({
   // it off (e.g. on a tripod, where the crop margin only costs framing for
   // nothing), not to opt in.
   const [stabilizerOn, setStabilizerOn] = useState(true);
-  // Mirrors stabilizerOn for the render loop's long-lived rAF closure,
-  // same reasoning as uiZoomRef below: toggling it shouldn't tear down and
-  // recreate the whole WebGL context every time.
+  // Ultra-stabilisateur: an independent, off-by-default stronger mode (more
+  // crop margin, reacts to smaller tilts) for handheld Pose longue or
+  // otherwise shaky shots where the base amount isn't enough. It can be on
+  // with the base stabilizer on or off — either way it's the one that wins
+  // (see stabZoom/stabDeadzone below), since applying both at once would
+  // just mean picking one crop factor over the other anyway.
+  const [superStabilizerOn, setSuperStabilizerOn] = useState(false);
+  // Mirrors stabilizerOn/superStabilizerOn for the render loop's long-lived
+  // rAF closure, same reasoning as uiZoomRef below: toggling either
+  // shouldn't tear down and recreate the whole WebGL context every time.
   const stabilizerOnRef = useRef(true);
+  const superStabilizerOnRef = useRef(false);
   useEffect(() => {
     stabilizerOnRef.current = stabilizerOn;
   }, [stabilizerOn]);
+  useEffect(() => {
+    superStabilizerOnRef.current = superStabilizerOn;
+  }, [superStabilizerOn]);
   // Super Contraste live-previews for real (it's just another shader
   // uniform, rendered the same on-screen as it will be in the capture).
   // Super-résolution IA can't live-preview — it's a several-second AI pass,
@@ -192,6 +211,16 @@ export default function Viewfinder({
   const [superContrastOn, setSuperContrastOn] = useState(false);
   const [superResOn, setSuperResOn] = useState(false);
   const [denoiseAIOn, setDenoiseAIOn] = useState(false);
+  // SuperZoom's AI enhancement (crop + ESRGAN upscale, see applySuperZoom)
+  // is a multi-second pass, exactly like Super-résolution IA/Débruitage IA
+  // above — but unlike those, it used to run automatically just because
+  // uiZoom's slider position crossed the hardware max, with no way to opt
+  // out short of zooming back down. That ambushed captures with a blocking
+  // "SuperZoom IA…" overlay nobody asked for. Now it's an explicit toggle,
+  // same pattern as the other two: past the hardware max, a capture still
+  // gets a plain crop (soft/blocky, instant, ordinary digital zoom) unless
+  // this is on.
+  const [superZoomOn, setSuperZoomOn] = useState(false);
   // SuperZoom: zoom past the camera's own reported max (or, on a device
   // that reports no zoom capability at all, past 1x) can only mean cropping
   // in — there's no more lens to move. uiZoom is that full range, decoupled
@@ -332,26 +361,33 @@ export default function Viewfinder({
         const w = Math.round(video.videoWidth * scale);
         const h = Math.round(video.videoHeight * scale);
         const digitalFactor = uiZoomRef.current / (capabilities.zoom?.max ?? 1);
-        // No point paying a permanent 12% FOV crop for compensation that
-        // has nothing to compensate with — see useStabilizer's own note on
-        // why availableRef can be false for the whole session (iOS Safari).
-        const stabOn = stabilizerOnRef.current && stabilizer.availableRef.current;
-        const totalZoom = Math.max(digitalFactor, 1) * (stabOn ? STABILIZER_ZOOM : 1);
+        // No point paying a permanent FOV crop for compensation that has
+        // nothing to compensate with — see useStabilizer's own note on why
+        // availableRef can be false for the whole session (iOS Safari).
+        // Ultra-stabilisateur wins when both are on — see its own state
+        // comment for why applying both at once wouldn't make sense.
+        const sensorAvailable = stabilizer.availableRef.current;
+        const stabOn = (stabilizerOnRef.current || superStabilizerOnRef.current) && sensorAvailable;
+        const stabZoom = superStabilizerOnRef.current ? STABILIZER_ZOOM_STRONG : STABILIZER_ZOOM;
+        const stabDeadzone = superStabilizerOnRef.current ? SHAKE_DEADZONE_DEG_STRONG : SHAKE_DEADZONE_DEG;
+        const totalZoom = Math.max(digitalFactor, 1) * (stabOn ? stabZoom : 1);
         if (totalZoom > 1.02) {
           zoomCropCanvas.width = w;
           zoomCropCanvas.height = h;
           const ctx = zoomCropCanvas.getContext("2d");
-          const cropW = video.videoWidth / totalZoom;
-          const cropH = video.videoHeight / totalZoom;
+          const shakeX = stabOn ? shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone) : 0;
+          const shakeY = stabOn ? shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone) : 0;
           // The shift only ever draws on the stabilizer's own slice of the
           // zoom (never SuperZoom's), so a deliberate zoom-in stays
           // centered on what was framed instead of drifting with shake.
-          const marginX = stabOn ? (video.videoWidth - video.videoWidth / STABILIZER_ZOOM) / 2 : 0;
-          const marginY = stabOn ? (video.videoHeight - video.videoHeight / STABILIZER_ZOOM) / 2 : 0;
-          const shiftX = stabOn ? stabilizer.shakeXRef.current * marginX : 0;
-          const shiftY = stabOn ? stabilizer.shakeYRef.current * marginY : 0;
-          const cropX = (video.videoWidth - cropW) / 2 + shiftX;
-          const cropY = (video.videoHeight - cropH) / 2 + shiftY;
+          const { cropX, cropY, cropW, cropH } = computeStabilizedCrop(
+            video.videoWidth,
+            video.videoHeight,
+            totalZoom,
+            stabOn ? stabZoom : 1,
+            shakeX,
+            shakeY
+          );
           if (ctx) {
             ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, w, h);
             renderer.uploadSource(zoomCropCanvas, w, h);
@@ -428,13 +464,17 @@ export default function Viewfinder({
   };
 
   // SuperZoom's actual "AI expanding beyond normal zoom": crop to the
-  // region that zoom level implies, then run the same super-resolution
-  // pass the editor's own toggle uses to reconstruct detail a plain
-  // crop+stretch would just blur away.
+  // region that zoom level implies, then — only if superZoomOn is armed —
+  // run the same super-resolution pass the editor's own toggle uses to
+  // reconstruct detail a plain crop+stretch would just blur away. Without
+  // it, a capture past the hardware max still gets the crop (so framing
+  // matches what was previewed) but skips the slow AI pass, same as
+  // ordinary digital zoom.
   const applySuperZoom = async (shot: CapturedPhoto, factor: number): Promise<CapturedPhoto> => {
+    const cropped = await cropForDigitalZoom(shot.bitmap, factor);
+    if (!superZoomOn) return cropped;
     setSuperZoomProgress(0);
     try {
-      const cropped = await cropForDigitalZoom(shot.bitmap, factor);
       const result = await enhanceCroppedZoom(cropped.bitmap, (fraction) => setSuperZoomProgress(fraction));
       const bitmap = await createImageBitmap(result.blob);
       return { bitmap, width: result.width, height: result.height };
@@ -466,6 +506,13 @@ export default function Viewfinder({
     const width = Math.round(video.videoWidth * scale);
     const height = Math.round(video.videoHeight * scale);
     const accumulator = new LongExposureAccumulator(canvas, width, height, longExposureBlend);
+    // Reused scratch canvas for the stabilizer's per-frame crop+shift, so
+    // hand-shake over the exposure doesn't blur/ghost the accumulated
+    // result — the stabilizer otherwise only ever touches the live preview
+    // (see useStabilizer's own comment), but a multi-second accumulation
+    // is exactly the one capture mode where uncompensated hand-shake would
+    // actually show up in the saved photo.
+    const stabCropCanvas = document.createElement("canvas");
     const start = Date.now();
     let shownRemaining = longExposureSeconds;
     setLongExposureRemainingS(shownRemaining);
@@ -473,7 +520,32 @@ export default function Viewfinder({
       while (Date.now() - start < durationMs && !longExposureStop.current) {
         const shot = await captureFast();
         if (shot) {
-          accumulator.addFrame(shot.bitmap);
+          const stabOn = (stabilizerOnRef.current || superStabilizerOnRef.current) && stabilizer.availableRef.current;
+          if (stabOn) {
+            const stabZoom = superStabilizerOnRef.current ? STABILIZER_ZOOM_STRONG : STABILIZER_ZOOM;
+            const stabDeadzone = superStabilizerOnRef.current ? SHAKE_DEADZONE_DEG_STRONG : SHAKE_DEADZONE_DEG;
+            const shakeX = shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone);
+            const shakeY = shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone);
+            const { cropX, cropY, cropW, cropH } = computeStabilizedCrop(
+              shot.width,
+              shot.height,
+              stabZoom,
+              stabZoom,
+              shakeX,
+              shakeY
+            );
+            stabCropCanvas.width = shot.width;
+            stabCropCanvas.height = shot.height;
+            const ctx = stabCropCanvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(shot.bitmap, cropX, cropY, cropW, cropH, 0, 0, shot.width, shot.height);
+              accumulator.addFrame(stabCropCanvas);
+            } else {
+              accumulator.addFrame(shot.bitmap);
+            }
+          } else {
+            accumulator.addFrame(shot.bitmap);
+          }
           shot.bitmap.close();
         }
         const remaining = Math.max(0, Math.ceil((durationMs - (Date.now() - start)) / 1000));
@@ -601,9 +673,10 @@ export default function Viewfinder({
       }
       // Already cropped to the SuperZoom framing inside runBurstLoop; a
       // single resolved shot is the one case worth paying for the AI
-      // enhancement pass on top of that crop.
+      // enhancement pass on top of that crop — and only if superZoomOn is
+      // armed, same opt-in as applySuperZoom above.
       let shot = shots[0];
-      if (digitalZoomFactor > 1.02) {
+      if (digitalZoomFactor > 1.02 && superZoomOn) {
         setSuperZoomProgress(0);
         try {
           const result = await enhanceCroppedZoom(shot.bitmap, (fraction) => setSuperZoomProgress(fraction));
@@ -914,13 +987,15 @@ export default function Viewfinder({
             <button
               key={level}
               onClick={() => setUiZoom(level)}
-              aria-label={`Zoom ${formatZoom(level)}${level > hardwareMaxZoom + 0.01 ? " (SuperZoom IA)" : ""}`}
+              aria-label={`Zoom ${formatZoom(level)}${
+                level > hardwareMaxZoom + 0.01 ? (superZoomOn ? " (SuperZoom IA)" : " (zoom numérique)") : ""
+              }`}
               className={`flex h-8 w-8 flex-col items-center justify-center rounded-full text-[11px] font-mono tabular-nums leading-none transition-colors ${
                 Math.abs(uiZoom - level) < 0.05 ? "bg-white text-black font-semibold" : "text-white/80"
               }`}
             >
               {formatZoom(level)}
-              {level > hardwareMaxZoom + 0.01 && <SparkleIcon className="w-2.5 h-2.5" />}
+              {level > hardwareMaxZoom + 0.01 && superZoomOn && <SparkleIcon className="w-2.5 h-2.5" />}
             </button>
           ))}
       </div>
@@ -931,7 +1006,7 @@ export default function Viewfinder({
         }`}
       >
         {formatZoom(uiZoom)}
-        {inSuperZoom && <SparkleIcon className="w-3.5 h-3.5 text-cyan-300" />}
+        {inSuperZoom && superZoomOn && <SparkleIcon className="w-3.5 h-3.5 text-cyan-300" />}
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -1018,6 +1093,35 @@ export default function Viewfinder({
             <StabilizerIcon className="w-4 h-4" />
             {stabilizerOn && !stabilizer.available ? "Stabilisateur (capteur indisponible)" : "Stabilisateur"}
           </button>
+
+          <button
+            onClick={() => setSuperStabilizerOn((v) => !v)}
+            aria-pressed={superStabilizerOn}
+            aria-label="Ultra-stabilisateur électronique"
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+              superStabilizerOn ? "border-violet-300/70 bg-violet-300/15 text-violet-300" : "border-white/25 bg-black/40 text-white"
+            }`}
+          >
+            <StabilizerIcon className="w-4 h-4" />
+            {superStabilizerOn && !stabilizer.available ? "Ultra-stabilisateur (capteur indisponible)" : "Ultra-stabilisateur"}
+          </button>
+
+          {/* Only shown once actually zoomed past the hardware max — this
+              is the one AI toggle that's about a mode the user has to
+              already be in for it to make sense, unlike the always-shown
+              toggles below which apply to any shot. */}
+          {inSuperZoom && (
+            <button
+              onClick={() => setSuperZoomOn((v) => !v)}
+              aria-pressed={superZoomOn}
+              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+                superZoomOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+              }`}
+            >
+              <SparkleIcon className="w-4 h-4" />
+              SuperZoom IA
+            </button>
+          )}
 
           <button
             onClick={() => setSuperContrastOn((v) => !v)}

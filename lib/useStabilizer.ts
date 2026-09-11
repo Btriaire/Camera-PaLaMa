@@ -6,8 +6,13 @@ import { useEffect, useRef, useState } from "react";
 // element from a web page, so this is the same trick real EIS uses once you
 // take the lens out of it — crop in a bit for margin, then shift that crop
 // opposite to the phone's own jitter so the framing holds steadier than the
-// hand doing it. It only smooths what you SEE while composing; a capture
-// still grabs the plain, uncropped frame, the same as with this off.
+// hand doing it. Viewfinder applies this to the live preview every frame,
+// and (for Pose longue) to each accumulated frame of the actual output too
+// — see runLongExposureCapture — since that's the one capture mode long
+// enough for hand-shake to visibly blur or ghost the result. A quick single
+// shot still grabs the plain, uncropped frame: there's no way to know what
+// shake happened during an exposure that's already over by the time this
+// hook could react to it.
 //
 // Same platform gap as the level indicator (lib/useDeviceTilt.ts): Android
 // and desktop Chrome fire 'deviceorientation' the moment something listens;
@@ -29,21 +34,22 @@ export type Stabilizer = {
   // needs a ref to read the current value rather than the stale one from
   // whenever the effect last ran.
   availableRef: React.RefObject<boolean>;
-  // Each in roughly [-1, 1] — how far current orientation has drifted from
-  // the slow-moving baseline, saturating at BASELINE_DEADZONE_DEG of tilt.
-  // The caller decides how many pixels of crop margin that maps to.
-  shakeXRef: React.RefObject<number>;
-  shakeYRef: React.RefObject<number>;
+  // Signed degrees of drift from the slow-moving baseline — NOT yet
+  // normalized to any deadzone. "Stabilisateur" and "Ultra-stabilisateur"
+  // (lib/stabilizerCrop.ts's shakeAxis) saturate at different tilt amounts,
+  // so the caller picks the deadzone and does that division itself rather
+  // than this hook baking one strength in.
+  deltaXDegRef: React.RefObject<number>;
+  deltaYDegRef: React.RefObject<number>;
 };
 
 const BASELINE_SMOOTHING = 0.02; // per-sample EMA weight -- slow, tracks intentional framing, not shake
-const SHAKE_DEADZONE_DEG = 4; // tilt delta from baseline that saturates the compensation
 
 export function useStabilizer(): Stabilizer {
   const [available, setAvailable] = useState(false);
   const availableRef = useRef(false);
-  const shakeXRef = useRef(0);
-  const shakeYRef = useRef(0);
+  const deltaXDegRef = useRef(0);
+  const deltaYDegRef = useRef(0);
   const baseline = useRef<{ beta: number; gamma: number } | null>(null);
 
   useEffect(() => {
@@ -65,14 +71,12 @@ export function useStabilizer(): Stabilizer {
       }
       baseline.current.beta += (e.beta - baseline.current.beta) * BASELINE_SMOOTHING;
       baseline.current.gamma += (e.gamma - baseline.current.gamma) * BASELINE_SMOOTHING;
-      const deltaBeta = e.beta - baseline.current.beta;
-      const deltaGamma = e.gamma - baseline.current.gamma;
-      shakeYRef.current = Math.max(-1, Math.min(1, deltaBeta / SHAKE_DEADZONE_DEG));
-      shakeXRef.current = Math.max(-1, Math.min(1, deltaGamma / SHAKE_DEADZONE_DEG));
+      deltaYDegRef.current = e.beta - baseline.current.beta;
+      deltaXDegRef.current = e.gamma - baseline.current.gamma;
     };
     window.addEventListener("deviceorientation", onOrientation);
     return () => window.removeEventListener("deviceorientation", onOrientation);
   }, []);
 
-  return { available, availableRef, shakeXRef, shakeYRef };
+  return { available, availableRef, deltaXDegRef, deltaYDegRef };
 }
