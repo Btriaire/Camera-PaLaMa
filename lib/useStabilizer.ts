@@ -54,6 +54,17 @@ export type Stabilizer = {
 };
 
 const BASELINE_SMOOTHING = 0.02; // per-sample EMA weight -- slow, tracks intentional framing, not shake
+// Separate, much faster low-pass on the shake signal itself (distinct from
+// the baseline above): real EIS always filters the raw gyro/accelerometer
+// signal before using it for compensation, precisely because the sensor's
+// own high-frequency noise would otherwise drive the correction directly —
+// and "Ultra-stabilisateur" (a smaller deadzone dividing that noise, times
+// a bigger crop margin multiplying it back into pixels) turns any of that
+// unfiltered noise into visibly more crop movement than the base mode
+// applies to the exact same input, not less. Reported as "Ultra makes it
+// worse" — this is real shake tracked a few samples' worth of lag behind,
+// not amplified noise passed straight through.
+const SHAKE_SMOOTHING = 0.25;
 
 export function useStabilizer(): Stabilizer {
   const [available, setAvailable] = useState(false);
@@ -61,6 +72,7 @@ export function useStabilizer(): Stabilizer {
   const deltaXDegRef = useRef(0);
   const deltaYDegRef = useRef(0);
   const baseline = useRef<{ beta: number; gamma: number } | null>(null);
+  const smoothedDelta = useRef({ beta: 0, gamma: 0 });
   const listening = useRef(false);
 
   const onOrientation = useCallback((e: DeviceOrientationEvent) => {
@@ -75,8 +87,12 @@ export function useStabilizer(): Stabilizer {
     }
     baseline.current.beta += (e.beta - baseline.current.beta) * BASELINE_SMOOTHING;
     baseline.current.gamma += (e.gamma - baseline.current.gamma) * BASELINE_SMOOTHING;
-    deltaYDegRef.current = e.beta - baseline.current.beta;
-    deltaXDegRef.current = e.gamma - baseline.current.gamma;
+    const rawDeltaBeta = e.beta - baseline.current.beta;
+    const rawDeltaGamma = e.gamma - baseline.current.gamma;
+    smoothedDelta.current.beta += (rawDeltaBeta - smoothedDelta.current.beta) * SHAKE_SMOOTHING;
+    smoothedDelta.current.gamma += (rawDeltaGamma - smoothedDelta.current.gamma) * SHAKE_SMOOTHING;
+    deltaYDegRef.current = smoothedDelta.current.beta;
+    deltaXDegRef.current = smoothedDelta.current.gamma;
   }, []);
 
   // Shared by the ungated auto-attach effect below and requestPermission's

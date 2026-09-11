@@ -63,10 +63,23 @@ const LIVE_SUPER_CONTRAST = 70;
 // "Ultra-stabilisateur" trades more of the frame for a bigger margin and
 // reacts to smaller tilts (a lower deadzone), for handheld Pose longue or
 // otherwise shaky situations where the base amount doesn't cut it.
+//
+// The margin and deadzone compound multiplicatively into how much crop
+// movement a given amount of real tilt produces (crop shift = shakeAxis(
+// delta, deadzone) * margin(zoom), and shakeAxis's own gain is 1/deadzone)
+// — the original 1.35/2° combination was roughly 4.8x more reactive than
+// the base 1.12/4° to the exact same sensor reading (2x from the deadzone
+// halving, ~2.4x more from the bigger margin), reported as "Ultra creates
+// more movement" rather than smoothing it out: real hand tremor and
+// ordinary sensor noise that the base mode's lower gain absorbs comfortably
+// got blown up into visibly larger, more frequent crop jumps instead.
+// 1.22/3° keeps Ultra meaningfully stronger for genuinely bigger shakes
+// (roughly 2.2x the base gain, not ~4.8x) without turning ordinary tremor
+// into the dominant visible motion.
 const STABILIZER_ZOOM = 1.12;
 const SHAKE_DEADZONE_DEG = 4;
-const STABILIZER_ZOOM_STRONG = 1.35;
-const SHAKE_DEADZONE_DEG_STRONG = 2;
+const STABILIZER_ZOOM_STRONG = 1.22;
+const SHAKE_DEADZONE_DEG_STRONG = 3;
 
 const PRESET_ORDER: (string | null)[] = [null, ...PRESETS.map((p) => p.id)];
 const TIMER_STEPS = [0, 3, 10] as const;
