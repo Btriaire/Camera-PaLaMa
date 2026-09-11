@@ -152,6 +152,45 @@ export const PRESETS: Preset[] = [
     adjustments: { monochrome: 100, contrast: 30, grain: 5, sharpen: 20, shadows: -5 },
   },
 
+  // Today's equivalent of the device cosplay above: the same idea (a real,
+  // specific camera's actual look and on-screen chrome), just for cameras
+  // you'd recognize from this decade instead of a past one — a small
+  // sensor, a wide fixed lens, and whatever automatic exposure/white
+  // balance and heavy video compression that combination always produces.
+  // No "era" badge since these aren't standing in for a period; iso/kelvin
+  // are representative (small sensors like these report gain, not a real
+  // ISO number, and never publish it), like the other approximated ones.
+  {
+    id: "dashcam",
+    label: "Dashcam",
+    blurb: "Grand-angle froid, hautes lumières cramées, l'œil qui ne cligne jamais",
+    category: "vintage",
+    hud: "dashcam",
+    iso: 200, // representative — small automotive-grade sensor, daylight auto-gain
+    kelvin: 6000, // representative — typical cool auto white-balance miss
+    adjustments: { temperature: -12, contrast: 8, saturation: -12, highlights: -20, shadows: -10, vignette: 25, grain: 12, denoise: 15, chromaticAberration: 12 },
+  },
+  {
+    id: "video-doorbell",
+    label: "Sonnette connectée",
+    blurb: "Grand-angle doux, HDR plat, quelqu'un sonne à la porte",
+    category: "vintage",
+    hud: "doorbell",
+    iso: 400, // representative — small wide-angle IP camera sensor
+    kelvin: 6500, // representative — LED-illuminator-influenced white balance
+    adjustments: { contrast: -8, shadows: 15, highlights: -15, saturation: -8, vignette: 35, chromaticAberration: 15, denoise: 12, sharpen: 10, temperature: -5 },
+  },
+  {
+    id: "webcam",
+    label: "Webcam",
+    blurb: "Compression basse, teint chaud, réunion qui aurait pu être un e-mail",
+    category: "vintage",
+    hud: "webcam",
+    iso: 400, // representative — laptop-lid sensor, indoor auto-gain
+    kelvin: 5000, // representative — warm auto white-balance overcorrection
+    adjustments: { temperature: 8, saturation: 10, contrast: 5, denoise: 22, vignette: 12, grain: 8, highlights: -8 },
+  },
+
   // Modern, non-costume filters: no era/ISO/Kelvin badge, no HUD cosplay —
   // just today's clean camera app UI, since these aren't standing in for a
   // specific old device.

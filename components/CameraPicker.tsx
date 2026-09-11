@@ -13,6 +13,9 @@ const HUD_LABEL: Record<HudSkin, string> = {
   camcorder: "Caméscope",
   cctv: "Vidéosurveillance",
   modern: "Moderne",
+  dashcam: "Dashcam",
+  doorbell: "Caméra connectée",
+  webcam: "Webcam",
 };
 
 // Full-screen browser for "which camera am I shooting with" — distinct from

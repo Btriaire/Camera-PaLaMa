@@ -48,7 +48,10 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
 // Which viewfinder HUD chrome a preset wears while shooting (see
 // components/Hud.tsx). "modern" means no cosplay overlay — these presets
 // are contemporary-filter looks, not a specific historic device.
-export type HudSkin = "film" | "cinema" | "camcorder" | "cctv" | "modern";
+// dashcam/doorbell/webcam are the same idea as cctv/camcorder (cosplaying a
+// specific real device's on-screen chrome) but for today's devices instead
+// of a period one.
+export type HudSkin = "film" | "cinema" | "camcorder" | "cctv" | "modern" | "dashcam" | "doorbell" | "webcam";
 
 export type Preset = {
   id: string;

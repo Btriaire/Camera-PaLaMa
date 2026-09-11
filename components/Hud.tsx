@@ -3,10 +3,11 @@
 import { HudSkin, Preset } from "@/lib/types";
 
 // The on-screen readouts a real camera viewfinder overlays on the image —
-// four cosplay skins tied to a preset's `hud` field (film SLR, cinema
-// digital, camcorder, CCTV) plus "modern", which shows nothing but the
-// grid: a contemporary filter isn't standing in for a specific old device,
-// so it doesn't get one.
+// cosplay skins tied to a preset's `hud` field (film SLR, cinema digital,
+// camcorder, CCTV, and today's equivalents: dashcam, video doorbell,
+// video-call webcam) plus "modern", which shows nothing but the grid: a
+// contemporary filter isn't standing in for a specific device, so it
+// doesn't get one.
 //
 // Every number here is genuinely live: resolution/fps from the active
 // track, zoom, battery, the clock, and now ISO/white-balance too, which
@@ -162,6 +163,67 @@ export default function Hud({
           </div>
           <div className={`absolute bottom-[168px] left-0 right-0 text-center text-[10px] text-green-400/50 ${mono}`}>
             {resolution ? `${resolution.width}x${resolution.height}` : "—"}
+          </div>
+        </>
+      )}
+
+      {skin === "dashcam" && (
+        <>
+          <div
+            className={`absolute left-3 flex items-center gap-1.5 text-[11px] text-white/80 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" /> REC
+          </div>
+          <div
+            className={`absolute right-3 text-[11px] text-white/70 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            {resolution ? `${resolution.width}×${resolution.height}` : "—"} {fps ? `${Math.round(fps)}fps` : ""}
+          </div>
+          <div className={`absolute bottom-[168px] left-3 rounded bg-black/55 px-1.5 py-0.5 text-[11px] text-white/85 ${mono}`}>
+            {now}
+          </div>
+          <div className={`absolute bottom-[168px] right-3 rounded bg-black/55 px-1.5 py-0.5 text-[10px] text-white/50 ${mono}`}>
+            CH1
+          </div>
+        </>
+      )}
+
+      {skin === "doorbell" && (
+        <>
+          <div
+            className="absolute left-3 flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur"
+            style={{ top: `calc(${topInset})` }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
+          </div>
+          {battery && (
+            <div
+              className="absolute right-3 rounded-full bg-black/40 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur"
+              style={{ top: `calc(${topInset})` }}
+            >
+              {battery}
+            </div>
+          )}
+          <div className="absolute bottom-[168px] left-0 right-0 flex justify-center">
+            <div className={`rounded-full bg-black/55 px-3 py-1.5 text-[11px] text-white/85 backdrop-blur ${mono}`}>
+              Entrée principale · {now}
+            </div>
+          </div>
+        </>
+      )}
+
+      {skin === "webcam" && (
+        <>
+          <div
+            className={`absolute left-3 flex items-center gap-1.5 text-[11px] text-white/70 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> {clock}
+          </div>
+          <div className="absolute bottom-[168px] left-3 rounded-md bg-black/60 px-2 py-1 text-[11px] font-medium text-white">
+            Vous
           </div>
         </>
       )}
