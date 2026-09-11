@@ -27,14 +27,10 @@ export default function Dashboard({
 }) {
   const [settings, setSettings] = useState<Settings>(() => getSettings());
   const [photoCount, setPhotoCount] = useState<number | null>(null);
-  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const thumbs = usePresetThumbnails(camera.videoRef.current);
 
   useEffect(() => {
-    listPhotos().then(({ items, storageWarning }) => {
-      setPhotoCount(items.length);
-      setStorageWarning(storageWarning);
-    });
+    listPhotos().then(({ items }) => setPhotoCount(items.length));
   }, []);
 
   const update = (patch: Partial<Settings>) => {
@@ -57,12 +53,6 @@ export default function Dashboard({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {storageWarning && (
-          <div className="mb-5 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-            {storageWarning}
-          </div>
-        )}
-
         <div className="mb-5 grid grid-cols-2 gap-2">
           <Stat value={photoCount === null ? "…" : String(photoCount)} label="Photos enregistrées" />
           <Stat value={String(PRESETS.length)} label="Styles disponibles" />

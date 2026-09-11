@@ -14,7 +14,7 @@ export default function IntroScreen({ onContinue }: { onContinue: () => void }) 
       <h1 className="text-xl font-semibold mb-2">Camera-PaLaMa</h1>
       <p className="mb-8 max-w-xs text-sm text-white/50">
         Cette app a besoin d&apos;accéder à la caméra pour prendre des photos — c&apos;est tout : rien n&apos;est
-        envoyé ailleurs que sur votre appareil et, si vous choisissez d&apos;enregistrer, votre propre serveur.
+        envoyé ailleurs, et les photos que vous enregistrez restent stockées ici, sur cet appareil.
       </p>
       <button
         onClick={onContinue}

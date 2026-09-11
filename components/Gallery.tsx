@@ -8,9 +8,9 @@ import PhotoViewer from "./PhotoViewer";
 
 type CapturedPhoto = { bitmap: ImageBitmap; width: number; height: number };
 
-// Grid of everything saved to the VPS. Tapping a shot opens it full-screen
-// in PhotoViewer first — see it large, read what camera made it, swipe to
-// the next one — rather than dropping straight into the editor.
+// Grid of everything saved on this device. Tapping a shot opens it
+// full-screen in PhotoViewer first — see it large, read what camera made
+// it, swipe to the next one — rather than dropping straight into the editor.
 export default function Gallery({
   onClose,
   onEdit,
@@ -19,15 +19,11 @@ export default function Gallery({
   onEdit: (photo: CapturedPhoto, meta: SavedPhotoMeta) => void;
 }) {
   const [items, setItems] = useState<SavedPhotoMeta[] | null>(null);
-  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [opening, setOpening] = useState(false);
 
   useEffect(() => {
-    listPhotos().then(({ items, storageWarning }) => {
-      setItems(items);
-      setStorageWarning(storageWarning);
-    });
+    listPhotos().then(({ items }) => setItems(items));
   }, []);
 
   const handleEdit = async (meta: SavedPhotoMeta) => {
@@ -70,17 +66,11 @@ export default function Gallery({
         <h1 className="text-lg font-semibold">Bibliothèque</h1>
       </div>
 
-      {storageWarning && (
-        <div className="mx-3 mb-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-          {storageWarning}
-        </div>
-      )}
-
       {items === null ? (
         <div className="flex-1 flex items-center justify-center text-white/40">Chargement…</div>
       ) : items.length === 0 ? (
         <div className="flex-1 flex items-center justify-center px-8 text-center text-white/40">
-          {storageWarning ? "" : "Aucune photo enregistrée pour l'instant."}
+          Aucune photo enregistrée pour l&apos;instant.
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-1 overflow-y-auto px-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
