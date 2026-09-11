@@ -506,12 +506,17 @@ export default function Viewfinder({
     const width = Math.round(video.videoWidth * scale);
     const height = Math.round(video.videoHeight * scale);
     const accumulator = new LongExposureAccumulator(canvas, width, height, longExposureBlend);
-    // Reused scratch canvas for the stabilizer's per-frame crop+shift, so
+    // Reused scratch canvas for the per-frame crop+shift below, so
     // hand-shake over the exposure doesn't blur/ghost the accumulated
     // result — the stabilizer otherwise only ever touches the live preview
     // (see useStabilizer's own comment), but a multi-second accumulation
     // is exactly the one capture mode where uncompensated hand-shake would
-    // actually show up in the saved photo.
+    // actually show up in the saved photo. The same canvas also carries
+    // SuperZoom's digital-zoom crop: without it, a Pose longue capture
+    // started while zoomed past the hardware max would ignore that zoom
+    // entirely and save the full, uncropped field of view — a jarring
+    // mismatch against the (correctly cropped) live preview it replaces
+    // the instant the exposure starts.
     const stabCropCanvas = document.createElement("canvas");
     const start = Date.now();
     let shownRemaining = longExposureSeconds;
@@ -520,17 +525,22 @@ export default function Viewfinder({
       while (Date.now() - start < durationMs && !longExposureStop.current) {
         const shot = await captureFast();
         if (shot) {
+          // Re-read every frame, same as the live preview loop above, so a
+          // pinch/slider zoom change mid-exposure is reflected the same way
+          // it would be if this were still just a live preview.
+          const digitalFactor = uiZoomRef.current / (capabilities.zoom?.max ?? 1);
           const stabOn = (stabilizerOnRef.current || superStabilizerOnRef.current) && stabilizer.availableRef.current;
-          if (stabOn) {
-            const stabZoom = superStabilizerOnRef.current ? STABILIZER_ZOOM_STRONG : STABILIZER_ZOOM;
-            const stabDeadzone = superStabilizerOnRef.current ? SHAKE_DEADZONE_DEG_STRONG : SHAKE_DEADZONE_DEG;
-            const shakeX = shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone);
-            const shakeY = shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone);
+          const stabZoom = superStabilizerOnRef.current ? STABILIZER_ZOOM_STRONG : STABILIZER_ZOOM;
+          const stabDeadzone = superStabilizerOnRef.current ? SHAKE_DEADZONE_DEG_STRONG : SHAKE_DEADZONE_DEG;
+          const totalZoom = Math.max(digitalFactor, 1) * (stabOn ? stabZoom : 1);
+          if (totalZoom > 1.02) {
+            const shakeX = stabOn ? shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone) : 0;
+            const shakeY = stabOn ? shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone) : 0;
             const { cropX, cropY, cropW, cropH } = computeStabilizedCrop(
               shot.width,
               shot.height,
-              stabZoom,
-              stabZoom,
+              totalZoom,
+              stabOn ? stabZoom : 1,
               shakeX,
               shakeY
             );
