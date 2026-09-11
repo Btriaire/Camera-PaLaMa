@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GLRenderer } from "@/lib/gl/renderer";
-import { exportPhoto } from "@/lib/export";
+import { exportPhoto, exportPhotoForAI, restyleAfterAI } from "@/lib/export";
 import { shareOrDownloadPhoto } from "@/lib/sharePhoto";
 import { uploadPhoto } from "@/lib/storage";
 import { aiDenoise, aiDenoiseOutputSize, superResolve, superResOutputSize } from "@/lib/superRes";
@@ -184,9 +184,19 @@ export default function Editor({
   // before synthesizing extra detail from it makes more sense than the
   // reverse. Returns the final dimensions alongside the blob since either
   // step can change them.
+  //
+  // When either AI step runs, the initial render strips grain/scanlines/
+  // chromatic aberration first (exportPhotoForAI) and reapplies them
+  // afterward at the AI's own resolution (restyleAfterAI) — see those
+  // functions' own comments for why: baking film grain in before the AI
+  // pass swamped its (already subtle) contribution on every vintage
+  // preset, which is most of them, making the toggle look like a no-op.
   const runExport = async (): Promise<{ blob: Blob; width: number; height: number }> => {
+    const needsAI = denoiseAI || superRes;
     let result: { blob: Blob; width: number; height: number } = {
-      blob: await exportPhoto(photo.bitmap, photo.width, photo.height, adjustments, seed),
+      blob: needsAI
+        ? await exportPhotoForAI(photo.bitmap, photo.width, photo.height, adjustments, seed)
+        : await exportPhoto(photo.bitmap, photo.width, photo.height, adjustments, seed),
       width: photo.width,
       height: photo.height,
     };
@@ -205,6 +215,9 @@ export default function Editor({
       } finally {
         setSuperResProgress(null);
       }
+    }
+    if (needsAI) {
+      result = { ...result, blob: await restyleAfterAI(result.blob, result.width, result.height, adjustments, seed) };
     }
     return result;
   };

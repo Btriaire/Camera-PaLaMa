@@ -6,7 +6,7 @@ import Editor from "@/components/Editor";
 import Gallery from "@/components/Gallery";
 import IntroScreen from "@/components/IntroScreen";
 import { useCamera } from "@/lib/useCamera";
-import { exportPhoto } from "@/lib/export";
+import { exportPhoto, exportPhotoForAI, restyleAfterAI } from "@/lib/export";
 import { aiDenoise, superResolve } from "@/lib/superRes";
 import { getSettings, hasSeenIntro, markIntroSeen } from "@/lib/settings";
 import { listPhotos, photoUrl, uploadPhoto } from "@/lib/storage";
@@ -83,11 +83,23 @@ export default function CameraApp() {
       // The viewfinder's Débruitage IA/Super-résolution IA toggles arm the
       // same AI passes the editor offers, applied here before upload since
       // there's no editor screen in this flow to trigger them from.
+      //
+      // Same grain-swap as Editor's runExport: when an AI pass runs, the
+      // initial render strips grain/scanlines/chromatic aberration (they'd
+      // otherwise swamp the AI's own, already-subtle contribution) and
+      // restyleAfterAI reapplies the full look on the AI's output.
       setPendingSaves((n) => n + 1);
-      exportPhoto(bitmap, width, height, adjustments, Math.random() * 1000)
+      const needsAI = aiOptions.denoise || aiOptions.superRes;
+      const seed = Math.random() * 1000;
+      (needsAI ? exportPhotoForAI(bitmap, width, height, adjustments, seed) : exportPhoto(bitmap, width, height, adjustments, seed))
         .then((blob) => ({ blob, width, height }))
         .then((result) => (aiOptions.denoise ? aiDenoise(result.blob) : result))
         .then((result) => (aiOptions.superRes ? superResolve(result.blob) : result))
+        .then(async (result) =>
+          needsAI
+            ? { ...result, blob: await restyleAfterAI(result.blob, result.width, result.height, adjustments, seed) }
+            : result
+        )
         .then((result) => uploadPhoto(result.blob, { width: result.width, height: result.height, presetId, adjustments }))
         .then((meta) => meta && handlePhotoSaved(meta))
         .finally(() => setPendingSaves((n) => Math.max(0, n - 1)));
