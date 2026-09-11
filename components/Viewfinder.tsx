@@ -140,6 +140,7 @@ export default function Viewfinder({
   onOpenGallery,
   recentPhotos,
   pendingSaves,
+  saveError,
   onOpenPhoto,
   onBurstSaved,
 }: {
@@ -157,6 +158,10 @@ export default function Viewfinder({
   onOpenGallery: () => void;
   recentPhotos: SavedPhotoMeta[];
   pendingSaves: number;
+  // Set (briefly) when a "rester sur le viseur" save fails — that flow has
+  // no editor screen of its own to show an error in, so without this the
+  // pulsing placeholder tile just quietly disappears with no explanation.
+  saveError: string | null;
   onOpenPhoto: (meta: SavedPhotoMeta) => void;
   onBurstSaved: (meta: SavedPhotoMeta) => void;
 }) {
@@ -845,6 +850,15 @@ export default function Viewfinder({
       {error && (
         <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-white/70">
           {error}
+        </div>
+      )}
+
+      {saveError && (
+        <div
+          className="absolute left-4 right-4 z-30 rounded-xl border border-red-400/40 bg-red-950/90 px-3 py-2 text-center text-xs text-red-200 backdrop-blur"
+          style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.25rem)" }}
+        >
+          {saveError}
         </div>
       )}
 

@@ -65,7 +65,22 @@ export async function POST(req: NextRequest) {
     adjustments: parsed.adjustments ?? NEUTRAL_ADJUSTMENTS,
   };
 
-  await savePhoto(id, buffer, ext, meta);
+  try {
+    await savePhoto(id, buffer, ext, meta);
+  } catch (err) {
+    // Most commonly a Vercel deployment with no Blob store connected (see
+    // getStorageWarning): the plain-files fallback then tries to write to
+    // that deployment's read-only filesystem and throws. Left uncaught,
+    // this used to surface as an opaque 500 with no body — the client
+    // treats any non-OK response the same either way, but this at least
+    // logs the real cause server-side and gives it a real error message
+    // rather than leaking a raw stack trace as the response.
+    console.error("Échec de l'enregistrement de la photo:", err);
+    return NextResponse.json(
+      { error: getStorageWarning() ?? "Échec de l'enregistrement de la photo sur le serveur." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ item: meta });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Viewfinder from "@/components/Viewfinder";
 import Editor from "@/components/Editor";
 import Gallery from "@/components/Gallery";
@@ -68,6 +68,13 @@ export default function CameraApp() {
   // which reads as "nothing happened" if you don't sit and watch the
   // filmstrip. Drives a pulsing placeholder tile there instead.
   const [pendingSaves, setPendingSaves] = useState(0);
+  // Surfaced when a stay-on-capture save fails (a rejected step, or
+  // uploadPhoto resolving null on a non-OK response, e.g. a deployment with
+  // no writable/Blob storage — see lib/storage.ts) — this flow has no
+  // editor screen to show Editor's own error banner in, so without this the
+  // pending tile just quietly disappears with the shot gone for good.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saveErrorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleCapture = (
     bitmap: ImageBitmap,
@@ -101,7 +108,18 @@ export default function CameraApp() {
             : result
         )
         .then((result) => uploadPhoto(result.blob, { width: result.width, height: result.height, presetId, adjustments }))
-        .then((meta) => meta && handlePhotoSaved(meta))
+        .then((meta) => {
+          // uploadPhoto resolves null (rather than throwing) on a non-OK
+          // response — treat that the same as any other failed step below
+          // instead of letting it fall through silently.
+          if (!meta) throw new Error("upload failed");
+          handlePhotoSaved(meta);
+        })
+        .catch(() => {
+          setSaveError("Échec de l'enregistrement — réessayez, ou vérifiez le stockage du déploiement.");
+          if (saveErrorTimeout.current) clearTimeout(saveErrorTimeout.current);
+          saveErrorTimeout.current = setTimeout(() => setSaveError(null), 5000);
+        })
         .finally(() => setPendingSaves((n) => Math.max(0, n - 1)));
       return;
     }
@@ -150,6 +168,7 @@ export default function CameraApp() {
         onOpenGallery={() => setMode("gallery")}
         recentPhotos={recentPhotos}
         pendingSaves={pendingSaves}
+        saveError={saveError}
         onOpenPhoto={handleOpenRecentPhoto}
         onBurstSaved={handlePhotoSaved}
       />
