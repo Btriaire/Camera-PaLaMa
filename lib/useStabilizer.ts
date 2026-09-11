@@ -105,11 +105,15 @@ export function useStabilizer(): Stabilizer {
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (typeof DeviceOrientationEvent === "undefined") return false;
-    const requestFn = (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
-      .requestPermission;
-    if (typeof requestFn !== "function") return true; // never gated -- the effect above already attached
+    const gatedCtor = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
+    if (typeof gatedCtor.requestPermission !== "function") return true; // never gated -- the effect above already attached
     try {
-      const result = await requestFn();
+      // Called AS DeviceOrientationEvent.requestPermission(), not through a
+      // detached reference — WebKit's native implementation is receiver-
+      // sensitive and throws "Illegal invocation" when called unbound,
+      // which a try/catch here would otherwise turn into a silent,
+      // permanent "capteur indisponible" with no real prompt ever shown.
+      const result = await gatedCtor.requestPermission();
       if (result !== "granted") return false;
       attach();
       return true;
