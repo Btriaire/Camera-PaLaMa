@@ -108,15 +108,16 @@ export default function CameraApp() {
             : result
         )
         .then((result) => uploadPhoto(result.blob, { width: result.width, height: result.height, presetId, adjustments }))
-        .then((meta) => {
-          // uploadPhoto resolves null (rather than throwing) on a non-OK
-          // response — treat that the same as any other failed step below
-          // instead of letting it fall through silently.
-          if (!meta) throw new Error("upload failed");
-          handlePhotoSaved(meta);
+        .then((result) => {
+          // uploadPhoto resolves { ok: false } (rather than throwing) on a
+          // non-OK response — treat that the same as any other failed step
+          // below instead of letting it fall through silently, and carry
+          // its own message (e.g. "no Vercel Blob store connected") along.
+          if (!result.ok) throw new Error(result.error);
+          handlePhotoSaved(result.item);
         })
-        .catch(() => {
-          setSaveError("Échec de l'enregistrement — réessayez, ou vérifiez le stockage du déploiement.");
+        .catch((err) => {
+          setSaveError(err instanceof Error && err.message ? err.message : "Échec de l'enregistrement — réessayez.");
           if (saveErrorTimeout.current) clearTimeout(saveErrorTimeout.current);
           saveErrorTimeout.current = setTimeout(() => setSaveError(null), 5000);
         })

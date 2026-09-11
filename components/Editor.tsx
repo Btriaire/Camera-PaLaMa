@@ -243,14 +243,16 @@ export default function Editor({
         presetId,
         adjustments,
       });
-      if (result) {
+      if (result.ok) {
         setSaved(true);
-        onSaved?.(result);
+        onSaved?.(result.item);
       } else {
-        // uploadPhoto returns null on any non-OK response rather than
-        // throwing — silently doing nothing here would look identical to
-        // a successful save that just isn't showing its checkmark yet.
-        setSaveError("Échec de l'enregistrement — réessayez, ou vérifiez le stockage du déploiement.");
+        // uploadPhoto resolves { ok: false } on any non-OK response rather
+        // than throwing — silently doing nothing here would look identical
+        // to a successful save that just isn't showing its checkmark yet.
+        // result.error is the server's own message when it has one (e.g.
+        // "no Vercel Blob store connected"), not just a generic guess.
+        setSaveError(result.error);
       }
     } catch {
       setSaveError("Échec de l'enregistrement — réessayez.");

@@ -58,13 +58,13 @@ export default function BurstReview({
       for (const i of Array.from(selected).sort((a, b) => a - b)) {
         const shot = shots[i];
         const blob = await exportPhoto(shot.bitmap, shot.width, shot.height, adjustments, Math.random() * 1000);
-        const meta = await uploadPhoto(blob, {
+        const result = await uploadPhoto(blob, {
           width: shot.width,
           height: shot.height,
           presetId,
           adjustments,
         });
-        if (meta) lastSaved = meta;
+        if (result.ok) lastSaved = result.item;
       }
     } finally {
       setSaving(false);

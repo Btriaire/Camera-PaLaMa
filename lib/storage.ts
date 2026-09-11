@@ -16,17 +16,32 @@ export function photoUrl(id: string): string {
   return `/api/photos?id=${id}&raw=1`;
 }
 
+const GENERIC_UPLOAD_ERROR = "Échec de l'enregistrement — réessayez.";
+
+export type UploadResult = { ok: true; item: SavedPhotoMeta } | { ok: false; error: string };
+
 export async function uploadPhoto(
   blob: Blob,
   meta: { width: number; height: number; presetId: string | null; adjustments: Adjustments }
-): Promise<SavedPhotoMeta | null> {
+): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", blob, blob.type === "image/png" ? "photo.png" : "photo.jpg");
   form.append("meta", JSON.stringify(meta));
-  const res = await fetch("/api/photos", { method: "POST", body: form });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.item ?? null;
+  try {
+    const res = await fetch("/api/photos", { method: "POST", body: form });
+    // The route returns a real, actionable message on failure (e.g. "no
+    // Vercel Blob store connected") — parsed defensively since a platform-
+    // level failure (a 413 over the body-size limit, a gateway timeout)
+    // can hand back a non-JSON body instead of the route's own response.
+    const data: { item?: SavedPhotoMeta; error?: string } | null = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ok: false, error: (data && typeof data.error === "string" && data.error) || GENERIC_UPLOAD_ERROR };
+    }
+    if (!data?.item) return { ok: false, error: GENERIC_UPLOAD_ERROR };
+    return { ok: true, item: data.item };
+  } catch {
+    return { ok: false, error: GENERIC_UPLOAD_ERROR };
+  }
 }
 
 export async function deletePhoto(id: string): Promise<boolean> {
