@@ -643,6 +643,18 @@ export default function Viewfinder({
   const cycleIso = (dir: 1 | -1) => setIsoIndex((i) => clamp(i + dir, 0, ISO_STEPS.length - 1));
   const cycleKelvin = (dir: 1 | -1) => setKelvinIndex((i) => clamp(i + dir, 0, KELVIN_STEPS.length - 1));
 
+  // Stabilisateur defaults to on, so most people never get a reason to tap
+  // it — which on iOS Safari means it also never gets the one user gesture
+  // DeviceOrientationEvent.requestPermission() requires, and the toggle
+  // quietly does nothing forever with no error in sight. Route both
+  // stabilizer buttons' taps through here so that gesture is never missed:
+  // harmless (resolves immediately, no prompt) once already available or
+  // on a platform that was never gated.
+  const toggleStabilizer = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    if (!stabilizer.available) stabilizer.requestPermission();
+    setter((v) => !v);
+  };
+
   const handleShutterDown = () => {
     if (countdown !== null || timerSeconds > 0 || capturing || longExposureSeconds > 0) return;
     burstActive.current = true;
@@ -1093,7 +1105,7 @@ export default function Viewfinder({
           </div>
 
           <button
-            onClick={() => setStabilizerOn((v) => !v)}
+            onClick={() => toggleStabilizer(setStabilizerOn)}
             aria-pressed={stabilizerOn}
             aria-label="Stabilisateur électronique"
             className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
@@ -1105,7 +1117,7 @@ export default function Viewfinder({
           </button>
 
           <button
-            onClick={() => setSuperStabilizerOn((v) => !v)}
+            onClick={() => toggleStabilizer(setSuperStabilizerOn)}
             aria-pressed={superStabilizerOn}
             aria-label="Ultra-stabilisateur électronique"
             className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
