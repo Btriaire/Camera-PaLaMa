@@ -352,7 +352,7 @@ export default function Editor({
       </div>
 
       <div className="border-t border-white/10 bg-zinc-950">
-        <div className="flex flex-col gap-2 px-4 py-3">
+        <div className="flex flex-col gap-1.5 px-4 py-2">
           <button
             onClick={() => setPickerOpen(true)}
             className="flex w-fit items-center gap-1.5 rounded-full border border-white/25 px-3 py-1.5 text-xs font-medium"
@@ -415,36 +415,49 @@ export default function Editor({
           )}
         </div>
 
-        <div className="max-h-[30dvh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <DialSection title="Lumière" accent="#fbbf24">
+        {/*
+          Snapseed-style tool strip: every dial sits in one horizontally
+          scrollable row instead of a tall vertical grid, so the strip's
+          height stays fixed (roughly one dial + label) no matter how many
+          adjustments exist, leaving the preview above free to dominate the
+          screen. Swiping sideways moves between tool groups instead of
+          scrolling down through them.
+        */}
+        <div className="overflow-x-auto pb-[max(0.75rem,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-start gap-4 px-4 pt-3">
+            <DialGroup title="Lumière" accent="#fbbf24">
               <Dial label="Exposition" value={adjustments.exposure} accent="#fbbf24" onChange={(v) => setField("exposure", v)} onCommit={(v) => commitField("exposure", v)} />
               <Dial label="Contraste" value={adjustments.contrast} accent="#fbbf24" onChange={(v) => setField("contrast", v)} onCommit={(v) => commitField("contrast", v)} />
               <Dial label="Hautes lumières" value={adjustments.highlights} accent="#fbbf24" onChange={(v) => setField("highlights", v)} onCommit={(v) => commitField("highlights", v)} />
               <Dial label="Ombres" value={adjustments.shadows} accent="#fbbf24" onChange={(v) => setField("shadows", v)} onCommit={(v) => commitField("shadows", v)} />
-            </DialSection>
-            <DialSection title="Couleur" accent="#f472b6">
+            </DialGroup>
+            <Divider />
+            <DialGroup title="Couleur" accent="#f472b6">
               <Dial label="Saturation" value={adjustments.saturation} accent="#f472b6" onChange={(v) => setField("saturation", v)} onCommit={(v) => commitField("saturation", v)} />
               <Dial label="Température" value={adjustments.temperature} accent="#f472b6" onChange={(v) => setField("temperature", v)} onCommit={(v) => commitField("temperature", v)} />
               <Dial label="Teinte" value={adjustments.tint} accent="#f472b6" onChange={(v) => setField("tint", v)} onCommit={(v) => commitField("tint", v)} />
               <Dial label="Noir & blanc" value={adjustments.monochrome} min={0} accent="#f472b6" onChange={(v) => setField("monochrome", v)} onCommit={(v) => commitField("monochrome", v)} />
               <Dial label="Virage couleur" value={adjustments.tintStrength} min={0} accent="#f472b6" onChange={(v) => setField("tintStrength", v)} onCommit={(v) => commitField("tintStrength", v)} />
-            </DialSection>
-            <DialSection title="Netteté" accent="#22d3ee">
+            </DialGroup>
+            <Divider />
+            <DialGroup title="Netteté" accent="#22d3ee">
               <Dial label="Netteté" value={adjustments.sharpen} min={0} accent="#22d3ee" onChange={(v) => setField("sharpen", v)} onCommit={(v) => commitField("sharpen", v)} />
               <Dial label="Super Contraste" value={adjustments.superContrast} min={0} accent="#22d3ee" onChange={(v) => setField("superContrast", v)} onCommit={(v) => commitField("superContrast", v)} />
               <Dial label="Réduction de bruit" value={adjustments.denoise} min={0} accent="#22d3ee" onChange={(v) => setField("denoise", v)} onCommit={(v) => commitField("denoise", v)} />
-            </DialSection>
-            <DialSection title="Effets pellicule" accent="#a78bfa">
+            </DialGroup>
+            <Divider />
+            <DialGroup title="Effets pellicule" accent="#a78bfa">
               <Dial label="Vignettage" value={adjustments.vignette} min={0} accent="#a78bfa" onChange={(v) => setField("vignette", v)} onCommit={(v) => commitField("vignette", v)} />
               <Dial label="Grain" value={adjustments.grain} min={0} accent="#a78bfa" onChange={(v) => setField("grain", v)} onCommit={(v) => commitField("grain", v)} />
               <Dial label="Délavé" value={adjustments.fade} min={0} accent="#a78bfa" onChange={(v) => setField("fade", v)} onCommit={(v) => commitField("fade", v)} />
               <Dial label="Aberration chromatique" value={adjustments.chromaticAberration} min={0} accent="#a78bfa" onChange={(v) => setField("chromaticAberration", v)} onCommit={(v) => commitField("chromaticAberration", v)} />
               <Dial label="Fuite de lumière" value={adjustments.lightLeak} min={0} accent="#a78bfa" onChange={(v) => setField("lightLeak", v)} onCommit={(v) => commitField("lightLeak", v)} />
               <Dial label="Lignes de balayage" value={adjustments.scanlines} min={0} accent="#a78bfa" onChange={(v) => setField("scanlines", v)} onCommit={(v) => commitField("scanlines", v)} />
-            </DialSection>
+            </DialGroup>
+          </div>
         </div>
 
-        <div className="flex justify-center gap-6 border-t border-white/10 px-4 py-3">
+        <div className="flex justify-center gap-6 border-t border-white/10 px-4 py-2">
           <button onClick={() => applyPreset(null)} className="text-sm text-white/50">
             Réinitialiser
           </button>
@@ -476,7 +489,10 @@ export default function Editor({
   );
 }
 
-function DialSection({
+// One tool group in the horizontal strip below the preview — a title chip
+// stacked over its dials, laid out inline so the whole group scrolls past
+// as a unit rather than wrapping onto a new line.
+function DialGroup({
   title,
   accent,
   children,
@@ -486,12 +502,18 @@ function DialSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="pt-3">
-      <div className="flex items-center gap-1.5 px-4 pb-2">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
-        <span className="text-[11px] font-medium uppercase tracking-wide text-white/40">{title}</span>
+    <div className="flex flex-shrink-0 flex-col gap-2">
+      <div className="flex items-center gap-1.5 pl-1">
+        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+        <span className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-white/40">
+          {title}
+        </span>
       </div>
-      <div className="grid grid-cols-4 gap-y-4 px-2 pb-1">{children}</div>
+      <div className="flex items-start gap-3">{children}</div>
     </div>
   );
+}
+
+function Divider() {
+  return <div className="mt-6 h-10 w-px flex-shrink-0 self-start bg-white/10" />;
 }
