@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CapturedPhoto, useCamera } from "@/lib/useCamera";
 import { useBattery } from "@/lib/useBattery";
 import { useClock } from "@/lib/useClock";
@@ -338,15 +338,52 @@ export default function Viewfinder({
   const isoExposureBias = isoStops * 8;
   const isoGrainBias = Math.max(0, isoStops) * 22;
   const kelvinTempBias = (kelvinValue - 5500) / 45;
-  const adjustments: Adjustments = {
-    ...baseAdjustments,
-    exposure: clamp(baseAdjustments.exposure + evBias + isoExposureBias, -100, 100),
-    grain: clamp(baseAdjustments.grain + isoGrainBias, 0, 100),
-    temperature: clamp(baseAdjustments.temperature + kelvinTempBias, -100, 100),
-    superContrast: superContrastOn ? LIVE_SUPER_CONTRAST : baseAdjustments.superContrast,
-  };
+  // Memoized on the primitives that actually determine it (not on
+  // baseAdjustments/preset, new object references every render) so it
+  // stays referentially stable across unrelated re-renders — the ref
+  // mirror effect above depends on this object, and without a stable
+  // reference it would fire, harmlessly but pointlessly, on every render.
+  const adjustments: Adjustments = useMemo(
+    () => ({
+      ...baseAdjustments,
+      exposure: clamp(baseAdjustments.exposure + evBias + isoExposureBias, -100, 100),
+      grain: clamp(baseAdjustments.grain + isoGrainBias, 0, 100),
+      temperature: clamp(baseAdjustments.temperature + kelvinTempBias, -100, 100),
+      superContrast: superContrastOn ? LIVE_SUPER_CONTRAST : baseAdjustments.superContrast,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [presetId, evBias, isoIndex, kelvinIndex, superContrastOn]
+  );
   const hudSkin = preset?.hud ?? "modern";
   const timerSeconds = TIMER_STEPS[timerIndex];
+
+  // Mirrors adjustments/zebraEnabled/capabilities for the render loop's
+  // long-lived rAF closure below, same reasoning as uiZoomRef and the
+  // stabilizer refs: the loop reads these from refs, updated here on every
+  // render, so it always sees the latest values without needing either of
+  // them in that effect's own dependency array — which used to include
+  // presetId, evBias, isoIndex, kelvinIndex, zebraEnabled and
+  // superContrastOn (everything adjustments is derived from), so picking a
+  // preset, nudging EV, or clicking ISO/Kelvin tore down and recreated the
+  // entire WebGL context (new program, shaders recompiled, new texture) on
+  // every tap. Beyond the waste, real mobile browsers cap how many WebGL
+  // contexts can be live at once (iOS Safari's limit is much tighter than
+  // desktop Chrome's) — tapping through several presets in a row, exactly
+  // what trying out new styles looks like, could exhaust it and leave the
+  // canvas permanently black with no recovery, since nothing here ever
+  // listened for a lost context either.
+  const adjustmentsRef = useRef(adjustments);
+  const zebraEnabledRef = useRef(zebraEnabled);
+  const capabilitiesRef = useRef(capabilities);
+  useEffect(() => {
+    adjustmentsRef.current = adjustments;
+  }, [adjustments]);
+  useEffect(() => {
+    zebraEnabledRef.current = zebraEnabled;
+  }, [zebraEnabled]);
+  useEffect(() => {
+    capabilitiesRef.current = capabilities;
+  }, [capabilities]);
 
   useEffect(() => {
     setIsoIndex(nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
@@ -378,7 +415,7 @@ export default function Viewfinder({
         const scale = Math.min(1, 1080 / Math.max(video.videoWidth, video.videoHeight));
         const w = Math.round(video.videoWidth * scale);
         const h = Math.round(video.videoHeight * scale);
-        const digitalFactor = uiZoomRef.current / (capabilities.zoom?.max ?? 1);
+        const digitalFactor = uiZoomRef.current / (capabilitiesRef.current.zoom?.max ?? 1);
         // No point paying a permanent FOV crop for compensation that has
         // nothing to compensate with — see useStabilizer's own note on why
         // availableRef can be false for the whole session (iOS Safari).
@@ -415,7 +452,7 @@ export default function Viewfinder({
         } else {
           renderer.uploadSource(video, w, h);
         }
-        renderer.render(adjustments, seed, zebraEnabled);
+        renderer.render(adjustmentsRef.current, seed, zebraEnabledRef.current);
         seed += 0.016;
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -427,8 +464,12 @@ export default function Viewfinder({
       rendererRef.current?.dispose();
       rendererRef.current = null;
     };
+    // adjustments/zebraEnabled/capabilities deliberately excluded — the
+    // loop reads them from refs (see the comment above their declaration)
+    // precisely so this effect, and the WebGL context it creates, doesn't
+    // tear down and recreate on every preset tap or dial nudge.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, active, presetId, evBias, isoIndex, kelvinIndex, zebraEnabled, superContrastOn]);
+  }, [ready, active]);
 
   useEffect(() => {
     setShowGrid(getSettings().gridDefault);
