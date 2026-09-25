@@ -401,6 +401,29 @@ export default function Viewfinder({
       return;
     }
 
+    // iOS Safari can drop a WebGL context under GPU/memory pressure at any
+    // time, independent of how it's used — and unlike desktop Chrome, it
+    // only fires webglcontextrestored if the loss event was acknowledged
+    // with preventDefault(); an unacknowledged loss is treated as
+    // permanent. With nothing here listening for either event, a dropped
+    // context left the canvas black for the rest of the session with no
+    // way back. Listening and recreating the renderer on restore is what
+    // actually makes this self-healing, regardless of what triggered the
+    // loss in the first place.
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      rendererRef.current = null;
+    };
+    const handleContextRestored = () => {
+      try {
+        rendererRef.current = new GLRenderer(canvas);
+      } catch {
+        rendererRef.current = null;
+      }
+    };
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+    canvas.addEventListener("webglcontextrestored", handleContextRestored);
+
     // Only allocated/used once uiZoomRef climbs past the hardware max —
     // an honest, cheap preview of what SuperZoom will look like: a crop of
     // the live frame stretched back up, same as any digital zoom. The AI
@@ -460,6 +483,8 @@ export default function Viewfinder({
     rafRef.current = requestAnimationFrame(loop);
 
     return () => {
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      canvas.removeEventListener("webglcontextrestored", handleContextRestored);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rendererRef.current?.dispose();
       rendererRef.current = null;
