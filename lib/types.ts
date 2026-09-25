@@ -98,9 +98,9 @@ export type PresetCategory = "color-film" | "bw-film" | "cinema" | "vintage-digi
 export type Preset = {
   id: string;
   label: string;
-  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Lomography" | "Specialty";
+  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon";
   blurb: string; // one line of flavor text shown under the name
-  category: "vintage" | "modern" | "curious"; // grouping in the camera picker
+  category: "vintage" | "modern" | "curious" | "pro-scenes"; // grouping in the camera picker
   hud: HudSkin;
   era?: string; // e.g. "1968" — shown as a spec badge
   iso?: number;
