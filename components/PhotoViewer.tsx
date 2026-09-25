@@ -128,19 +128,19 @@ export default function PhotoViewer({
             {preset.era && <span className="rounded-full bg-white/10 px-2 py-0.5">{preset.era}</span>}
           </div>
         )}
-        <div className="flex gap-3">
+        <div className="flex items-center gap-1 rounded-full bg-white/10 p-1">
+          <button
+            onClick={handleDownload}
+            aria-label="Enregistrer dans Photos"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/70 active:bg-white/10"
+          >
+            <ShareIcon className="w-5 h-5" />
+          </button>
           <button
             onClick={() => onEdit(meta)}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white py-2.5 text-sm font-medium text-black"
           >
             <SlidersIcon className="w-4 h-4" /> Modifier
-          </button>
-          <button
-            onClick={handleDownload}
-            aria-label="Enregistrer dans Photos"
-            className="flex items-center justify-center gap-1.5 rounded-full border border-white/25 px-4 py-2.5 text-sm text-white/80"
-          >
-            <ShareIcon className="w-4 h-4" />
           </button>
         </div>
       </div>
