@@ -306,3 +306,15 @@ export function ResetIcon({ className = base }: IconProps) {
   );
 }
 
+export function BurstIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <rect x="7" y="7" width="13" height="13" rx="2" className="fill-current/10" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17V5a1 1 0 0 1 1-1h12" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M1 14V3a1 1 0 0 1 1-1h12" opacity="0.6" />
+      <circle cx="13.5" cy="13.5" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
+

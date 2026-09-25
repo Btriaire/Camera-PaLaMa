@@ -32,8 +32,10 @@ import Histogram from "./Histogram";
 import LevelIndicator from "./LevelIndicator";
 import ZoomSlider from "./ZoomSlider";
 import HorizontalSlider from "./HorizontalSlider";
+import PhotoViewer from "./PhotoViewer";
 import {
   ApertureIcon,
+  BurstIcon,
   CameraIcon,
   CheckIcon,
   ContrastIcon,
@@ -268,6 +270,10 @@ export default function Viewfinder({
   const [longExposureRemainingS, setLongExposureRemainingS] = useState<number | null>(null);
   const longExposureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const longExposureStop = useRef(false);
+  const [burstModeArmed, setBurstModeArmed] = useState(false);
+  const [burstSpeed, setBurstSpeed] = useState<"fast" | "normal" | "eco">("normal");
+  const [burstMenuOpen, setBurstMenuOpen] = useState(false);
+  const [viewerPhotoIndex, setViewerPhotoIndex] = useState<number | null>(null);
   const [stayOnCapture, setStayOnCapture] = useState(false);
   const [evBias, setEvBias] = useState(0);
   const [isoIndex, setIsoIndex] = useState(() => nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
@@ -705,13 +711,8 @@ export default function Viewfinder({
   const runBurstLoop = async () => {
     setCapturing(true);
     const strobing = isStrobing(flashMode) && capabilities.torch;
-    const interval = burstIntervalMs(flashMode);
-    // Fixed for the whole burst, not re-read per shot — the framing
-    // shouldn't shift mid-roll just because a slider tick landed between
-    // frames. Every shot gets cropped to match what SuperZoom previewed;
-    // the (slow) AI enhancement itself only ever runs on a single shot,
-    // resolved below in handleShutterUp — multiplying it across a burst
-    // would turn "hold for a roll" into "hold for several minutes."
+    const baseInterval = burstIntervalMs(flashMode);
+    const interval = burstSpeed === "fast" ? 90 : burstSpeed === "eco" ? 320 : baseInterval;
     const factor = digitalZoomFactor;
     let strobeOn = false;
     try {
@@ -725,6 +726,7 @@ export default function Viewfinder({
         if (shot) {
           burstShots.current.push(shot);
           setBurstCount(burstShots.current.length);
+          soundEngine.playShutter();
         }
         if (!burstActive.current) break;
         await new Promise((r) => setTimeout(r, interval));
@@ -928,11 +930,42 @@ export default function Viewfinder({
 
       {longExposureRemainingS !== null && (
         <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3">
-          <span className="text-7xl font-light tabular-nums text-amber-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-            {longExposureRemainingS}
-          </span>
-          <span className="rounded-full bg-black/60 px-3 py-1.5 text-xs text-white/70 backdrop-blur">
-            Temps restant — retapez pour arrêter
+          <div className="flex flex-col items-center gap-2 rounded-3xl border border-amber-400/40 bg-black/80 px-6 py-5 backdrop-blur-xl shadow-[0_0_30px_rgba(245,158,11,0.3)]">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping" />
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-300">
+                Pose Longue en Cours
+              </span>
+            </div>
+            <span className="text-6xl font-extralight font-mono tabular-nums text-amber-300 drop-shadow-[0_2px_12px_rgba(245,158,11,0.5)]">
+              {longExposureRemainingS}s
+            </span>
+            <div className="w-48 h-1.5 rounded-full bg-white/20 overflow-hidden mt-1">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-yellow-300 transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, Math.max(0, ((longExposureSeconds - longExposureRemainingS) / (longExposureSeconds || 1)) * 100))}%`,
+                }}
+              />
+            </div>
+            <span className="text-[11px] text-white/70 mt-1">
+              Accumulation de lumière · Retapez pour figer
+            </span>
+          </div>
+        </div>
+      )}
+
+      {burstCount > 0 && (
+        <div className="pointer-events-none absolute top-[28%] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
+          <div className="flex items-center gap-3 rounded-full border-2 border-amber-400 bg-black/85 px-5 py-2.5 backdrop-blur-xl shadow-[0_0_25px_rgba(245,158,11,0.5)]">
+            <BurstIcon className="w-6 h-6 text-amber-400" />
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-xs font-bold text-amber-400/90 tracking-wider">RAFALE</span>
+              <span className="text-2xl font-black text-white tabular-nums">[{burstCount}]</span>
+            </div>
+          </div>
+          <span className="rounded-full bg-black/60 px-3 py-1 text-[10px] font-medium text-white/80 backdrop-blur">
+            Relâchez pour enregistrer la série
           </span>
         </div>
       )}
@@ -1016,6 +1049,15 @@ export default function Viewfinder({
             }`}
           >
             <FocusPeakingIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setBurstMenuOpen((v) => !v)}
+            aria-label="Mode rafale"
+            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
+              burstModeArmed ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            }`}
+          >
+            <BurstIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => setFlashMenuOpen((v) => !v)}
@@ -1310,10 +1352,21 @@ export default function Viewfinder({
           </button>
 
           <button
+            onClick={() => setBurstMenuOpen((v) => !v)}
+            aria-pressed={burstModeArmed}
+            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
+              burstModeArmed ? "border-amber-300/70 bg-amber-300/15 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]" : "border-white/25 bg-black/40 text-white"
+            }`}
+          >
+            <BurstIcon className="w-4 h-4" />
+            {burstModeArmed ? `Rafale (${burstSpeed === "fast" ? "10fps" : burstSpeed === "eco" ? "3fps" : "5fps"})` : "Mode Rafale"}
+          </button>
+
+          <button
             onClick={() => setLongExposureMenuOpen((v) => !v)}
             aria-pressed={longExposureSeconds > 0}
             className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              longExposureSeconds > 0 ? "border-amber-300/70 bg-amber-300/15 text-amber-300" : "border-white/25 bg-black/40 text-white"
+              longExposureSeconds > 0 ? "border-amber-300/70 bg-amber-300/15 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]" : "border-white/25 bg-black/40 text-white"
             }`}
           >
             <LongExposureIcon className="w-4 h-4" />
@@ -1322,20 +1375,20 @@ export default function Viewfinder({
         </div>
 
         {stayOnCapture && (pendingSaves > 0 || recentPhotos.length > 0) && (
-          <div className="flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex gap-2.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {Array.from({ length: pendingSaves }).map((_, i) => (
               <div
                 key={`pending-${i}`}
                 aria-label="Enregistrement en cours"
-                className="h-12 w-12 shrink-0 animate-pulse rounded-lg border border-white/25 bg-white/10"
+                className="h-16 w-16 shrink-0 animate-pulse rounded-2xl border-2 border-white/25 bg-white/10 shadow-md"
               />
             ))}
-            {recentPhotos.slice(0, 15).map((p) => (
+            {recentPhotos.slice(0, 15).map((p, i) => (
               <button
                 key={p.id}
-                onClick={() => onOpenPhoto(p)}
-                aria-label="Photo prise"
-                className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/25"
+                onClick={() => setViewerPhotoIndex(i)}
+                aria-label="Ouvrir la photo en grand"
+                className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 border-white/30 shadow-md active:scale-90 transition-transform bg-black/50"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photoUrl(p.id)} alt="" className="h-full w-full object-cover" />
@@ -1344,19 +1397,25 @@ export default function Viewfinder({
           </div>
         )}
 
+        {/* Shutter Bar with Much Larger Preview Box */}
         <div className="grid grid-cols-3 items-center pb-2 px-6">
           <div className="flex justify-start">
             {lastPhoto && !stayOnCapture ? (
               <button
-                onClick={onOpenGallery}
-                aria-label="Dernière photo"
-                className="h-11 w-11 overflow-hidden rounded-xl border-2 border-white/70"
+                onClick={() => setViewerPhotoIndex(0)}
+                aria-label="Ouvrir la dernière photo en grand"
+                className="h-14 w-14 overflow-hidden rounded-2xl border-2 border-white/80 shadow-xl relative active:scale-90 transition-transform bg-black/50"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photoUrl(lastPhoto.id)} alt="" className="h-full w-full object-cover" />
+                {recentPhotos.length > 1 && (
+                  <span className="absolute bottom-1 right-1 bg-black/75 backdrop-blur text-[9px] font-mono font-bold text-white px-1 rounded-sm border border-white/20">
+                    {recentPhotos.length}
+                  </span>
+                )}
               </button>
             ) : (
-              <div className="h-11 w-11" aria-hidden />
+              <div className="h-14 w-14" aria-hidden />
             )}
           </div>
 
@@ -1367,20 +1426,20 @@ export default function Viewfinder({
               onPointerLeave={handleShutterUp}
               disabled={!ready}
               aria-label="Déclencher"
-              className={`flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 disabled:opacity-40 ${
-                burstCount > 0 ? "border-amber-300" : "border-white/80"
+              className={`flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 shadow-xl active:scale-95 transition-all disabled:opacity-40 ${
+                burstCount > 0 ? "border-amber-300 ring-4 ring-amber-400/40" : "border-white/80"
               }`}
             >
-              <span className={`h-14 w-14 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
+              <span className={`h-15 w-15 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
             </button>
             {burstCount > 0 && (
-              <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-300 px-1 text-[11px] font-bold text-black">
+              <span className="absolute -top-2 -right-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-300 px-1.5 text-xs font-black text-black shadow-lg">
                 {burstCount}
               </span>
             )}
           </div>
 
-          <div className="h-11 w-11" aria-hidden />
+          <div className="h-14 w-14" aria-hidden />
         </div>
       </div>
 
@@ -1388,6 +1447,83 @@ export default function Viewfinder({
         <div className="absolute inset-0 flex items-center justify-center text-white/50">
           <CameraIcon className="w-10 h-10 animate-pulse" />
         </div>
+      )}
+
+      {burstMenuOpen && (
+        <>
+          <button
+            className="fixed inset-0 z-30"
+            aria-label="Fermer le menu rafale"
+            onClick={() => setBurstMenuOpen(false)}
+          />
+          <div
+            className="absolute left-4 right-4 z-40 rounded-2xl border border-white/15 bg-zinc-950/95 p-3.5 backdrop-blur shadow-2xl"
+            style={{ bottom: "calc(max(1.5rem, env(safe-area-inset-bottom)) + 9rem)" }}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <BurstIcon className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Mode Prise Rafale</span>
+              </div>
+              <span className="text-[10px] font-mono text-white/50">CADENCE</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-3">
+              <button
+                onClick={() => {
+                  setBurstSpeed("fast");
+                  setBurstModeArmed(true);
+                  setBurstMenuOpen(false);
+                }}
+                className={`flex flex-col items-center gap-1 rounded-xl p-2.5 border transition-all ${
+                  burstSpeed === "fast" && burstModeArmed ? "border-amber-400 bg-amber-400/20 text-white" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-sm font-bold text-amber-300">10 fps</span>
+                <span className="text-[10px] text-white/50">Ultra Rapide</span>
+              </button>
+              <button
+                onClick={() => {
+                  setBurstSpeed("normal");
+                  setBurstModeArmed(true);
+                  setBurstMenuOpen(false);
+                }}
+                className={`flex flex-col items-center gap-1 rounded-xl p-2.5 border transition-all ${
+                  burstSpeed === "normal" && burstModeArmed ? "border-amber-400 bg-amber-400/20 text-white" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-sm font-bold text-amber-300">5 fps</span>
+                <span className="text-[10px] text-white/50">Standard</span>
+              </button>
+              <button
+                onClick={() => {
+                  setBurstSpeed("eco");
+                  setBurstModeArmed(true);
+                  setBurstMenuOpen(false);
+                }}
+                className={`flex flex-col items-center gap-1 rounded-xl p-2.5 border transition-all ${
+                  burstSpeed === "eco" && burstModeArmed ? "border-amber-400 bg-amber-400/20 text-white" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-sm font-bold text-amber-300">3 fps</span>
+                <span className="text-[10px] text-white/50">Éco / Précision</span>
+              </button>
+            </div>
+            <div className="pt-3 flex justify-between items-center border-t border-white/10 mt-3 text-xs">
+              <button
+                onClick={() => {
+                  setBurstModeArmed((v) => !v);
+                  setBurstMenuOpen(false);
+                }}
+                className={`px-3 py-1 rounded-full font-medium transition-colors ${
+                  burstModeArmed ? "bg-amber-400 text-black font-bold" : "bg-white/10 text-white/70"
+                }`}
+              >
+                {burstModeArmed ? "Armé" : "Désactivé"}
+              </button>
+              <span className="text-[11px] text-white/50">Maintenez le déclencheur</span>
+            </div>
+          </div>
+        </>
       )}
 
       {pickerOpen && (
@@ -1430,6 +1566,24 @@ export default function Viewfinder({
             onDone={(lastSaved) => {
               setBurstReview(null);
               if (lastSaved) onBurstSaved(lastSaved);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Full-Screen Ultra-High-Res Lightbox when clicking on the preview box */}
+      {viewerPhotoIndex !== null && recentPhotos.length > 0 && (
+        <div className="fixed inset-0 z-50">
+          <PhotoViewer
+            items={recentPhotos}
+            initialIndex={viewerPhotoIndex}
+            onClose={() => setViewerPhotoIndex(null)}
+            onEdit={(m) => {
+              setViewerPhotoIndex(null);
+              onOpenPhoto(m);
+            }}
+            onDeleted={() => {
+              setViewerPhotoIndex(null);
             }}
           />
         </div>
