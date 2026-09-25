@@ -947,59 +947,77 @@ export default function Viewfinder({
       )}
 
       <div
-        className="absolute top-0 left-0 right-0 flex items-center justify-between px-4"
+        className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 z-30 pointer-events-auto"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <div className="flex items-center gap-3">
-          <button onClick={onOpenGallery} aria-label="Galerie" className="p-1 text-white drop-shadow-lg">
-            <GalleryGridIcon className="w-9 h-9" />
+        {/* Left capsule: Gallery & Settings */}
+        <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/55 p-1 backdrop-blur-xl shadow-lg">
+          <button
+            onClick={onOpenGallery}
+            aria-label="Galerie"
+            className="flex h-8.5 w-8.5 items-center justify-center rounded-full text-white/85 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+          >
+            <GalleryGridIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => setDashboardOpen(true)}
             aria-label="Tableau de bord"
-            className="p-1 text-white drop-shadow-lg"
+            className="flex h-8.5 w-8.5 items-center justify-center rounded-full text-white/85 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
           >
-            <SettingsIcon className="w-9 h-9" />
+            <SettingsIcon className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Right capsule: Quick Shooting Tools */}
+        <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/55 p-1 backdrop-blur-xl shadow-lg">
           <button
             onClick={() => setTimerIndex((i) => (i + 1) % TIMER_STEPS.length)}
             aria-label="Retardateur"
-            className={`relative p-1 drop-shadow-lg ${timerSeconds > 0 ? "text-amber-300" : "text-white"}`}
+            className={`relative flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
+              timerSeconds > 0 ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            }`}
           >
-            <TimerIcon className="w-9 h-9" />
+            <TimerIcon className="w-5 h-5" />
             {timerSeconds > 0 && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[11px] font-bold leading-none">
-                {timerSeconds}
+              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono font-black leading-none bg-black text-amber-400 px-0.5 rounded">
+                {timerSeconds}s
               </span>
             )}
           </button>
           <button
             onClick={() => setShowGrid((g) => !g)}
             aria-label="Grille"
-            className={`p-1 drop-shadow-lg ${showGrid ? "text-amber-300" : "text-white"}`}
+            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
+              showGrid ? "bg-white text-black font-bold shadow-sm" : "text-white/85 hover:bg-white/15 hover:text-white"
+            }`}
           >
-            <GridIcon className="w-9 h-9" />
+            <GridIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => setZebraEnabled((z) => !z)}
             aria-label="Alerte de surexposition (zébrures)"
-            className={`p-1 drop-shadow-lg ${zebraEnabled ? "text-amber-300" : "text-white"}`}
+            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
+              zebraEnabled ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            }`}
           >
-            <ZebraIcon className="w-9 h-9" />
+            <ZebraIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => setFlashMenuOpen((v) => !v)}
             aria-label="Mode flash"
-            className={`p-1 drop-shadow-lg ${flashMode !== "off" ? "text-amber-300" : "text-white"}`}
+            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
+              flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            }`}
           >
-            <FlashModeIcon mode={flashMode} className="w-9 h-9" />
+            <FlashModeIcon mode={flashMode} className="w-5 h-5" />
           </button>
           {capabilities.canSwitch && (
-            <button onClick={flip} aria-label="Changer de caméra" className="p-1 text-white drop-shadow-lg">
-              <FlipCameraIcon className="w-9 h-9" />
+            <button
+              onClick={flip}
+              aria-label="Changer de caméra"
+              className="flex h-8.5 w-8.5 items-center justify-center rounded-full text-white/85 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+            >
+              <FlipCameraIcon className="w-5 h-5" />
             </button>
           )}
         </div>

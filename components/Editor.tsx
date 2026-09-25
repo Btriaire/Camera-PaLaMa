@@ -435,6 +435,8 @@ export default function Editor({
               <Dial label="Réduction de bruit" value={adjustments.denoise} min={0} accent="#22d3ee" onChange={(v) => setField("denoise", v)} onCommit={(v) => commitField("denoise", v)} />
             </DialSection>
             <DialSection title="Effets pellicule" accent="#a78bfa">
+              <Dial label="Halation rouge" value={adjustments.halation ?? 0} min={0} accent="#f87171" onChange={(v) => setField("halation", v)} onCommit={(v) => commitField("halation", v)} />
+              <Dial label="Bloom Pro-Mist" value={adjustments.bloom ?? 0} min={0} accent="#fbbf24" onChange={(v) => setField("bloom", v)} onCommit={(v) => commitField("bloom", v)} />
               <Dial label="Vignettage" value={adjustments.vignette} min={0} accent="#a78bfa" onChange={(v) => setField("vignette", v)} onCommit={(v) => commitField("vignette", v)} />
               <Dial label="Grain" value={adjustments.grain} min={0} accent="#a78bfa" onChange={(v) => setField("grain", v)} onCommit={(v) => commitField("grain", v)} />
               <Dial label="Délavé" value={adjustments.fade} min={0} accent="#a78bfa" onChange={(v) => setField("fade", v)} onCommit={(v) => commitField("fade", v)} />
