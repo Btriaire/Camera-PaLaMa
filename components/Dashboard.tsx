@@ -180,7 +180,7 @@ function PresetRow({
         active ? "border-white bg-white/10" : "border-white/15"
       }`}
     >
-      <PresetThumb src={thumbSrc} gradient={gradient} className="h-9 w-9" />
+      <PresetThumb src={thumbSrc} gradient={gradient} className="h-9 w-9 rounded-xl" />
       <span className="flex-1">{label}</span>
       {active && <CheckIcon className="w-4 h-4" />}
     </button>

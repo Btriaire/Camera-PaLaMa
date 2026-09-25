@@ -5,7 +5,7 @@ import { HudSkin } from "@/lib/types";
 import { useCamera } from "@/lib/useCamera";
 import { NATURAL_KEY, usePresetThumbnails } from "@/lib/usePresetThumbnails";
 import { BackIcon, CheckIcon } from "@/components/Icons";
-import PresetThumb, { NATURAL_GRADIENT, swatchGradient } from "@/components/PresetThumb";
+import PresetThumb, { NATURAL_GRADIENT, PresetBeforeAfter, swatchGradient } from "@/components/PresetThumb";
 
 const HUD_LABEL: Record<HudSkin, string> = {
   film: "Pellicule",
@@ -57,31 +57,31 @@ export default function CameraPicker({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <button
-          onClick={() => onSelect(null)}
-          className={`mb-4 flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left ${
-            activePresetId === null ? "border-white bg-white/10" : "border-white/15"
-          }`}
-        >
-          <PresetThumb src={thumbs[NATURAL_KEY]} gradient={NATURAL_GRADIENT} />
-          <div className="flex-1 flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">Naturel</div>
-              <div className="text-xs text-white/40">Aucun style, l&apos;image brute</div>
-            </div>
-            {activePresetId === null && <CheckIcon />}
+        <Card active={activePresetId === null} onClick={() => onSelect(null)} className="mb-4">
+          <div className="relative">
+            <PresetThumb src={thumbs[NATURAL_KEY]} gradient={NATURAL_GRADIENT} className="h-32 w-full" />
+            {activePresetId === null && <ActiveBadge />}
           </div>
-        </button>
+          <div className="p-3">
+            <div className="text-sm font-semibold">Naturel</div>
+            <div className="text-xs text-white/40">Aucun style, l&apos;image brute</div>
+          </div>
+        </Card>
 
         <Section title="Pellicule &amp; caméras">
           {vintage.map((p) => (
             <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-              <PresetThumb src={thumbs[p.id]} gradient={swatchGradient(p)} />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold">{p.label}</div>
-                  {activePresetId === p.id && <CheckIcon className="w-4 h-4" />}
-                </div>
+              <div className="relative">
+                <PresetBeforeAfter
+                  beforeSrc={thumbs[NATURAL_KEY]}
+                  afterSrc={thumbs[p.id]}
+                  gradient={swatchGradient(p)}
+                  className="h-32 w-full"
+                />
+                {activePresetId === p.id && <ActiveBadge />}
+              </div>
+              <div className="p-3">
+                <div className="text-sm font-semibold">{p.label}</div>
                 <div className="mt-0.5 text-xs text-white/40">{p.blurb}</div>
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/50">
                   <Tag>{HUD_LABEL[p.hud]}</Tag>
@@ -97,12 +97,17 @@ export default function CameraPicker({
         <Section title="Filtres modernes">
           {modern.map((p) => (
             <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-              <PresetThumb src={thumbs[p.id]} gradient={swatchGradient(p)} />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold">{p.label}</div>
-                  {activePresetId === p.id && <CheckIcon className="w-4 h-4" />}
-                </div>
+              <div className="relative">
+                <PresetBeforeAfter
+                  beforeSrc={thumbs[NATURAL_KEY]}
+                  afterSrc={thumbs[p.id]}
+                  gradient={swatchGradient(p)}
+                  className="h-32 w-full"
+                />
+                {activePresetId === p.id && <ActiveBadge />}
+              </div>
+              <div className="p-3">
+                <div className="text-sm font-semibold">{p.label}</div>
                 <div className="mt-0.5 text-xs text-white/40">{p.blurb}</div>
               </div>
             </Card>
@@ -125,21 +130,31 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Card({
   active,
   onClick,
+  className = "",
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left ${
+      className={`flex w-full flex-col overflow-hidden rounded-2xl border text-left ${
         active ? "border-white bg-white/10" : "border-white/15"
-      }`}
+      } ${className}`}
     >
       {children}
     </button>
+  );
+}
+
+function ActiveBadge() {
+  return (
+    <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-black">
+      <CheckIcon className="w-3.5 h-3.5" />
+    </span>
   );
 }
 
