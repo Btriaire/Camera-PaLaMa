@@ -39,6 +39,7 @@ import {
   ContrastIcon,
   FlashIcon,
   FlipCameraIcon,
+  FocusPeakingIcon,
   GalleryGridIcon,
   GridIcon,
   LongExposureIcon,
@@ -200,6 +201,7 @@ export default function Viewfinder({
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [zebraEnabled, setZebraEnabled] = useState(false);
+  const [focusPeakingEnabled, setFocusPeakingEnabled] = useState(false);
   // On by default, like a phone's own EIS -- the button is there to turn
   // it off (e.g. on a tripod, where the crop margin only costs framing for
   // nothing), not to opt in.
@@ -375,6 +377,7 @@ export default function Viewfinder({
   // listened for a lost context either.
   const adjustmentsRef = useRef(adjustments);
   const zebraEnabledRef = useRef(zebraEnabled);
+  const focusPeakingEnabledRef = useRef(focusPeakingEnabled);
   const capabilitiesRef = useRef(capabilities);
   useEffect(() => {
     adjustmentsRef.current = adjustments;
@@ -382,6 +385,9 @@ export default function Viewfinder({
   useEffect(() => {
     zebraEnabledRef.current = zebraEnabled;
   }, [zebraEnabled]);
+  useEffect(() => {
+    focusPeakingEnabledRef.current = focusPeakingEnabled;
+  }, [focusPeakingEnabled]);
   useEffect(() => {
     capabilitiesRef.current = capabilities;
   }, [capabilities]);
@@ -476,7 +482,7 @@ export default function Viewfinder({
         } else {
           renderer.uploadSource(video, w, h);
         }
-        renderer.render(adjustmentsRef.current, seed, zebraEnabledRef.current);
+        renderer.render(adjustmentsRef.current, seed, zebraEnabledRef.current, focusPeakingEnabledRef.current);
         seed += 0.016;
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -1001,6 +1007,15 @@ export default function Viewfinder({
             }`}
           >
             <ZebraIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setFocusPeakingEnabled((fp) => !fp)}
+            aria-label="Aide à la mise au point (Focus Peaking vert)"
+            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
+              focusPeakingEnabled ? "bg-emerald-400 text-black font-bold shadow-[0_0_8px_rgba(52,211,153,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            }`}
+          >
+            <FocusPeakingIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => setFlashMenuOpen((v) => !v)}

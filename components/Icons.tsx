@@ -254,3 +254,55 @@ export function CheckIcon({ className = "w-4 h-4" }: IconProps) {
     </svg>
   );
 }
+
+export function FocusPeakingIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="3" />
+      <path strokeLinecap="round" d="M3 9V5a2 2 0 0 1 2-2h4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M9 21H5a2 2 0 0 1-2-2v-4" />
+      <path strokeLinecap="round" strokeDasharray="2 2" d="M12 7v2M12 15v2M7 12h2M15 12h2" />
+    </svg>
+  );
+}
+
+export function SunIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="4" />
+      <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+export function ColorIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" d="M12 3a9 9 0 0 1 9 9 9 9 0 0 1-9 9" fill="currentColor" fillOpacity="0.2" />
+      <circle cx="8" cy="10" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="8" r="1.5" fill="currentColor" />
+      <circle cx="16" cy="10" r="1.5" fill="currentColor" />
+      <circle cx="10" cy="15" r="1.5" fill="currentColor" />
+      <circle cx="14" cy="15" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function WandIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m15 4 5 5M18 1l5 5M2 22l14-14M11 7l-2-2M7 11l-2-2" />
+      <path strokeLinecap="round" d="M9 2v2M3 8h2M6 5 4.5 3.5" />
+    </svg>
+  );
+}
+
+export function ResetIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.7">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v5h5" />
+    </svg>
+  );
+}
+

@@ -1,8 +1,7 @@
-// One "uber shader" drives both the live viewfinder preview and the final
-// full-resolution export — same math, same look, no surprise between what
-// you see and what gets saved. WebGL1/GLSL ES 1.00 on purpose: WebGL2
-// support on older iOS Safari (the platform this is meant to replace) is
-// shakier than WebGL1's.
+// Master Uber-Shader for Camera-PaLaMa
+// Drives live viewfinder, experimental filters, manual focus peaking, and final export.
+// Compatible with WebGL1 / GLSL ES 1.00.
+
 export const VERTEX_SHADER = `
 attribute vec2 a_position;
 attribute vec2 a_texCoord;
@@ -42,10 +41,20 @@ uniform float u_tintStrength;
 uniform float u_chromaticAberration;
 uniform float u_lightLeak;
 uniform float u_scanlines;
-// Live-viewfinder aid only, never touched by the export path (see
-// GLRenderer.render's zebra param) -- diagonal stripes over blown
-// highlights, same idea as a video monitor's overexposure warning.
+
+// Curious & Experimental Bizarre Shaders
+uniform float u_infrared;
+uniform float u_thermal;
+uniform float u_nightVision;
+uniform float u_glitch;
+uniform float u_kaleidoscope;
+uniform float u_solarize;
+uniform float u_cyanotype;
+uniform float u_dither;
+
+// Live Viewfinder Shooting Aids
 uniform float u_zebra;
+uniform float u_focusPeaking;
 
 float luma(vec3 c) {
   return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -55,15 +64,51 @@ float hash(vec2 p) {
   return fract(sin(dot(p, vec2(12.9898, 78.233)) + u_seed) * 43758.5453);
 }
 
+// Thermal false-color heatmap (Black -> Blue -> Purple -> Orange -> Yellow -> White)
+vec3 thermalMap(float val) {
+  val = clamp(val, 0.0, 1.0);
+  if (val < 0.2) {
+    return mix(vec3(0.0, 0.0, 0.2), vec3(0.1, 0.1, 0.8), val / 0.2);
+  } else if (val < 0.45) {
+    return mix(vec3(0.1, 0.1, 0.8), vec3(0.8, 0.1, 0.6), (val - 0.2) / 0.25);
+  } else if (val < 0.75) {
+    return mix(vec3(0.8, 0.1, 0.6), vec3(1.0, 0.6, 0.0), (val - 0.45) / 0.3);
+  } else if (val < 0.95) {
+    return mix(vec3(1.0, 0.6, 0.0), vec3(1.0, 0.95, 0.2), (val - 0.75) / 0.2);
+  } else {
+    return mix(vec3(1.0, 0.95, 0.2), vec3(1.0, 1.0, 1.0), (val - 0.95) / 0.05);
+  }
+}
+
 void main() {
   vec2 uv = v_texCoord;
 
-  // Chromatic aberration: split R/B along the vector from center before
-  // anything else touches the color, like a cheap lens.
+  // 1. Kaleidoscope optical prism distortion
+  if (u_kaleidoscope > 0.001) {
+    vec2 p = uv - 0.5;
+    float r = length(p);
+    float a = atan(p.y, p.x);
+    float segments = 6.0;
+    float pi = 3.14159265;
+    float seg = 2.0 * pi / segments;
+    a = mod(a, seg);
+    if (a > seg * 0.5) a = seg - a;
+    vec2 kUv = vec2(cos(a), sin(a)) * r + 0.5;
+    uv = mix(uv, kUv, clamp(u_kaleidoscope, 0.0, 1.0));
+  }
+
+  // 2. Glitch & VHS horizontal scan displacement
+  if (u_glitch > 0.001) {
+    float lineNoise = step(0.96, hash(vec2(floor(uv.y * 30.0), floor(u_seed * 10.0))));
+    uv.x += (hash(vec2(uv.y, u_seed)) - 0.5) * 0.08 * lineNoise * u_glitch;
+  }
+
+  // 3. Chromatic aberration
   vec3 color;
-  if (u_chromaticAberration > 0.001) {
+  float totalChroma = u_chromaticAberration + (u_glitch * 0.4);
+  if (totalChroma > 0.001) {
     vec2 dir = uv - 0.5;
-    vec2 off = dir * u_chromaticAberration * 0.02;
+    vec2 off = dir * totalChroma * 0.025;
     color = vec3(
       texture2D(u_image, uv + off).r,
       texture2D(u_image, uv).g,
@@ -73,21 +118,21 @@ void main() {
     color = texture2D(u_image, uv).rgb;
   }
 
-  // Cheap 4-neighbor blur, reused as the base for both denoise (blend
-  // toward it) and sharpen (push away from it) — an unsharp mask.
+  // 4. Neighborhood sampling (blur / unsharp mask)
+  vec2 tx = u_texelSize;
   vec3 blurred = (
-    texture2D(u_image, uv + vec2(u_texelSize.x, 0.0)).rgb +
-    texture2D(u_image, uv - vec2(u_texelSize.x, 0.0)).rgb +
-    texture2D(u_image, uv + vec2(0.0, u_texelSize.y)).rgb +
-    texture2D(u_image, uv - vec2(0.0, u_texelSize.y)).rgb
+    texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb +
+    texture2D(u_image, uv - vec2(tx.x, 0.0)).rgb +
+    texture2D(u_image, uv + vec2(0.0, tx.y)).rgb +
+    texture2D(u_image, uv - vec2(0.0, tx.y)).rgb
   ) * 0.25;
 
   color = mix(color, blurred, clamp(u_denoise, 0.0, 1.0));
   color = color + (color - blurred) * u_sharpen;
 
-  // Super Contrast: local/mid-frequency contrast ("clarity")
+  // 5. Super Contrast / Clarity
   if (u_superContrast > 0.001) {
-    vec2 r = u_texelSize * 4.0;
+    vec2 r = tx * 4.0;
     vec3 local = (
       texture2D(u_image, uv + vec2(r.x, 0.0)).rgb +
       texture2D(u_image, uv - vec2(r.x, 0.0)).rgb +
@@ -102,88 +147,155 @@ void main() {
     color += detail * u_superContrast * 1.8;
   }
 
-  // Halation: red/orange highlight diffusion (CineStill / vintage emulsion)
+  // 6. Halation (CineStill / vintage film red highlight scattering)
   if (u_halation > 0.001) {
     vec3 wideRed = (
-      texture2D(u_image, uv + vec2(u_texelSize.x * 3.0, 0.0)).rgb +
-      texture2D(u_image, uv - vec2(u_texelSize.x * 3.0, 0.0)).rgb +
-      texture2D(u_image, uv + vec2(0.0, u_texelSize.y * 3.0)).rgb +
-      texture2D(u_image, uv - vec2(0.0, u_texelSize.y * 3.0)).rgb
+      texture2D(u_image, uv + vec2(tx.x * 3.0, 0.0)).rgb +
+      texture2D(u_image, uv - vec2(tx.x * 3.0, 0.0)).rgb +
+      texture2D(u_image, uv + vec2(0.0, tx.y * 3.0)).rgb +
+      texture2D(u_image, uv - vec2(0.0, tx.y * 3.0)).rgb
     ) * 0.25;
     float highlightLum = smoothstep(0.65, 0.98, luma(wideRed));
     vec3 halationGlow = vec3(1.0, 0.22, 0.08) * highlightLum * u_halation * 0.65;
     color += halationGlow;
   }
 
-  // Bloom: dreamy highlight glow (Pro-Mist filter simulation)
+  // 7. Bloom (Pro-Mist dream glow)
   if (u_bloom > 0.001) {
     float bloomThreshold = smoothstep(0.55, 0.95, luma(blurred));
     vec3 bloomColor = blurred * bloomThreshold * u_bloom * 0.45;
     color = mix(color, color + bloomColor, 0.8);
   }
 
-  // Exposure in stops.
+  // 8. Exposure
   color *= pow(2.0, u_exposure);
 
-  // White balance: warm/cool on the red-blue axis, tint on the green-magenta axis.
-  color.r *= 1.0 + u_temperature * 0.3;
-  color.b *= 1.0 - u_temperature * 0.3;
-  color.g *= 1.0 + u_tint * 0.2;
+  // 9. White balance & tint
+  color.r *= 1.0 + u_temperature * 0.35;
+  color.b *= 1.0 - u_temperature * 0.35;
+  color.g *= 1.0 + u_tint * 0.25;
 
-  // Contrast, pivoting around mid-gray.
+  // 10. Contrast
   color = (color - 0.5) * (1.0 + u_contrast) + 0.5;
 
-  // Shadows/highlights, split by luminance.
+  // 11. Shadows & Highlights
   float l = luma(color);
-  float shadowMask = 1.0 - smoothstep(0.0, 0.5, l);
-  float highlightMask = smoothstep(0.5, 1.0, l);
-  color += u_shadows * shadowMask * 0.4;
-  color += u_highlights * highlightMask * 0.4;
+  float shadowMask = 1.0 - smoothstep(0.0, 0.55, l);
+  float highlightMask = smoothstep(0.45, 1.0, l);
+  color += u_shadows * shadowMask * 0.45;
+  color += u_highlights * highlightMask * 0.45;
 
-  // Saturation.
+  // 12. Saturation
   color = mix(vec3(luma(color)), color, 1.0 + u_saturation);
 
-  // Monochrome mix, then a duotone-style tint driven by the mono/color result.
+  // ==========================================
+  // CURIOUS & EXPERIMENTAL FILTERS
+  // ==========================================
+
+  // A. Kodak Aerochrome (Infrared False Color: Greens -> Crimson Red, Sky -> Deep Cyan)
+  if (u_infrared > 0.001) {
+    float isGreen = max(0.0, color.g - max(color.r, color.b) * 0.8);
+    vec3 irColor = color;
+    // Map foliage to vivid infrared ruby/crimson
+    irColor.r += isGreen * 2.4;
+    irColor.g -= isGreen * 0.6;
+    irColor.b -= isGreen * 0.3;
+    // Boost cyan skies
+    irColor.b += max(0.0, color.b - color.r) * 0.3;
+    color = mix(color, clamp(irColor, 0.0, 1.0), clamp(u_infrared, 0.0, 1.0));
+  }
+
+  // B. Thermal Heat Vision (FLIR Ironbow Palette)
+  if (u_thermal > 0.001) {
+    float heat = luma(color);
+    vec3 therm = thermalMap(heat);
+    color = mix(color, therm, clamp(u_thermal, 0.0, 1.0));
+  }
+
+  // C. Night Vision Gen-3 PVS-14 (Phosphor Green + Cathode Gain + Central Tube)
+  if (u_nightVision > 0.001) {
+    float nvgLum = pow(luma(color), 0.7) * 1.4;
+    vec3 nvgColor = vec3(nvgLum * 0.2, nvgLum * 1.0, nvgLum * 0.3);
+    // Cathode Tube Vignette
+    vec2 p = (uv - 0.5) * vec2(1.0, u_resolution.y / u_resolution.x);
+    float tubeDist = length(p);
+    float tubeVig = smoothstep(0.35, 0.55, tubeDist);
+    nvgColor *= (1.0 - tubeVig * 0.95);
+    color = mix(color, nvgColor, clamp(u_nightVision, 0.0, 1.0));
+  }
+
+  // D. Sabattier Darkroom Solarization
+  if (u_solarize > 0.001) {
+    vec3 sol = color;
+    sol = abs(sol - 0.5) * 2.0; // Inversion curve
+    color = mix(color, sol, clamp(u_solarize, 0.0, 1.0));
+  }
+
+  // E. Prussian Blue Cyanotype 1842
+  if (u_cyanotype > 0.001) {
+    float cyLuma = luma(color);
+    vec3 cyanColor = mix(vec3(0.02, 0.08, 0.25), vec3(0.85, 0.92, 0.98), cyLuma);
+    color = mix(color, cyanColor, clamp(u_cyanotype, 0.0, 1.0));
+  }
+
+  // F. 1998 GameBoy 2-bit Dither Matrix
+  if (u_dither > 0.001) {
+    vec2 dCoord = floor(uv * u_resolution.xy / 2.5);
+    float ditherVal = mod(dCoord.x + dCoord.y * 2.0, 4.0) / 4.0;
+    float ditLuma = luma(color) + (ditherVal - 0.5) * 0.25;
+    float level = floor(ditLuma * 4.0) / 4.0;
+    vec3 gbColors = mix(vec3(0.06, 0.22, 0.06), vec3(0.61, 0.73, 0.06), level);
+    color = mix(color, gbColors, clamp(u_dither, 0.0, 1.0));
+  }
+
+  // 13. Monochrome & Duotone tinting
   float g = luma(color);
   color = mix(color, vec3(g), clamp(u_monochrome, 0.0, 1.0));
   vec3 tinted = g * u_tintColor;
   color = mix(color, tinted, clamp(u_tintStrength, 0.0, 1.0));
 
-  // Fade: lift the black point for a washed-out matte look.
+  // 14. Fade / Film Matte lift
   color = mix(color, color * 0.82 + 0.09, clamp(u_fade, 0.0, 1.0));
 
-  // Vignette, aspect-corrected so it stays circular on non-square frames.
+  // 15. Vignette (aspect-corrected)
   vec2 centered = (uv - 0.5) * vec2(1.0, u_resolution.y / u_resolution.x);
   float dist = length(centered);
-  float vig = smoothstep(0.3, 0.9, dist);
+  float vig = smoothstep(0.28, 0.88, dist);
   color *= 1.0 - vig * clamp(u_vignette, 0.0, 1.0);
 
-  // Light leak: a soft warm blob drifting in from a corner, seeded so every
-  // shot gets a slightly different flare instead of the exact same one.
+  // 16. Light Leak
   if (u_lightLeak > 0.001) {
-    vec2 leakPos = vec2(0.15 + 0.1 * sin(u_seed), 0.85 + 0.1 * cos(u_seed * 1.7));
+    vec2 leakPos = vec2(0.12 + 0.08 * sin(u_seed * 1.3), 0.88 + 0.08 * cos(u_seed * 1.7));
     float leakDist = distance(uv, leakPos);
-    float leak = smoothstep(0.9, 0.0, leakDist);
-    color += vec3(1.0, 0.55, 0.25) * leak * u_lightLeak * 0.8;
+    float leak = smoothstep(0.95, 0.0, leakDist);
+    color += vec3(1.0, 0.52, 0.22) * leak * u_lightLeak * 0.85;
   }
 
-  // Scanlines, in screen space so line spacing doesn't depend on zoom.
+  // 17. Scanlines
   if (u_scanlines > 0.001) {
     float line = sin(uv.y * u_resolution.y * 1.5) * 0.5 + 0.5;
     color *= 1.0 - u_scanlines * 0.35 * (1.0 - line);
   }
 
-  // Film grain: per-pixel noise, re-seeded every render call.
+  // 18. Film Grain (luma-weighted noise)
   if (u_grain > 0.001) {
     float n = hash(uv * u_resolution.xy);
-    color += (n - 0.5) * u_grain * 0.25;
+    float grainWeight = 1.0 - pow(luma(color), 1.8);
+    color += (n - 0.5) * u_grain * 0.28 * max(0.2, grainWeight);
   }
 
-  // Zebra stripes: diagonal black bands over near-blown highlights, in
-  // screen space so the pattern doesn't swim as the image changes.
+  // 19. Zebra stripes (Live overexposure warning)
   if (u_zebra > 0.5 && luma(color) > 0.92) {
     float stripe = mod(gl_FragCoord.x + gl_FragCoord.y, 16.0);
     if (stripe < 8.0) color = mix(color, vec3(0.05), 0.55);
+  }
+
+  // 20. Manual Focus Peaking Simulation (Live high-frequency green edge detection)
+  if (u_focusPeaking > 0.5) {
+    float edge = length(color - blurred) * 6.0;
+    if (edge > 0.45) {
+      color = mix(color, vec3(0.0, 1.0, 0.35), 0.85); // Bright neon green peaking
+    }
   }
 
   gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);

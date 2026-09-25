@@ -23,6 +23,17 @@ export type Adjustments = {
   chromaticAberration: number; // 0..100
   lightLeak: number; // 0..100
   scanlines: number; // 0..100
+  
+  // Experimental & Bizarre Optical Effects
+  infrared: number; // 0..100, Kodak Aerochrome false-color infrared (greens -> deep red)
+  thermal: number; // 0..100, FLIR / predator thermal heat vision false color
+  nightVision: number; // 0..100, Gen-3 phosphor green NVG + tube flare
+  glitch: number; // 0..100, VHS tracking error & digital displacement
+  kaleidoscope: number; // 0..100, optical prism facet reflections
+  solarize: number; // 0..100, Sabattier darkroom solarization reversal
+  cyanotype: number; // 0..100, 1842 historic Prussian blue blueprint process
+  dither: number; // 0..100, 2-bit bayer matrix retro pixelation
+
   dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
   aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
   filmBorder?: "none" | "35mm" | "polaroid";
@@ -50,6 +61,14 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   chromaticAberration: 0,
   lightLeak: 0,
   scanlines: 0,
+  infrared: 0,
+  thermal: 0,
+  nightVision: 0,
+  glitch: 0,
+  kaleidoscope: 0,
+  solarize: 0,
+  cyanotype: 0,
+  dither: 0,
   dateStamp: false,
   aspectRatio: "original",
   filmBorder: "none",
@@ -69,18 +88,25 @@ export type HudSkin =
   | "hasselblad"
   | "digicam"
   | "xpan"
-  | "pro";
+  | "pro"
+  | "thermal"
+  | "nvg"
+  | "glitch";
+
+export type PresetCategory = "color-film" | "bw-film" | "cinema" | "vintage-digi" | "curious" | "modern";
 
 export type Preset = {
   id: string;
   label: string;
+  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Lomography" | "Specialty";
   blurb: string; // one line of flavor text shown under the name
-  category: "vintage" | "modern"; // grouping in the camera picker
+  category: "vintage" | "modern" | "curious"; // grouping in the camera picker
   hud: HudSkin;
-  era?: string; // e.g. "1968" — shown as a spec badge, vintage presets only
+  era?: string; // e.g. "1968" — shown as a spec badge
   iso?: number;
   kelvin?: number;
   aspectRatio?: "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
+  filmBorder?: "none" | "35mm" | "polaroid";
   dateStampDefault?: boolean;
   adjustments: Partial<Adjustments>;
 };

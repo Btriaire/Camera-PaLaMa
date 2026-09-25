@@ -1,8 +1,6 @@
 import { Adjustments } from "../types";
 import { FRAGMENT_SHADER, VERTEX_SHADER } from "./shaders";
 
-// Anything the browser can hand a WebGL texture from — a live <video>
-// frame or a decoded still.
 export type ImageSource = HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement;
 
 function compile(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
@@ -18,11 +16,6 @@ function compile(gl: WebGLRenderingContext, type: number, source: string): WebGL
   return shader;
 }
 
-// Wraps the WebGL1 context + uber-shader that renders every filter/preset.
-// One instance is reused for both the live viewfinder preview (called every
-// animation frame) and the full-resolution export (called once, against an
-// offscreen canvas sized to the original capture) — same GPU program, same
-// output, no drift between preview and final.
 export class GLRenderer {
   private gl: WebGLRenderingContext;
   private program: WebGLProgram;
@@ -47,8 +40,6 @@ export class GLRenderer {
     this.program = program;
     gl.useProgram(program);
 
-    // Fullscreen quad, two triangles, with matching UVs (flipped in Y since
-    // video/image sources are top-down but WebGL texture space is bottom-up).
     const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
     const texCoords = new Float32Array([0, 1, 1, 1, 0, 0, 1, 0]);
 
@@ -80,14 +71,14 @@ export class GLRenderer {
       "u_exposure", "u_contrast", "u_saturation", "u_temperature", "u_tint",
       "u_highlights", "u_shadows", "u_sharpen", "u_superContrast", "u_denoise", "u_vignette",
       "u_grain", "u_halation", "u_bloom", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
-      "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra",
+      "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra", "u_focusPeaking",
+      "u_infrared", "u_thermal", "u_nightVision", "u_glitch", "u_kaleidoscope",
+      "u_solarize", "u_cyanotype", "u_dither",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
   }
 
-  // Uploads a new frame/image. Call every frame for live video, once per
-  // still image. Resizes the drawing buffer to match if needed.
   uploadSource(source: ImageSource, width: number, height: number) {
     const gl = this.gl;
     this.sourceWidth = width;
@@ -100,11 +91,7 @@ export class GLRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   }
 
-  // `zebra` is deliberately not part of Adjustments: it's a live-viewfinder
-  // shooting aid (overexposure warning), never something that should get
-  // baked into an exported photo. Callers that export (lib/export.ts,
-  // preset thumbnails) simply never pass it, so it defaults off there.
-  render(adjustments: Adjustments, seed = 0, zebra = false) {
+  render(adjustments: Adjustments, seed = 0, zebra = false, focusPeaking = false) {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.useProgram(this.program);
@@ -116,6 +103,7 @@ export class GLRenderer {
     gl.uniform2f(this.uniforms.u_resolution, this.sourceWidth, this.sourceHeight);
     gl.uniform1f(this.uniforms.u_seed, seed);
     gl.uniform1f(this.uniforms.u_zebra, zebra ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_focusPeaking, focusPeaking ? 1.0 : 0.0);
 
     gl.uniform1f(this.uniforms.u_exposure, adjustments.exposure / 50);
     gl.uniform1f(this.uniforms.u_contrast, adjustments.contrast / 100);
@@ -143,6 +131,16 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_chromaticAberration, adjustments.chromaticAberration / 100);
     gl.uniform1f(this.uniforms.u_lightLeak, adjustments.lightLeak / 100);
     gl.uniform1f(this.uniforms.u_scanlines, adjustments.scanlines / 100);
+
+    // Curious effects
+    gl.uniform1f(this.uniforms.u_infrared, (adjustments.infrared ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_thermal, (adjustments.thermal ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_nightVision, (adjustments.nightVision ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_glitch, (adjustments.glitch ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_kaleidoscope, (adjustments.kaleidoscope ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_solarize, (adjustments.solarize ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_cyanotype, (adjustments.cyanotype ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_dither, (adjustments.dither ?? 0) / 100);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }

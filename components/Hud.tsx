@@ -377,6 +377,104 @@ export default function Hud({
           </div>
         </>
       )}
+
+      {skin === "thermal" && (
+        <>
+          <Reticle circular />
+          <div
+            className={`absolute left-3 flex flex-col gap-1 text-[11px] font-mono text-orange-400 drop-shadow-[0_0_6px_rgba(249,115,22,0.6)] ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 bg-orange-500 text-black text-[9px] font-black rounded">FLIR IR</span>
+              <span className="text-white font-bold">SPOT 36.4°C</span>
+            </div>
+            <span className="text-[10px] text-orange-300/80">EMISSIVITY: 0.95</span>
+          </div>
+
+          <div
+            className={`absolute right-3 flex flex-col items-end gap-1 text-[10px] font-mono text-orange-400 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <span className="text-red-400 font-bold">MAX 42.8°C</span>
+            <span className="text-cyan-400 font-bold">MIN 18.2°C</span>
+          </div>
+
+          {/* Right Thermal Gradient Scale */}
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1">
+            <span className="text-[9px] font-mono text-red-400 font-bold">45°</span>
+            <div className="w-2.5 h-32 rounded-full border border-white/20 bg-gradient-to-b from-red-500 via-yellow-400 via-emerald-400 to-blue-600" />
+            <span className="text-[9px] font-mono text-blue-400 font-bold">15°</span>
+          </div>
+
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-orange-300/80 ${mono}`}>
+            <span>IRONBOW PALETTE</span>
+            <span>RAW CALIBRATED</span>
+          </div>
+        </>
+      )}
+
+      {skin === "nvg" && (
+        <>
+          {/* Circular NVG phosphor tube frame */}
+          <div className="absolute inset-2 md:inset-6 rounded-full border-2 border-emerald-500/30 pointer-events-none shadow-[inset_0_0_60px_rgba(16,185,129,0.2)]" />
+          <Reticle circular thin />
+
+          <div
+            className={`absolute left-4 flex flex-col gap-1 text-[11px] font-mono text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.7)] ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="px-1.5 py-0.5 bg-emerald-500 text-black text-[9px] font-black rounded">PVS-14</span>
+              <span className="font-bold">GEN-3 PINNACLE</span>
+            </div>
+            <span className="text-[10px] text-emerald-400/70">AUTOGATED / GAIN 100%</span>
+          </div>
+
+          <div
+            className={`absolute right-4 text-[11px] font-mono text-emerald-400 text-right ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div>IR ILLUM: ON</div>
+            <div className="text-[10px] text-emerald-400/70">{battery ? `BATT ${battery}` : "BATT 3.6V"}</div>
+          </div>
+
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] font-mono text-emerald-400 tracking-wider ${mono}`}>
+            <span>FOV 40°</span>
+            <span>PHOSPHOR GREEN</span>
+            <span>HD OMNI-VIII</span>
+          </div>
+        </>
+      )}
+
+      {skin === "glitch" && (
+        <>
+          <div
+            className={`absolute left-4 flex flex-col gap-1 text-[12px] font-mono font-bold text-cyan-300 drop-shadow-[2px_0_0_rgba(255,0,0,0.8)] ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-red-500 animate-pulse">REC</span>
+              <span>SP 0:00:00</span>
+            </div>
+            <span className="text-[10px] text-yellow-300 tracking-widest">VHS HQ · AUTO TRACKING</span>
+          </div>
+
+          <div
+            className={`absolute right-4 text-right text-[11px] font-mono font-bold text-cyan-300 drop-shadow-[2px_0_0_rgba(255,0,0,0.8)] ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div>HI-FI STEREO</div>
+            <div className="text-[10px] text-white/70">{now}</div>
+          </div>
+
+          <div className={`absolute bottom-[168px] left-4 right-4 flex items-center justify-between text-[11px] font-mono text-cyan-300/80 drop-shadow-[1px_0_0_rgba(255,0,0,0.7)] ${mono}`}>
+            <span>CH 03</span>
+            <span>PLAY &#9654;</span>
+            <span>NORM 12dB</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
