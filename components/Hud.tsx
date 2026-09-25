@@ -227,6 +227,156 @@ export default function Hud({
           </div>
         </>
       )}
+
+      {skin === "leica" && (
+        <>
+          {/* Framelines 35mm / 50mm */}
+          <div className="absolute inset-8 md:inset-12 border border-white/35 pointer-events-none">
+            <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-white/80" />
+            <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-white/80" />
+            <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-white/80" />
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-white/80" />
+          </div>
+
+          {/* Central Rangefinder Patch */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-12 border border-amber-300/40 bg-amber-400/5 rounded-xs flex items-center justify-center">
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
+          </div>
+
+          <div
+            className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/80 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <span className="h-2 w-2 rounded-full bg-red-600 inline-block mr-0.5" />
+            <span className="font-semibold tracking-wider">LEICA M</span>
+            <Badge>ISO {iso}</Badge>
+          </div>
+
+          {battery && (
+            <div
+              className={`absolute right-3 text-[11px] text-white/70 ${mono}`}
+              style={{ top: `calc(${topInset})` }}
+            >
+              {battery}
+            </div>
+          )}
+
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-6 text-[12px] font-bold text-red-500 tracking-widest ${mono}`}>
+            <span>1/500</span>
+            <span>F2.0</span>
+            <span className="text-white/60 font-normal text-[10px]">EXP {shotCount}</span>
+            <span className="text-amber-400 font-mono text-[10px]">{evBias >= 0 ? `+${evBias}` : evBias} EV</span>
+          </div>
+        </>
+      )}
+
+      {skin === "hasselblad" && (
+        <>
+          <div className="absolute inset-4 md:inset-8 border border-white/20">
+            <div className="absolute top-1/3 left-0 right-0 border-t border-white/15" />
+            <div className="absolute top-2/3 left-0 right-0 border-t border-white/15" />
+            <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/15" />
+            <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/15" />
+            <Reticle />
+          </div>
+
+          <div
+            className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/70 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <Badge>HASSELBLAD 6×6</Badge>
+            <Badge>ISO {iso}</Badge>
+          </div>
+
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-white/60 ${mono}`}>
+            <span>PLANAR 80mm</span>
+            <span>1/250s</span>
+            <span>f/2.8</span>
+            <span>FRAME {shotCount}/12</span>
+          </div>
+        </>
+      )}
+
+      {skin === "digicam" && (
+        <>
+          <div
+            className={`absolute left-3 flex flex-col gap-1 text-[11px] font-bold text-amber-400 drop-shadow-sm ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="px-1 py-0.5 bg-amber-400 text-black text-[9px] rounded font-extrabold">STBY</span>
+              <span>FINE</span>
+              <span>[{shotCount}]</span>
+            </div>
+            <span className="text-[10px] text-white/80">640×480 CCD</span>
+          </div>
+
+          <div
+            className={`absolute right-3 text-right text-[11px] text-amber-400 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div>BATTERY [■■■□]</div>
+            <div className="text-[10px] text-white/80">MS PRO DUO</div>
+          </div>
+
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border-2 border-emerald-400/70 rounded-xs flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-emerald-400/80" />
+          </div>
+        </>
+      )}
+
+      {skin === "xpan" && (
+        <>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/80 ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <Badge>XPAN 65:24</Badge>
+            <Badge>45mm F4</Badge>
+          </div>
+          <Reticle thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-white/70 ${mono}`}>
+            <span>PANORAMA 2.7:1</span>
+            <span>EXP {shotCount}</span>
+          </div>
+        </>
+      )}
+
+      {skin === "pro" && (
+        <>
+          <div
+            className={`absolute left-3 flex flex-col gap-1 text-[11px] text-white/85 ${mono}`}
+            style={{ top: `calc(${topInset})` }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="px-1 bg-white text-black font-bold text-[9px] rounded">PRO</span>
+              {resolution && <span>{resolution.width}×{resolution.height}</span>}
+              {fps && <span>{Math.round(fps)}fps</span>}
+            </div>
+            <div className="text-[10px] text-white/60">
+              {preset ? preset.label : "MANUAL"}
+            </div>
+          </div>
+
+          {battery && (
+            <div
+              className={`absolute right-3 text-[11px] text-white/80 ${mono}`}
+              style={{ top: `calc(${topInset})` }}
+            >
+              {battery}
+            </div>
+          )}
+
+          <Reticle circular />
+
+          <div className="absolute bottom-[168px] left-0 right-0 flex flex-col items-center gap-1.5">
+            <EvScale value={evBias} />
+            <div className={`flex items-center gap-4 text-[11px] text-white/75 ${mono}`}>
+              <span>ISO {iso}</span>
+              <span>{kelvin}K</span>
+              <span>×{zoom.toFixed(1)}</span>
+              <span>RAW+JPEG</span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

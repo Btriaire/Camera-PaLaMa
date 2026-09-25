@@ -14,6 +14,8 @@ export type Adjustments = {
   denoise: number; // 0..100, cheap blur-blend
   vignette: number; // 0..100
   grain: number; // 0..100, film grain
+  halation: number; // 0..100, red highlight diffusion / glow (CineStill / vintage emulsion)
+  bloom: number; // 0..100, pro-mist dreamy highlight diffusion
   fade: number; // 0..100, lifts blacks for a matte/faded look
   monochrome: number; // 0..100, mix toward grayscale
   tintColor: [number, number, number]; // 0..255, color the mono/duotone leans on
@@ -21,6 +23,9 @@ export type Adjustments = {
   chromaticAberration: number; // 0..100
   lightLeak: number; // 0..100
   scanlines: number; // 0..100
+  dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
+  aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
+  filmBorder?: "none" | "35mm" | "polaroid";
 };
 
 export const NEUTRAL_ADJUSTMENTS: Adjustments = {
@@ -36,6 +41,8 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   denoise: 0,
   vignette: 0,
   grain: 0,
+  halation: 0,
+  bloom: 0,
   fade: 0,
   monochrome: 0,
   tintColor: [255, 255, 255],
@@ -43,15 +50,26 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   chromaticAberration: 0,
   lightLeak: 0,
   scanlines: 0,
+  dateStamp: false,
+  aspectRatio: "original",
+  filmBorder: "none",
 };
 
-// Which viewfinder HUD chrome a preset wears while shooting (see
-// components/Hud.tsx). "modern" means no cosplay overlay — these presets
-// are contemporary-filter looks, not a specific historic device.
-// dashcam/doorbell/webcam are the same idea as cctv/camcorder (cosplaying a
-// specific real device's on-screen chrome) but for today's devices instead
-// of a period one.
-export type HudSkin = "film" | "cinema" | "camcorder" | "cctv" | "modern" | "dashcam" | "doorbell" | "webcam";
+// Viewfinder HUD skins
+export type HudSkin =
+  | "film"
+  | "cinema"
+  | "camcorder"
+  | "cctv"
+  | "modern"
+  | "dashcam"
+  | "doorbell"
+  | "webcam"
+  | "leica"
+  | "hasselblad"
+  | "digicam"
+  | "xpan"
+  | "pro";
 
 export type Preset = {
   id: string;
@@ -60,11 +78,10 @@ export type Preset = {
   category: "vintage" | "modern"; // grouping in the camera picker
   hud: HudSkin;
   era?: string; // e.g. "1968" — shown as a spec badge, vintage presets only
-  // Flavor "spec" badges shown in the HUD. Real numbers where one exists —
-  // film stocks' ISO/white-balance are their actual historical ratings, not
-  // invented — approximate stand-ins elsewhere (documented in presets.ts).
   iso?: number;
   kelvin?: number;
+  aspectRatio?: "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
+  dateStampDefault?: boolean;
   adjustments: Partial<Adjustments>;
 };
 

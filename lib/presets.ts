@@ -1,16 +1,97 @@
 import { Preset } from "./types";
 
-// Each preset is just a set of Adjustments deltas from neutral — no LUT
-// images to ship, no binary assets, and every look stays tweakable by hand
-// afterwards since it runs through the exact same shader as the sliders.
-//
-// `iso`/`kelvin` on the vintage ones are the film stock's actual historical
-// rating/color balance where one exists (Kodachrome 64 really is ISO 64,
-// CineStill 800T really is tungsten-balanced 3200K) — flavor for the HUD,
-// not a live light reading, but not invented either. Where no real number
-// exists (a toy camera loaded with whatever film was around, a camcorder's
-// auto-gain), it's a representative stand-in; see the comment on each.
 export const PRESETS: Preset[] = [
+  // ==========================================
+  // KODAK LEGENDARY FILM STOCKS
+  // ==========================================
+  {
+    id: "portra-400",
+    label: "Kodak Portra 400",
+    blurb: "Teints de peau dorés, tons pastel doux, grain subtil — le roi du portrait",
+    category: "vintage",
+    hud: "leica",
+    era: "1998",
+    iso: 400,
+    kelvin: 5500,
+    aspectRatio: "3:2",
+    adjustments: {
+      temperature: 14,
+      tint: 4,
+      saturation: 8,
+      contrast: -6,
+      shadows: 12,
+      highlights: -8,
+      superContrast: 8,
+      grain: 12,
+      vignette: 8,
+      fade: 8,
+      bloom: 10,
+    },
+  },
+  {
+    id: "portra-800",
+    label: "Kodak Portra 800",
+    blurb: "Chaleur dorée poussée, grain organique plus présent, ambiance fin de journée",
+    category: "vintage",
+    hud: "film",
+    era: "1998",
+    iso: 800,
+    kelvin: 5200,
+    aspectRatio: "3:2",
+    adjustments: {
+      temperature: 20,
+      saturation: 15,
+      contrast: 8,
+      shadows: 6,
+      grain: 22,
+      vignette: 14,
+      fade: 12,
+      halation: 18,
+    },
+  },
+  {
+    id: "ektar-100",
+    label: "Kodak Ektar 100",
+    blurb: "Couleurs ultra-saturées, grain chirurgical le plus fin au monde, paysages éclatants",
+    category: "vintage",
+    hud: "film",
+    era: "2008",
+    iso: 100,
+    kelvin: 5500,
+    aspectRatio: "3:2",
+    adjustments: {
+      saturation: 32,
+      contrast: 22,
+      superContrast: 18,
+      sharpen: 18,
+      shadows: -10,
+      highlights: -4,
+      grain: 6,
+      vignette: 12,
+    },
+  },
+  {
+    id: "gold-200",
+    label: "Kodak Gold 200",
+    blurb: "Nostalgie des albums 90s, tons dorés chauds, ombres légèrement bleutées",
+    category: "vintage",
+    hud: "film",
+    era: "1988",
+    iso: 200,
+    kelvin: 5600,
+    aspectRatio: "3:2",
+    dateStampDefault: true,
+    adjustments: {
+      temperature: 24,
+      tintColor: [255, 230, 180],
+      tintStrength: 10,
+      saturation: 18,
+      contrast: 14,
+      grain: 16,
+      vignette: 16,
+      lightLeak: 12,
+    },
+  },
   {
     id: "kodachrome-64",
     label: "Kodachrome 64",
@@ -18,31 +99,63 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "film",
     era: "1968",
-    iso: 64, // its actual, literal box speed
+    iso: 64,
     kelvin: 5500,
-    adjustments: { temperature: 20, saturation: 25, contrast: 20, shadows: -15, grain: 15, vignette: 10 },
+    aspectRatio: "3:2",
+    adjustments: {
+      temperature: 20,
+      saturation: 25,
+      contrast: 20,
+      shadows: -15,
+      grain: 15,
+      vignette: 10,
+      superContrast: 12,
+    },
+  },
+
+  // ==========================================
+  // FUJIFILM CHROMES & NEGATIVES
+  // ==========================================
+  {
+    id: "fuji-velvia-50",
+    label: "Fuji Velvia 50",
+    blurb: "Verts émeraude et ciels pourpres ultra-punchy, contraste diapo implacable",
+    category: "vintage",
+    hud: "hasselblad",
+    era: "1990",
+    iso: 50,
+    kelvin: 5500,
+    aspectRatio: "1:1",
+    adjustments: {
+      saturation: 40,
+      contrast: 26,
+      temperature: -6,
+      tint: -8,
+      superContrast: 18,
+      shadows: -14,
+      grain: 8,
+      vignette: 18,
+    },
   },
   {
-    id: "polaroid-sx70",
-    label: "Polaroid SX-70",
-    blurb: "Blancs délavés, fuite de lumière, chimie instantanée",
+    id: "fuji-provia-100f",
+    label: "Fuji Provia 100F",
+    blurb: "Neutralité chromatique exemplaire, rendu naturel fidèle des lumières du jour",
     category: "vintage",
-    hud: "film",
-    era: "1972",
-    iso: 150, // the SX-70 integral film's real rated speed
+    hud: "pro",
+    era: "2000",
+    iso: 100,
     kelvin: 5500,
-    adjustments: { fade: 35, temperature: 15, contrast: -10, saturation: -10, vignette: 25, lightLeak: 20, grain: 10 },
-  },
-  {
-    id: "agfa-vista",
-    label: "Agfa Vista 200",
-    blurb: "Dominante vert-cyan, couleurs gonflées",
-    category: "vintage",
-    hud: "film",
-    era: "1996",
-    iso: 200, // its actual box speed
-    kelvin: 5500,
-    adjustments: { tintColor: [200, 255, 210], tintStrength: 15, saturation: 20, temperature: -10, contrast: 10, grain: 12 },
+    aspectRatio: "3:2",
+    adjustments: {
+      saturation: 12,
+      contrast: 10,
+      superContrast: 10,
+      sharpen: 12,
+      temperature: -2,
+      grain: 6,
+      vignette: 6,
+    },
   },
   {
     id: "fuji-superia",
@@ -51,20 +164,161 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "film",
     era: "1998",
-    iso: 400, // its actual box speed
+    iso: 400,
     kelvin: 5500,
-    adjustments: { temperature: -8, tintColor: [210, 255, 225], tintStrength: 10, saturation: 10, grain: 8, contrast: 5 },
+    aspectRatio: "3:2",
+    adjustments: {
+      temperature: -8,
+      tintColor: [210, 255, 225],
+      tintStrength: 10,
+      saturation: 10,
+      grain: 8,
+      contrast: 5,
+    },
+  },
+  {
+    id: "fuji-classic-chrome",
+    label: "Fuji Classic Chrome",
+    blurb: "Tons documentaires désaturés, ciel bleu-vert profond, ombres denses",
+    category: "vintage",
+    hud: "leica",
+    era: "2014",
+    iso: 200,
+    kelvin: 5400,
+    aspectRatio: "3:2",
+    adjustments: {
+      saturation: -18,
+      contrast: 18,
+      shadows: -12,
+      highlights: 6,
+      superContrast: 14,
+      temperature: -4,
+      fade: 6,
+      grain: 8,
+      vignette: 12,
+    },
+  },
+  {
+    id: "agfa-vista",
+    label: "Agfa Vista 200",
+    blurb: "Dominante vert-cyan, couleurs gonflées",
+    category: "vintage",
+    hud: "film",
+    era: "1996",
+    iso: 200,
+    kelvin: 5500,
+    aspectRatio: "3:2",
+    adjustments: {
+      tintColor: [200, 255, 210],
+      tintStrength: 15,
+      saturation: 20,
+      temperature: -10,
+      contrast: 10,
+      grain: 12,
+    },
+  },
+
+  // ==========================================
+  // NOIR & BLANC ARGENTIQUE (B&W FILM)
+  // ==========================================
+  {
+    id: "tri-x-400",
+    label: "Kodak Tri-X 400",
+    blurb: "Légende du photojournalisme et de la street photo, grain mordant et noirs profonds",
+    category: "vintage",
+    hud: "leica",
+    era: "1954",
+    iso: 400,
+    aspectRatio: "3:2",
+    adjustments: {
+      monochrome: 100,
+      contrast: 32,
+      grain: 30,
+      shadows: -15,
+      highlights: 8,
+      superContrast: 20,
+      sharpen: 12,
+      vignette: 15,
+    },
   },
   {
     id: "ilford-hp5",
-    label: "Ilford HP5",
+    label: "Ilford HP5 Plus",
     blurb: "Noir & blanc argentique, grain qui mord",
     category: "vintage",
     hud: "film",
     era: "1989",
-    iso: 400, // its actual box speed (HP5 Plus)
-    adjustments: { monochrome: 100, contrast: 25, grain: 25, shadows: -10, highlights: -5 },
+    iso: 400,
+    aspectRatio: "3:2",
+    adjustments: {
+      monochrome: 100,
+      contrast: 25,
+      grain: 25,
+      shadows: -10,
+      highlights: -5,
+      superContrast: 10,
+    },
   },
+  {
+    id: "neopan-acros-100",
+    label: "Fuji Neopan Acros 100",
+    blurb: "Grain ultra-fin technologique, séparation des tons d'une pureté chirurgicale",
+    category: "vintage",
+    hud: "pro",
+    era: "2002",
+    iso: 100,
+    aspectRatio: "3:2",
+    adjustments: {
+      monochrome: 100,
+      contrast: 18,
+      grain: 6,
+      superContrast: 16,
+      sharpen: 20,
+      shadows: -4,
+      highlights: 4,
+    },
+  },
+  {
+    id: "leica-monochrom",
+    label: "Leica Monochrom",
+    blurb: "N&B numérique pur, micro-contraste chirurgical",
+    category: "vintage",
+    hud: "leica",
+    era: "2015",
+    iso: 320,
+    aspectRatio: "3:2",
+    adjustments: {
+      monochrome: 100,
+      contrast: 30,
+      grain: 5,
+      sharpen: 20,
+      superContrast: 22,
+      shadows: -5,
+    },
+  },
+  {
+    id: "daguerreotype",
+    label: "Daguerréotype 1839",
+    blurb: "Sépia XIXe, vignette lourde, portrait figé plusieurs minutes",
+    category: "vintage",
+    hud: "hasselblad",
+    era: "1839",
+    iso: 1,
+    aspectRatio: "1:1",
+    adjustments: {
+      monochrome: 100,
+      tintColor: [210, 180, 140],
+      tintStrength: 70,
+      vignette: 50,
+      fade: 20,
+      denoise: 15,
+      contrast: 10,
+    },
+  },
+
+  // ==========================================
+  // CINÉMA & FORMATS LÉGENDAIRES
+  // ==========================================
   {
     id: "cinestill-800t",
     label: "CineStill 800T",
@@ -72,9 +326,123 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "cinema",
     era: "2012",
-    iso: 800, // its actual box speed — the "T" is tungsten balance
+    iso: 800,
     kelvin: 3200,
-    adjustments: { tintColor: [255, 180, 150], tintStrength: 12, temperature: 10, shadows: -10, lightLeak: 15, grain: 18, contrast: 10 },
+    aspectRatio: "16:9",
+    adjustments: {
+      tintColor: [255, 180, 150],
+      tintStrength: 12,
+      temperature: 10,
+      shadows: -10,
+      lightLeak: 15,
+      grain: 18,
+      contrast: 10,
+      halation: 55,
+      bloom: 22,
+    },
+  },
+  {
+    id: "cinestill-50d",
+    label: "CineStill 50D",
+    blurb: "Film cinéma 50 ISO lumière du jour, teintes dorées et halation fine",
+    category: "vintage",
+    hud: "cinema",
+    era: "2015",
+    iso: 50,
+    kelvin: 5500,
+    aspectRatio: "16:9",
+    adjustments: {
+      temperature: 16,
+      saturation: 18,
+      contrast: 16,
+      superContrast: 12,
+      grain: 10,
+      halation: 35,
+      bloom: 15,
+      vignette: 10,
+    },
+  },
+  {
+    id: "xpan-panoramic",
+    label: "Hasselblad XPan",
+    blurb: "Format panoramique cinéma 65:24 légendaire, cadrage ultra-large dramatique",
+    category: "vintage",
+    hud: "xpan",
+    era: "1998",
+    iso: 400,
+    aspectRatio: "65:24",
+    adjustments: {
+      contrast: 18,
+      saturation: 12,
+      superContrast: 16,
+      grain: 14,
+      vignette: 20,
+      temperature: 6,
+    },
+  },
+
+  // ==========================================
+  // VINTAGE, DIGICAM & EXPÉRIMENTAL
+  // ==========================================
+  {
+    id: "cybershot-y2k",
+    label: "Sony Cyber-shot Y2K",
+    blurb: "Capteur CCD 2000s, couleurs acidulées, flash direct et date rétro",
+    category: "vintage",
+    hud: "digicam",
+    era: "2002",
+    iso: 100,
+    aspectRatio: "4:3",
+    dateStampDefault: true,
+    adjustments: {
+      exposure: 8,
+      contrast: 18,
+      saturation: 25,
+      sharpen: 30,
+      highlights: 22,
+      temperature: -4,
+      chromaticAberration: 12,
+    },
+  },
+  {
+    id: "polaroid-sx70",
+    label: "Polaroid SX-70",
+    blurb: "Blancs délavés, fuite de lumière, chimie instantanée",
+    category: "vintage",
+    hud: "hasselblad",
+    era: "1972",
+    iso: 150,
+    kelvin: 5500,
+    aspectRatio: "1:1",
+    adjustments: {
+      fade: 35,
+      temperature: 15,
+      contrast: -10,
+      saturation: -10,
+      vignette: 25,
+      lightLeak: 20,
+      grain: 10,
+      bloom: 18,
+    },
+  },
+  {
+    id: "gameboy-camera",
+    label: "GameBoy Camera 1998",
+    blurb: "Capteur CMOS 128x112, tramage 2-bit vert monochrome rétro-gaming pur",
+    category: "vintage",
+    hud: "cctv",
+    era: "1998",
+    iso: 200,
+    aspectRatio: "4:3",
+    adjustments: {
+      monochrome: 100,
+      tintColor: [140, 205, 75],
+      tintStrength: 95,
+      contrast: 50,
+      scanlines: 45,
+      grain: 40,
+      denoise: 10,
+    },
   },
   {
     id: "lomo-lca",
@@ -83,7 +451,7 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "film",
     era: "1984",
-    iso: 200, // representative — whatever consumer film was loaded
+    iso: 200,
     kelvin: 5500,
     adjustments: { vignette: 45, saturation: 35, contrast: 20, tintColor: [210, 255, 190], tintStrength: 10, grain: 15 },
   },
@@ -94,7 +462,7 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "film",
     era: "1981",
-    iso: 100, // representative — typical 120 roll film speed
+    iso: 100,
     kelvin: 5500,
     adjustments: { vignette: 55, denoise: 30, lightLeak: 30, fade: 15, grain: 20, saturation: -10 },
   },
@@ -105,8 +473,9 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "film",
     era: "1998",
-    iso: 800, // typical disposable-camera box speed
-    kelvin: 5800, // flash color temperature
+    iso: 800,
+    kelvin: 5800,
+    dateStampDefault: true,
     adjustments: { highlights: 35, exposure: 10, temperature: -15, grain: 35, contrast: 15, saturation: -5 },
   },
   {
@@ -116,8 +485,8 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "camcorder",
     era: "1985",
-    iso: 400, // representative CCD auto-gain equivalent
-    kelvin: 4300, // typical indoor auto white-balance miss
+    iso: 400,
+    kelvin: 4300,
     adjustments: { scanlines: 60, chromaticAberration: 40, saturation: -30, denoise: 25, contrast: -10, temperature: -5 },
   },
   {
@@ -127,47 +496,17 @@ export const PRESETS: Preset[] = [
     category: "vintage",
     hud: "cctv",
     era: "2005",
-    iso: 3200, // representative — cheap sensor, high gain, low light
+    iso: 3200,
     adjustments: { monochrome: 100, tintColor: [150, 255, 150], tintStrength: 60, grain: 30, scanlines: 30, contrast: -15, exposure: -5 },
   },
-  {
-    id: "daguerreotype",
-    label: "Daguerréotype",
-    blurb: "Sépia XIXe, vignette lourde, portrait figé plusieurs minutes",
-    category: "vintage",
-    hud: "film",
-    era: "1839",
-    iso: 1, // the real process needed minutes of direct sunlight — this is not an exaggeration
-    kelvin: 5500,
-    adjustments: { monochrome: 100, tintColor: [210, 180, 140], tintStrength: 70, vignette: 50, fade: 20, denoise: 15, contrast: 10 },
-  },
-  {
-    id: "leica-monochrom",
-    label: "Leica Monochrom",
-    blurb: "N&B numérique pur, micro-contraste chirurgical",
-    category: "vintage",
-    hud: "cinema",
-    era: "2015",
-    iso: 320, // the M Monochrom's actual base ISO
-    adjustments: { monochrome: 100, contrast: 30, grain: 5, sharpen: 20, shadows: -5 },
-  },
-
-  // Today's equivalent of the device cosplay above: the same idea (a real,
-  // specific camera's actual look and on-screen chrome), just for cameras
-  // you'd recognize from this decade instead of a past one — a small
-  // sensor, a wide fixed lens, and whatever automatic exposure/white
-  // balance and heavy video compression that combination always produces.
-  // No "era" badge since these aren't standing in for a period; iso/kelvin
-  // are representative (small sensors like these report gain, not a real
-  // ISO number, and never publish it), like the other approximated ones.
   {
     id: "dashcam",
     label: "Dashcam",
     blurb: "Grand-angle froid, hautes lumières cramées, l'œil qui ne cligne jamais",
     category: "vintage",
     hud: "dashcam",
-    iso: 200, // representative — small automotive-grade sensor, daylight auto-gain
-    kelvin: 6000, // representative — typical cool auto white-balance miss
+    iso: 200,
+    kelvin: 6000,
     adjustments: { temperature: -12, contrast: 8, saturation: -12, highlights: -20, shadows: -10, vignette: 25, grain: 12, denoise: 15, chromaticAberration: 12 },
   },
   {
@@ -176,8 +515,8 @@ export const PRESETS: Preset[] = [
     blurb: "Grand-angle doux, HDR plat, quelqu'un sonne à la porte",
     category: "vintage",
     hud: "doorbell",
-    iso: 400, // representative — small wide-angle IP camera sensor
-    kelvin: 6500, // representative — LED-illuminator-influenced white balance
+    iso: 400,
+    kelvin: 6500,
     adjustments: { contrast: -8, shadows: 15, highlights: -15, saturation: -8, vignette: 35, chromaticAberration: 15, denoise: 12, sharpen: 10, temperature: -5 },
   },
   {
@@ -186,29 +525,29 @@ export const PRESETS: Preset[] = [
     blurb: "Compression basse, teint chaud, réunion qui aurait pu être un e-mail",
     category: "vintage",
     hud: "webcam",
-    iso: 400, // representative — laptop-lid sensor, indoor auto-gain
-    kelvin: 5000, // representative — warm auto white-balance overcorrection
+    iso: 400,
+    kelvin: 5000,
     adjustments: { temperature: 8, saturation: 10, contrast: 5, denoise: 22, vignette: 12, grain: 8, highlights: -8 },
   },
 
-  // Modern, non-costume filters: no era/ISO/Kelvin badge, no HUD cosplay —
-  // just today's clean camera app UI, since these aren't standing in for a
-  // specific old device.
+  // ==========================================
+  // FILTRES MODERNES
+  // ==========================================
   {
     id: "vivid-pop",
     label: "Vivid Pop",
     blurb: "Couleurs punchy, contraste net — le feed qui claque",
     category: "modern",
     hud: "modern",
-    adjustments: { saturation: 30, contrast: 15, sharpen: 20, highlights: -5 },
+    adjustments: { saturation: 30, contrast: 15, sharpen: 20, highlights: -5, superContrast: 12 },
   },
   {
     id: "clarte-urbaine",
     label: "Clarté Urbaine",
     blurb: "Contraste froid et net, béton et verre",
     category: "modern",
-    hud: "modern",
-    adjustments: { contrast: 20, saturation: 10, tintColor: [200, 220, 255], tintStrength: 8, sharpen: 15 },
+    hud: "pro",
+    adjustments: { contrast: 20, saturation: 10, tintColor: [200, 220, 255], tintStrength: 8, sharpen: 15, superContrast: 16 },
   },
   {
     id: "chaleur-doree",
@@ -216,15 +555,15 @@ export const PRESETS: Preset[] = [
     blurb: "Golden hour instantané, peau et ciel dorés",
     category: "modern",
     hud: "modern",
-    adjustments: { temperature: 25, highlights: 10, fade: 10, saturation: 10 },
+    adjustments: { temperature: 25, highlights: 10, fade: 10, saturation: 10, bloom: 14 },
   },
   {
     id: "noir-contraste",
     label: "Noir Contrasté",
     blurb: "N&B moderne, ombres qui claquent",
     category: "modern",
-    hud: "modern",
-    adjustments: { monochrome: 100, contrast: 35, sharpen: 25, shadows: -15 },
+    hud: "pro",
+    adjustments: { monochrome: 100, contrast: 35, sharpen: 25, shadows: -15, superContrast: 20 },
   },
   {
     id: "pastel-doux",
@@ -232,14 +571,14 @@ export const PRESETS: Preset[] = [
     blurb: "Tons délavés, hautes lumières relevées, tout en douceur",
     category: "modern",
     hud: "modern",
-    adjustments: { fade: 30, saturation: -15, highlights: 15, contrast: -10 },
+    adjustments: { fade: 30, saturation: -15, highlights: 15, contrast: -10, bloom: 12 },
   },
   {
     id: "neon-nuit",
     label: "Néon Nuit",
     blurb: "Magenta et cyan, ville la nuit, léger halo",
     category: "modern",
-    hud: "modern",
+    hud: "cinema",
     adjustments: {
       tintColor: [255, 110, 220],
       tintStrength: 18,
@@ -248,6 +587,7 @@ export const PRESETS: Preset[] = [
       shadows: -10,
       vignette: 20,
       chromaticAberration: 10,
+      halation: 30,
     },
   },
   {
@@ -256,7 +596,7 @@ export const PRESETS: Preset[] = [
     blurb: "\"Pas de filtre\" mais en mieux — à peine retouché",
     category: "modern",
     hud: "modern",
-    adjustments: { contrast: 8, saturation: 5, sharpen: 10, denoise: 10 },
+    adjustments: { contrast: 8, saturation: 5, sharpen: 10, denoise: 10, superContrast: 6 },
   },
 ];
 

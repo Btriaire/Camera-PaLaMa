@@ -33,6 +33,8 @@ uniform float u_superContrast;
 uniform float u_denoise;
 uniform float u_vignette;
 uniform float u_grain;
+uniform float u_halation;
+uniform float u_bloom;
 uniform float u_fade;
 uniform float u_monochrome;
 uniform vec3 u_tintColor;
@@ -83,13 +85,7 @@ void main() {
   color = mix(color, blurred, clamp(u_denoise, 0.0, 1.0));
   color = color + (color - blurred) * u_sharpen;
 
-  // Super Contrast: local/mid-frequency contrast ("clarity"), not the flat
-  // +/-100 contrast below. Sharpen's blur above samples immediate neighbor
-  // texels (fixes edges); this one samples a much wider ring, so what it
-  // pushes away from is the neighborhood's average tone, not just the
-  // adjacent pixel — the same trick behind Lightroom-style "Clarity": adds
-  // punch/depth within midtones without crushing shadows or clipping
-  // highlights the way winding up global contrast does.
+  // Super Contrast: local/mid-frequency contrast ("clarity")
   if (u_superContrast > 0.001) {
     vec2 r = u_texelSize * 4.0;
     vec3 local = (
@@ -104,6 +100,26 @@ void main() {
     ) * 0.125;
     float detail = luma(color) - luma(local);
     color += detail * u_superContrast * 1.8;
+  }
+
+  // Halation: red/orange highlight diffusion (CineStill / vintage emulsion)
+  if (u_halation > 0.001) {
+    vec3 wideRed = (
+      texture2D(u_image, uv + vec2(u_texelSize.x * 3.0, 0.0)).rgb +
+      texture2D(u_image, uv - vec2(u_texelSize.x * 3.0, 0.0)).rgb +
+      texture2D(u_image, uv + vec2(0.0, u_texelSize.y * 3.0)).rgb +
+      texture2D(u_image, uv - vec2(0.0, u_texelSize.y * 3.0)).rgb
+    ) * 0.25;
+    float highlightLum = smoothstep(0.65, 0.98, luma(wideRed));
+    vec3 halationGlow = vec3(1.0, 0.22, 0.08) * highlightLum * u_halation * 0.65;
+    color += halationGlow;
+  }
+
+  // Bloom: dreamy highlight glow (Pro-Mist filter simulation)
+  if (u_bloom > 0.001) {
+    float bloomThreshold = smoothstep(0.55, 0.95, luma(blurred));
+    vec3 bloomColor = blurred * bloomThreshold * u_bloom * 0.45;
+    color = mix(color, color + bloomColor, 0.8);
   }
 
   // Exposure in stops.

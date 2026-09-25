@@ -79,7 +79,7 @@ export class GLRenderer {
       "u_image", "u_texelSize", "u_resolution", "u_seed",
       "u_exposure", "u_contrast", "u_saturation", "u_temperature", "u_tint",
       "u_highlights", "u_shadows", "u_sharpen", "u_superContrast", "u_denoise", "u_vignette",
-      "u_grain", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
+      "u_grain", "u_halation", "u_bloom", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
       "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
@@ -129,6 +129,8 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_denoise, adjustments.denoise / 100);
     gl.uniform1f(this.uniforms.u_vignette, adjustments.vignette / 100);
     gl.uniform1f(this.uniforms.u_grain, adjustments.grain / 100);
+    gl.uniform1f(this.uniforms.u_halation, (adjustments.halation ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_bloom, (adjustments.bloom ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_fade, adjustments.fade / 100);
     gl.uniform1f(this.uniforms.u_monochrome, adjustments.monochrome / 100);
     gl.uniform3f(

@@ -16,6 +16,11 @@ const HUD_LABEL: Record<HudSkin, string> = {
   dashcam: "Dashcam",
   doorbell: "Caméra connectée",
   webcam: "Webcam",
+  leica: "Télémètre Leica",
+  hasselblad: "Moyen Format 6×6",
+  digicam: "Digicam CCD Y2K",
+  xpan: "Panoramique XPan",
+  pro: "Visée Pro Mirrorless",
 };
 
 // Full-screen browser for "which camera am I shooting with" — distinct from

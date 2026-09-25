@@ -23,6 +23,7 @@ import {
   LongExposureAccumulator,
   LongExposureBlend,
 } from "@/lib/longExposure";
+import { soundEngine } from "@/lib/audio";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
@@ -525,6 +526,10 @@ export default function Viewfinder({
 
   const captureOnce = async () => {
     setCapturing(true);
+    soundEngine.playShutter();
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate([35, 25, 35]);
+    }
     // "Flash écran" needs the screen genuinely lit *while* the shot is
     // taken (it's the light source, for a front camera with no physical
     // flash) -- so it stays on through the capture, not a 150ms blink like
