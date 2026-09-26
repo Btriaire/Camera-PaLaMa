@@ -510,7 +510,8 @@ export default function Viewfinder({
 
     try {
       rendererRef.current = new GLRenderer(canvas);
-    } catch {
+    } catch (err) {
+      console.error("GLRenderer creation error:", err);
       return;
     }
 
@@ -530,7 +531,8 @@ export default function Viewfinder({
     const handleContextRestored = () => {
       try {
         rendererRef.current = new GLRenderer(canvas);
-      } catch {
+      } catch (err) {
+        console.error("GLRenderer restore error:", err);
         rendererRef.current = null;
       }
     };

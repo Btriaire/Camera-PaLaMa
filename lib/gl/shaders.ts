@@ -270,6 +270,13 @@ void main() {
 
   // 4. Smart Edge-Preserving Bilateral Denoise & Unsharp Mask
   vec2 tx = u_texelSize;
+  vec3 blurred = (
+    texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb +
+    texture2D(u_image, uv - vec2(tx.x, 0.0)).rgb +
+    texture2D(u_image, uv + vec2(0.0, tx.y)).rgb +
+    texture2D(u_image, uv - vec2(0.0, tx.y)).rgb
+  ) * 0.25;
+
   if (u_denoise > 0.001) {
     float centerL = luma(color);
     vec3 cN1 = texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb;
@@ -293,12 +300,6 @@ void main() {
 
   // 4b. Adaptive High-Pass Edge Sharpening
   if (u_sharpen > 0.001) {
-    vec3 blurred = (
-      texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb +
-      texture2D(u_image, uv - vec2(tx.x, 0.0)).rgb +
-      texture2D(u_image, uv + vec2(0.0, tx.y)).rgb +
-      texture2D(u_image, uv - vec2(0.0, tx.y)).rgb
-    ) * 0.25;
     vec3 highPass = color - blurred;
     color = color + highPass * (u_sharpen * 2.2);
   }
