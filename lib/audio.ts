@@ -137,6 +137,36 @@ class SoundEngine {
     osc.start(t);
     osc.stop(t + (isFinal ? 0.13 : 0.07));
   }
+
+  // Dual-tone high-pitch chirp for AF confirmation (Canon / Sony / Nikon bip-bip)
+  playAutofocusLock() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const t = ctx.currentTime;
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(1046.5, t); // C6
+    gain1.gain.setValueAtTime(0.18, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(t);
+    osc1.stop(t + 0.065);
+
+    const t2 = t + 0.07;
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(2093.0, t2); // C7
+    gain2.gain.setValueAtTime(0.22, t2);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.075);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(t2);
+    osc2.stop(t2 + 0.085);
+  }
 }
 
 export const soundEngine = new SoundEngine();

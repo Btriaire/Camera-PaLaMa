@@ -37,9 +37,13 @@ import HorizontalSlider from "./HorizontalSlider";
 import PhotoViewer from "./PhotoViewer";
 import UltraZoomHUD, { ULTRA_ZOOM_STEPS } from "./UltraZoomHUD";
 import VintageViewfinderMask, { VINTAGE_VIEWFINDER_MODES, VintageViewfinderMode } from "./VintageViewfinderMask";
+import AutofocusControls, { FocusMode } from "./AutofocusControls";
+import AutofocusReticle, { ReticleData } from "./AutofocusReticle";
 import {
   AnamorphicIcon,
   ApertureIcon,
+  AutofocusTargetIcon,
+  BokehDepthIcon,
   BurstIcon,
   CameraIcon,
   CheckIcon,
@@ -238,6 +242,13 @@ export default function Viewfinder({
   const [liveAspectMask, setLiveAspectMask] = useState<"none" | "1:1" | "4:5" | "16:9" | "3:2" | "65:24">("none");
   const [showHistogram, setShowHistogram] = useState(false);
   const [soundMuted, setSoundMuted] = useState(false);
+  const [afControlsOpen, setAfControlsOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState<FocusMode>("auto");
+  const [apertureFStop, setApertureFStop] = useState<number>(1.8);
+  const [focusDistance, setFocusDistance] = useState<number>(30);
+  const [dofBlur, setDofBlur] = useState<number>(75);
+  const [focusPoint, setFocusPoint] = useState<[number, number]>([0.5, 0.5]);
+  const [afReticle, setAfReticle] = useState<ReticleData | null>(null);
   // On by default, like a phone's own EIS -- the button is there to turn
   // it off (e.g. on a tripod, where the crop margin only costs framing for
   // nothing), not to opt in.
@@ -446,9 +457,35 @@ export default function Viewfinder({
         : baseAdjustments.superContrast,
       sharpen: macroModeOn ? Math.max(baseAdjustments.sharpen, 60) : baseAdjustments.sharpen,
       macroBoost: macroModeOn ? Math.max(baseAdjustments.macroBoost ?? 0, 80) : baseAdjustments.macroBoost ?? 0,
+      dofBlur: focusMode === "auto" ? 0 : dofBlur,
+      focusDistance: focusDistance,
+      focusPoint: focusPoint,
+      apertureFStop: apertureFStop,
+      focusPlaneMode:
+        focusMode === "foreground"
+          ? 1
+          : focusMode === "background"
+          ? 2
+          : focusMode === "point"
+          ? 3
+          : focusMode === "manual"
+          ? 4
+          : 0,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [presetId, evBias, isoIndex, kelvinIndex, superContrastOn, macroModeOn]
+    [
+      presetId,
+      evBias,
+      isoIndex,
+      kelvinIndex,
+      superContrastOn,
+      macroModeOn,
+      focusMode,
+      dofBlur,
+      focusDistance,
+      focusPoint,
+      apertureFStop,
+    ]
   );
   const hudSkin = preset?.hud ?? "modern";
   const timerSeconds = TIMER_STEPS[timerIndex];
@@ -981,6 +1018,58 @@ export default function Viewfinder({
             ? Math.min(PRESET_ORDER.length - 1, currentIndex + 1)
             : Math.max(0, currentIndex - 1);
         if (nextIndex !== currentIndex) onSelectPreset(PRESET_ORDER[nextIndex]);
+      } else if (Math.abs(delta) < 15) {
+        // Tap-to-Focus trigger!
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const fx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const fy = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+          // Estimated distance based on framing
+          const estDist = fy > 0.65 ? "0.35m" : fy > 0.4 ? "1.20m" : "∞";
+
+          // Sound & Haptic confirmation
+          soundEngine.playAutofocusLock();
+          if (typeof navigator !== "undefined" && navigator.vibrate) {
+            try {
+              navigator.vibrate([15, 30, 20]);
+            } catch {}
+          }
+
+          setAfReticle({
+            x: e.clientX,
+            y: e.clientY,
+            fx,
+            fy,
+            aperture: apertureFStop,
+            distanceMeters: estDist,
+            timestamp: Date.now(),
+          });
+
+          // Invert Y for WebGL texture coordinate system
+          setFocusPoint([fx, 1 - fy]);
+          if (focusMode === "auto" || focusMode === "point") {
+            setFocusMode("point");
+            if (dofBlur < 20) setDofBlur(65);
+          }
+
+          // Hardware autofocus point of interest constraint
+          try {
+            const track = (videoRef.current?.srcObject as MediaStream)?.getVideoTracks()[0];
+            const capabilities = track?.getCapabilities?.() as any;
+            if (capabilities?.pointsOfInterest || capabilities?.focusMode?.includes("continuous")) {
+              (track as any)?.applyConstraints?.({
+                advanced: [
+                  {
+                    focusMode: "continuous",
+                    pointsOfInterest: [{ x: fx, y: fy }],
+                  },
+                ],
+              })?.catch(() => {});
+            }
+          } catch {}
+        }
       }
     }
     swipeStart.current = null;
@@ -1028,6 +1117,9 @@ export default function Viewfinder({
         now={now}
         tiltDeg={tiltDeg}
       />
+
+      {/* Live Interactive Autofocus Target Reticle */}
+      <AutofocusReticle reticle={afReticle} />
 
       {/* Ultra-Zoom Telephoto HUD: PiP Radar, MTF Detail Analysis & OIS Target Lock */}
       {inUltraZoom && (
@@ -1317,8 +1409,32 @@ export default function Viewfinder({
           </button>
         </div>
 
-        {/* Right capsule: PRO Drawer Trigger, Macro, Flash & Flip */}
+        {/* Right capsule: AF/Bokeh, PRO Drawer Trigger, Macro, Flash & Flip */}
         <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 p-1.5 backdrop-blur-xl shadow-xl">
+          {/* AF & Bokeh Depth-of-field button */}
+          <button
+            onClick={() => setAfControlsOpen((v) => !v)}
+            aria-label="Autofocus & Profondeur de champ"
+            className={`flex h-10 px-2.5 items-center gap-1 rounded-full border transition-all active:scale-90 ${
+              focusMode !== "auto" || afControlsOpen
+                ? "bg-emerald-400 text-black font-black border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]"
+                : "border-emerald-400/40 bg-emerald-400/15 text-emerald-300 hover:bg-emerald-400/25"
+            }`}
+          >
+            <AutofocusTargetIcon className="w-4.5 h-4.5" />
+            <span className="text-[10px] font-mono font-bold tracking-wider">
+              {focusMode === "foreground"
+                ? "AVANT"
+                : focusMode === "background"
+                ? "FOND"
+                : focusMode === "point"
+                ? "POINT"
+                : focusMode === "manual"
+                ? "MF"
+                : "AF"}
+            </span>
+          </button>
+
           <button
             onClick={() => setProDrawerOpen((v) => !v)}
             aria-label="Outils Pro Live & Traitement d'image"
@@ -1361,6 +1477,36 @@ export default function Viewfinder({
         </div>
       </div>
 
+      {/* Floating Autofocus & Depth of Field Control Panel */}
+      {afControlsOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-35"
+            aria-label="Fermer le panneau autofocus"
+            onClick={() => setAfControlsOpen(false)}
+          />
+          <div
+            className="absolute left-3 right-3 z-40 max-w-md mx-auto pointer-events-auto transition-all animate-in fade-in slide-in-from-top-4"
+            style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.75rem)" }}
+          >
+            <AutofocusControls
+              focusMode={focusMode}
+              onChangeFocusMode={setFocusMode}
+              aperture={apertureFStop}
+              onChangeAperture={setApertureFStop}
+              focusDistance={focusDistance}
+              onChangeFocusDistance={setFocusDistance}
+              dofBlur={dofBlur}
+              onChangeDofBlur={setDofBlur}
+              focusPeaking={focusPeakingEnabled}
+              onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
+              onClose={() => setAfControlsOpen(false)}
+            />
+          </div>
+        </>
+      )}
+
       {/* Pro Live Tools Drawer Component */}
       <ProLiveDrawer
         isOpen={proDrawerOpen}
@@ -1397,6 +1543,14 @@ export default function Viewfinder({
         onSelectKelvin={(k) => setKelvinIndex(nearestStepIndex(KELVIN_STEPS, k))}
         ultraZoomMode={ultraZoomMode}
         setUltraZoomMode={setUltraZoomMode}
+        focusMode={focusMode}
+        setFocusMode={setFocusMode}
+        aperture={apertureFStop}
+        setAperture={setApertureFStop}
+        focusDistance={focusDistance}
+        setFocusDistance={setFocusDistance}
+        dofBlur={dofBlur}
+        setDofBlur={setDofBlur}
       />
 
       {vintageMaskMenuOpen && (

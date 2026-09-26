@@ -506,7 +506,22 @@ export function RadarScopeIcon({ className = base }: IconProps) {
   );
 }
 
+export function AutofocusTargetIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" />
+      <circle cx="12" cy="12" r="3" strokeDasharray="2 2" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
-
-
-
+export function BokehDepthIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="9" cy="10" r="6" strokeDasharray="3 2" />
+      <circle cx="15" cy="14" r="5" strokeWidth="1.8" />
+      <circle cx="12" cy="7" r="2.5" strokeDasharray="2 2" />
+    </svg>
+  );
+}

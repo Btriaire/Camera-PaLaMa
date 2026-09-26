@@ -60,6 +60,13 @@ export type Adjustments = {
   solarHAlpha: number; // 0..100, 656.3nm Hydrogen-Alpha solar plasma chromosphere filter
   electronMicro: number; // 0..100, Scanning Electron Microscope secondary electron topological contrast
 
+  // Optical Depth of Field, Autofocus & Bokeh Simulator
+  dofBlur?: number; // 0..100, Aperture bokeh blur intensity
+  focusDistance?: number; // 0..100 (0 = foreground / 0.1m, 50 = 1.5m, 100 = infinity ∞)
+  focusPoint?: [number, number]; // [0..1, 0..1], normalized tap-to-focus point [x, y]
+  apertureFStop?: number; // 1.2, 1.4, 1.8, 2.8, 4.0, 5.6, 8.0, 16.0
+  focusPlaneMode?: number; // 0 = standard/off, 1 = foreground sharp/bg blur, 2 = bg sharp/foreground blur, 3 = tap point AF, 4 = manual MF
+
   dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
   aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
   filmBorder?: "none" | "35mm" | "polaroid";
@@ -115,6 +122,11 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   quantumEvent: 0,
   solarHAlpha: 0,
   electronMicro: 0,
+  dofBlur: 0,
+  focusDistance: 30,
+  focusPoint: [0.5, 0.5],
+  apertureFStop: 1.8,
+  focusPlaneMode: 0,
   dateStamp: false,
   aspectRatio: "original",
   filmBorder: "none",

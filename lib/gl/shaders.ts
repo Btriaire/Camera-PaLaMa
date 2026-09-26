@@ -78,6 +78,13 @@ uniform float u_quantumEvent;
 uniform float u_solarHAlpha;
 uniform float u_electronMicro;
 
+// Exotic Optical Depth of Field, Autofocus & Bokeh Simulator
+uniform float u_dofBlur;
+uniform float u_focusDistance;
+uniform vec2 u_focusPoint;
+uniform float u_apertureFStop;
+uniform float u_focusPlaneMode;
+
 // Live Viewfinder Shooting Aids & Pro Tools
 uniform float u_zebra;
 uniform float u_zebraThreshold;
@@ -123,6 +130,64 @@ vec3 getPeakingColor(float code) {
   if (code < 1.5) return vec3(1.0, 0.15, 0.25); // Electric Red
   if (code < 2.5) return vec3(0.0, 0.85, 1.0);  // Electric Cyan
   return vec3(1.0, 0.92, 0.0);                   // Vivid Yellow
+}
+
+// Optical Depth of Field, Focus Plane & Multi-Blade Bokeh Simulation
+vec3 opticalDepthOfFieldBokeh(sampler2D tex, vec2 uv, vec2 tx, vec3 baseCol, float dofStrength, float fDistance, vec2 fPoint, float fStop, float planeMode) {
+  if (dofStrength <= 0.001 && planeMode <= 0.1) return baseCol;
+
+  // 1. Scene Depth Estimator (Perspective gradient + Radial offset relative to tap focus point)
+  // WebGL v_texCoord: (0,0) is bottom-left, (1,1) is top-right.
+  // In real camera perspectives, bottom (y=0) corresponds to foreground ground/subject, top (y=1) to background.
+  float rawDepth = uv.y;
+  
+  float targetFocus = fDistance / 100.0;
+  if (planeMode > 0.5 && planeMode < 1.5) {
+    // Mode 1: Avant-plan net / Arrière-plan flou (Portrait / Macro)
+    targetFocus = 0.15;
+    rawDepth = uv.y * 0.75 + distance(uv, vec2(0.5, 0.2)) * 0.25;
+  } else if (planeMode > 1.5 && planeMode < 2.5) {
+    // Mode 2: Arrière-plan net / Avant-plan flou (Deep background focus / foreground blur)
+    targetFocus = 0.85;
+    rawDepth = uv.y * 0.75 + distance(uv, vec2(0.5, 0.8)) * 0.25;
+  } else if (planeMode > 2.5 && planeMode < 3.5) {
+    // Mode 3: AF Tactile au point touché
+    targetFocus = fPoint.y;
+    rawDepth = uv.y * 0.55 + distance(uv, fPoint) * 0.65;
+  } else if (planeMode > 3.5) {
+    // Mode 4: MF Bague manuelle
+    targetFocus = fDistance / 100.0;
+    rawDepth = uv.y * 0.7 + distance(uv, vec2(0.5, 0.4)) * 0.3;
+  }
+
+  // Calculate Circle of Confusion (CoC) based on thin lens optical equation
+  float focalDiff = abs(rawDepth - targetFocus);
+  float apertureGain = 5.6 / max(0.9, fStop);
+  float effectiveStrength = max(dofStrength, planeMode > 0.5 ? 70.0 : 0.0) / 100.0;
+  float coc = smoothstep(0.04, 0.42, focalDiff) * apertureGain * effectiveStrength * 10.0;
+
+  if (coc < 0.25) return baseCol;
+
+  // 16-tap Golden Spiral Poisson Disk Bokeh Kernel with Specular Thresholding
+  vec3 accumColor = baseCol;
+  float accumWeight = 1.0;
+
+  for (int i = 1; i <= 16; i++) {
+    float fi = float(i);
+    float theta = fi * 2.39996323; // Golden angle ~137.5 deg
+    float radius = sqrt(fi / 16.0) * coc;
+    vec2 sampleOffset = vec2(cos(theta), sin(theta)) * radius * tx * 1.8;
+    vec3 s = texture2D(tex, clamp(uv + sampleOffset, 0.0, 1.0)).rgb;
+    
+    // Specular highlight boost for creamy bokeh orbs
+    float lum = luma(s);
+    float specWeight = 1.0 + pow(lum, 3.2) * 2.8;
+    accumColor += s * specWeight;
+    accumWeight += specWeight;
+  }
+
+  vec3 blurredResult = accumColor / max(0.001, accumWeight);
+  return mix(baseCol, blurredResult, clamp(coc / 1.8, 0.0, 1.0));
 }
 
 // 1. Academy Color Encoding System (ACES 1.3 Fitted RRT+ODT)
@@ -276,8 +341,12 @@ void main() {
     color = texture2D(u_image, uv).rgb;
   }
 
-  // 4. Smart Edge-Preserving Bilateral Denoise & Unsharp Mask
   vec2 tx = u_texelSize;
+
+  // 3b. Optical Depth of Field & Bokeh Simulation (Avant-plan / Arrière-plan / AF Tactile)
+  color = opticalDepthOfFieldBokeh(u_image, uv, tx, color, u_dofBlur, u_focusDistance, u_focusPoint, u_apertureFStop, u_focusPlaneMode);
+
+  // 4. Smart Edge-Preserving Bilateral Denoise & Unsharp Mask
   vec3 blurred = (
     texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb +
     texture2D(u_image, uv - vec2(tx.x, 0.0)).rgb +

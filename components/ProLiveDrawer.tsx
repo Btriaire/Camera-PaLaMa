@@ -20,6 +20,7 @@ import {
 } from "./Icons";
 import { ScopeMode } from "./ProScopesMonitor";
 import { VintageViewfinderMode, VINTAGE_VIEWFINDER_MODES } from "./VintageViewfinderMask";
+import AutofocusControls, { FocusMode } from "./AutofocusControls";
 
 export default function ProLiveDrawer({
   isOpen,
@@ -56,6 +57,14 @@ export default function ProLiveDrawer({
   onSelectKelvin,
   ultraZoomMode = false,
   setUltraZoomMode,
+  focusMode = "auto",
+  setFocusMode,
+  aperture = 1.8,
+  setAperture,
+  focusDistance = 30,
+  setFocusDistance,
+  dofBlur = 75,
+  setDofBlur,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -91,6 +100,14 @@ export default function ProLiveDrawer({
   onSelectKelvin: (k: number) => void;
   ultraZoomMode?: boolean;
   setUltraZoomMode?: React.Dispatch<React.SetStateAction<boolean>>;
+  focusMode?: FocusMode;
+  setFocusMode?: (mode: FocusMode) => void;
+  aperture?: number;
+  setAperture?: (f: number) => void;
+  focusDistance?: number;
+  setFocusDistance?: (d: number) => void;
+  dofBlur?: number;
+  setDofBlur?: (b: number) => void;
 }) {
   if (!isOpen) return null;
 
@@ -242,7 +259,25 @@ export default function ProLiveDrawer({
           </div>
         </div>
 
-        {/* Section 2: Focus Peaking (Couleur & Activation) */}
+        {/* Section 2: Autofocus & Profondeur de Champ */}
+        {setFocusMode && setAperture && setFocusDistance && setDofBlur && (
+          <div className="mb-4">
+            <AutofocusControls
+              focusMode={focusMode}
+              onChangeFocusMode={setFocusMode}
+              aperture={aperture}
+              onChangeAperture={setAperture}
+              focusDistance={focusDistance}
+              onChangeFocusDistance={setFocusDistance}
+              dofBlur={dofBlur}
+              onChangeDofBlur={setDofBlur}
+              focusPeaking={focusPeakingEnabled}
+              onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
+            />
+          </div>
+        )}
+
+        {/* Section 3: Focus Peaking (Couleur & Activation) */}
         <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-white flex items-center gap-1.5">

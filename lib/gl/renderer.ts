@@ -90,6 +90,7 @@ export class GLRenderer {
       "u_anamorphicFlare", "u_toneCurve", "u_shadowTint", "u_highlightTint", "u_dehaze", "u_skinSmooth",
       "u_acesToneMap", "u_casSharpness", "u_remjetHalation", "u_printFilmStock",
       "u_jwstSpikes", "u_kirlianAura", "u_lidarMesh", "u_quantumEvent", "u_solarHAlpha", "u_electronMicro",
+      "u_dofBlur", "u_focusDistance", "u_focusPoint", "u_apertureFStop", "u_focusPlaneMode",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
@@ -201,6 +202,17 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_quantumEvent, (adjustments.quantumEvent ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_solarHAlpha, (adjustments.solarHAlpha ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_electronMicro, (adjustments.electronMicro ?? 0) / 100);
+
+    // Optical Depth of Field, Autofocus & Bokeh Simulator
+    gl.uniform1f(this.uniforms.u_dofBlur, (adjustments.dofBlur ?? 0));
+    gl.uniform1f(this.uniforms.u_focusDistance, (adjustments.focusDistance ?? 30));
+    gl.uniform2f(
+      this.uniforms.u_focusPoint,
+      adjustments.focusPoint ? adjustments.focusPoint[0] : 0.5,
+      adjustments.focusPoint ? adjustments.focusPoint[1] : 0.5
+    );
+    gl.uniform1f(this.uniforms.u_apertureFStop, (adjustments.apertureFStop ?? 1.8));
+    gl.uniform1f(this.uniforms.u_focusPlaneMode, (adjustments.focusPlaneMode ?? 0));
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
