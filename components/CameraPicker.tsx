@@ -35,9 +35,15 @@ const HUD_LABEL: Record<HudSkin, string> = {
   thermal: "Vision Thermique FLIR",
   nvg: "Vision Nocturne PVS-14",
   glitch: "Signal VHS Glitch",
+  linhof: "Linhof 4×5 Grand Format",
+  contax: "Contax T2 Carl Zeiss",
+  mamiya: "Mamiya RB67 Pro 6×7",
+  nikon: "Nikon F3 HP NASA",
+  holga: "Holga 120N Toy Camera",
+  olympus: "Olympus Pen F Demi-Format",
 };
 
-type TabFilter = "all" | "films" | "cinema" | "medium" | "pro-scenes" | "macro" | "curious" | "modern";
+type TabFilter = "all" | "films" | "bw" | "cinema" | "medium" | "pro-scenes" | "macro" | "curious" | "modern";
 
 export default function CameraPicker({
   camera,
@@ -54,10 +60,11 @@ export default function CameraPicker({
 }) {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
-  const macroPresets = PRESETS.filter((p) => p.id.startsWith("macro-") || p.id === "macro-ultra");
+  const bwPresets = PRESETS.filter((p) => p.adjustments.monochrome && p.adjustments.monochrome > 50);
   const cinemaPresets = PRESETS.filter((p) => p.id.includes("vision3") || p.id.includes("eterna") || p.id.includes("cinestill") || p.id.includes("arriflex") || p.id.includes("red-raptor") || p.id.includes("arri-alexa"));
-  const mediumFormatPresets = PRESETS.filter((p) => p.id.includes("hasselblad") || p.id.includes("rolleiflex") || p.id.includes("polaroid") || p.id.includes("xpan") || p.id.includes("leica"));
-  const filmPresets = PRESETS.filter((p) => p.category === "vintage" && !cinemaPresets.some(c => c.id === p.id) && !mediumFormatPresets.some(m => m.id === p.id));
+  const mediumFormatPresets = PRESETS.filter((p) => p.id.includes("hasselblad") || p.id.includes("rolleiflex") || p.id.includes("polaroid") || p.id.includes("xpan") || p.id.includes("leica") || p.id.includes("linhof") || p.id.includes("contax") || p.id.includes("mamiya") || p.id.includes("nikon") || p.id.includes("holga") || p.id.includes("olympus"));
+  const macroPresets = PRESETS.filter((p) => p.id.startsWith("macro-") || p.id === "macro-ultra");
+  const filmPresets = PRESETS.filter((p) => p.category === "vintage" && !bwPresets.some(b => b.id === p.id) && !cinemaPresets.some(c => c.id === p.id) && !mediumFormatPresets.some(m => m.id === p.id));
   const proScenes = PRO_SCENE_PRESETS.filter((p) => !macroPresets.some(m => m.id === p.id));
   const curious = CURIOUS_PRESETS;
   const modern = MODERN_PRESETS;
@@ -74,8 +81,8 @@ export default function CameraPicker({
           <BackIcon className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-base font-bold tracking-tight">Pelliculothèque &amp; Boîtiers Pro</h1>
-          <p className="text-[11px] text-white/50">{PRESETS.length} émulsions argentiques réelles, caméras cinéma &amp; optiques</p>
+          <h1 className="text-base font-bold tracking-tight">Pelliculothèque &amp; Boîtiers Mythiques</h1>
+          <p className="text-[11px] text-white/50">{PRESETS.length} émulsions réelles, histoires &amp; caméras légendaires</p>
         </div>
       </div>
 
@@ -85,13 +92,16 @@ export default function CameraPicker({
           Tous ({PRESETS.length})
         </TabButton>
         <TabButton active={activeTab === "films"} onClick={() => setActiveTab("films")} accent="text-amber-400 border-amber-400/40">
-          Pellicules 35mm ({filmPresets.length})
+          Pellicules Couleur ({filmPresets.length})
+        </TabButton>
+        <TabButton active={activeTab === "bw"} onClick={() => setActiveTab("bw")} accent="text-zinc-300 border-zinc-500/40">
+          Noir &amp; Blanc ({bwPresets.length})
         </TabButton>
         <TabButton active={activeTab === "cinema"} onClick={() => setActiveTab("cinema")} accent="text-cyan-400 border-cyan-400/40">
           Cinéma 35mm ({cinemaPresets.length})
         </TabButton>
         <TabButton active={activeTab === "medium"} onClick={() => setActiveTab("medium")} accent="text-emerald-400 border-emerald-400/40">
-          Moyen Format &amp; Vintage ({mediumFormatPresets.length})
+          Moyen Format &amp; Mythiques ({mediumFormatPresets.length})
         </TabButton>
         <TabButton active={activeTab === "pro-scenes"} onClick={() => setActiveTab("pro-scenes")} accent="text-sky-400 border-sky-400/40">
           Boîtiers Pro Modernes ({proScenes.length})
@@ -101,9 +111,6 @@ export default function CameraPicker({
         </TabButton>
         <TabButton active={activeTab === "curious"} onClick={() => setActiveTab("curious")} accent="text-purple-400 border-purple-400/40">
           Curieux ({curious.length})
-        </TabButton>
-        <TabButton active={activeTab === "modern"} onClick={() => setActiveTab("modern")}>
-          Modernes ({modern.length})
         </TabButton>
       </div>
 
@@ -119,43 +126,39 @@ export default function CameraPicker({
             </div>
             <div className="p-3">
               <div className="text-sm font-semibold">Capteur Neutre (RAW)</div>
-              <div className="text-xs text-white/40">Aucun traitement, l&apos;image brute du capteur</div>
+              <div className="text-xs text-white/40">Aucun traitement, l&apos;image brute du capteur sans émulsion</div>
             </div>
           </Card>
         )}
 
-        {/* Section Pellicules 35mm */}
+        {/* Section Pellicules Couleur */}
         {(activeTab === "all" || activeTab === "films") && (
-          <Section title="Pellicules Argentiques Authentiques 35mm (Kodak, Fuji, Ilford, Agfa)">
+          <Section title="Pellicules Argentiques Couleur (Kodak, Fuji, Agfa)">
             {filmPresets.map((p) => (
-              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
-                  <FilmCanister35mm preset={p} />
-                </div>
-                <div className="relative">
-                  <PresetBeforeAfter
-                    beforeSrc={thumbs[NATURAL_KEY]}
-                    afterSrc={thumbs[p.id]}
-                    gradient={swatchGradient(p)}
-                    className="h-28 w-full"
-                  />
-                  {activePresetId === p.id && <ActiveBadge />}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-amber-300">{p.label}</div>
-                    {p.brand && <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/30">{p.brand}</span>}
-                  </div>
-                  <div className="mt-0.5 text-xs text-white/70">{p.blurb}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
-                    <Tag>{HUD_LABEL[p.hud]}</Tag>
-                    {p.era && <Tag>{p.era}</Tag>}
-                    {p.iso && <Tag>ISO {p.iso}</Tag>}
-                    {p.kelvin && <Tag>{p.kelvin}K</Tag>}
-                    {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
-                  </div>
-                </div>
-              </Card>
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
+            ))}
+          </Section>
+        )}
+
+        {/* Section Noir & Blanc */}
+        {(activeTab === "all" || activeTab === "bw") && (
+          <Section title="Noir &amp; Blanc Argentique Mythique (Tri-X, HP5, Acros, Verichrome)">
+            {bwPresets.map((p) => (
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
             ))}
           </Section>
         )}
@@ -164,70 +167,30 @@ export default function CameraPicker({
         {(activeTab === "all" || activeTab === "cinema") && (
           <Section title="Cinéma 35mm Hollywood &amp; Émulsions ECN-2">
             {cinemaPresets.map((p) => (
-              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
-                  <FilmCanister35mm preset={p} />
-                </div>
-                <div className="relative">
-                  <PresetBeforeAfter
-                    beforeSrc={thumbs[NATURAL_KEY]}
-                    afterSrc={thumbs[p.id]}
-                    gradient={swatchGradient(p)}
-                    className="h-28 w-full"
-                  />
-                  {activePresetId === p.id && <ActiveBadge />}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-cyan-300">{p.label}</div>
-                    {p.brand && <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/30">{p.brand}</span>}
-                  </div>
-                  <div className="mt-0.5 text-xs text-white/70">{p.blurb}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
-                    <Tag>{HUD_LABEL[p.hud]}</Tag>
-                    {p.era && <Tag>{p.era}</Tag>}
-                    {p.iso && <Tag>ISO {p.iso}</Tag>}
-                    {p.kelvin && <Tag>{p.kelvin}K</Tag>}
-                    {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
-                  </div>
-                </div>
-              </Card>
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
             ))}
           </Section>
         )}
 
-        {/* Section Moyen Format & Boîtiers Vintage Mythiques */}
+        {/* Section Moyen Format & Boîtiers Mythiques */}
         {(activeTab === "all" || activeTab === "medium") && (
-          <Section title="Moyen Format 120, Télémètres &amp; Instantanés Mythiques">
+          <Section title="Moyen Format 120, Grand Format 4×5 &amp; Boîtiers Mythiques">
             {mediumFormatPresets.map((p) => (
-              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
-                  <FilmCanister35mm preset={p} />
-                </div>
-                <div className="relative">
-                  <PresetBeforeAfter
-                    beforeSrc={thumbs[NATURAL_KEY]}
-                    afterSrc={thumbs[p.id]}
-                    gradient={swatchGradient(p)}
-                    className="h-28 w-full"
-                  />
-                  {activePresetId === p.id && <ActiveBadge />}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-emerald-300">{p.label}</div>
-                    {p.brand && <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded border border-emerald-400/30">{p.brand}</span>}
-                  </div>
-                  <div className="mt-0.5 text-xs text-white/70">{p.blurb}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
-                    <Tag>{HUD_LABEL[p.hud]}</Tag>
-                    {p.era && <Tag>{p.era}</Tag>}
-                    {p.iso && <Tag>ISO {p.iso}</Tag>}
-                    {p.kelvin && <Tag>{p.kelvin}K</Tag>}
-                    {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
-                  </div>
-                </div>
-              </Card>
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
             ))}
           </Section>
         )}
@@ -236,33 +199,14 @@ export default function CameraPicker({
         {(activeTab === "all" || activeTab === "pro-scenes") && (
           <Section title="Boîtiers Professionnels Modernes &amp; Cinéma RAW">
             {proScenes.map((p) => (
-              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
-                  <FilmCanister35mm preset={p} />
-                </div>
-                <div className="relative">
-                  <PresetBeforeAfter
-                    beforeSrc={thumbs[NATURAL_KEY]}
-                    afterSrc={thumbs[p.id]}
-                    gradient={swatchGradient(p)}
-                    className="h-28 w-full"
-                  />
-                  {activePresetId === p.id && <ActiveBadge />}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-sky-300">{p.label}</div>
-                    {p.brand && <span className="text-[10px] font-mono font-bold text-sky-400 bg-sky-400/10 px-1.5 py-0.5 rounded border border-sky-400/30">{p.brand}</span>}
-                  </div>
-                  <div className="mt-0.5 text-xs text-white/60">{p.blurb}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
-                    <Tag>{HUD_LABEL[p.hud]}</Tag>
-                    {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
-                    {p.iso && <Tag>ISO {p.iso}</Tag>}
-                    {p.kelvin && <Tag>{p.kelvin}K</Tag>}
-                  </div>
-                </div>
-              </Card>
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
             ))}
           </Section>
         )}
@@ -271,97 +215,120 @@ export default function CameraPicker({
         {(activeTab === "all" || activeTab === "macro") && (
           <Section title="Macro &amp; Micro-Détails (Optiques Rapprochées &amp; Textures)">
             {macroPresets.map((p) => (
-              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
-                  <FilmCanister35mm preset={p} />
-                </div>
-                <div className="relative">
-                  <PresetBeforeAfter
-                    beforeSrc={thumbs[NATURAL_KEY]}
-                    afterSrc={thumbs[p.id]}
-                    gradient={swatchGradient(p)}
-                    className="h-28 w-full"
-                  />
-                  {activePresetId === p.id && <ActiveBadge />}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-emerald-300">{p.label}</div>
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-400/15 px-1.5 py-0.5 rounded border border-emerald-400/30">
-                      MACRO
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-white/70">{p.blurb}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
-                    <Tag>{HUD_LABEL[p.hud]}</Tag>
-                    {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
-                    {p.iso && <Tag>ISO {p.iso}</Tag>}
-                    {p.kelvin && <Tag>{p.kelvin}K</Tag>}
-                  </div>
-                </div>
-              </Card>
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
             ))}
           </Section>
         )}
 
-        {/* Section 3: Filtres Curieux & Bizarres */}
+        {/* Section Filtres Curieux & Bizarres */}
         {(activeTab === "all" || activeTab === "curious") && (
           <Section title="Filtres Curieux &amp; Bizarres (Expérimental)">
             {curious.map((p) => (
-              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
-                  <FilmCanister35mm preset={p} />
-                </div>
-                <div className="relative">
-                  <PresetBeforeAfter
-                    beforeSrc={thumbs[NATURAL_KEY]}
-                    afterSrc={thumbs[p.id]}
-                    gradient={swatchGradient(p)}
-                    className="h-28 w-full"
-                  />
-                  {activePresetId === p.id && <ActiveBadge />}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-purple-300">{p.label}</div>
-                    <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded border border-purple-400/30">EXPÉRIMENTAL</span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-white/60">{p.blurb}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
-                    <Tag>{HUD_LABEL[p.hud]}</Tag>
-                    {p.era && <Tag>{p.era}</Tag>}
-                    {p.iso && <Tag>ISO {p.iso}</Tag>}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </Section>
-        )}
-
-        {/* Section 4: Filtres Modernes */}
-        {(activeTab === "all" || activeTab === "modern") && (
-          <Section title="Filtres Modernes Pro">
-            {modern.map((p) => (
-              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
-                <div className="relative">
-                  <PresetBeforeAfter
-                    beforeSrc={thumbs[NATURAL_KEY]}
-                    afterSrc={thumbs[p.id]}
-                    gradient={swatchGradient(p)}
-                    className="h-28 w-full"
-                  />
-                  {activePresetId === p.id && <ActiveBadge />}
-                </div>
-                <div className="p-3">
-                  <div className="text-sm font-semibold">{p.label}</div>
-                  <div className="mt-0.5 text-xs text-white/50">{p.blurb}</div>
-                </div>
-              </Card>
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
             ))}
           </Section>
         )}
       </div>
     </div>
+  );
+}
+
+function PresetDetailCard({
+  preset: p,
+  active,
+  onSelect,
+  naturalThumb,
+  presetThumb,
+}: {
+  preset: any;
+  active: boolean;
+  onSelect: () => void;
+  naturalThumb?: string;
+  presetThumb?: string;
+}) {
+  return (
+    <Card active={active} onClick={onSelect}>
+      <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10 flex items-center justify-between">
+        <FilmCanister35mm preset={p} />
+        {p.brand && (
+          <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
+            {p.brand}
+          </span>
+        )}
+      </div>
+      <div className="relative">
+        <PresetBeforeAfter
+          beforeSrc={naturalThumb}
+          afterSrc={presetThumb}
+          gradient={swatchGradient(p)}
+          className="h-32 w-full"
+        />
+        {active && <ActiveBadge />}
+      </div>
+      <div className="p-3.5 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-bold text-amber-300">{p.label}</div>
+          {p.era && <span className="text-[10px] font-mono text-white/50">{p.era}</span>}
+        </div>
+        
+        <div className="text-xs text-white/80 leading-relaxed">{p.blurb}</div>
+
+        {/* History & Origin */}
+        {p.history && (
+          <div className="mt-1 rounded-xl bg-black/40 p-2.5 border border-white/10 text-[11px] text-white/70 leading-normal">
+            <span className="block text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider mb-1">
+              Histoire &amp; Genèse
+            </span>
+            {p.history}
+          </div>
+        )}
+
+        {/* Use Case & Famous Artists */}
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-white/10 text-[10px]">
+          {p.useCase && (
+            <div className="flex items-baseline gap-1.5 text-emerald-300">
+              <span className="font-mono font-bold uppercase text-emerald-400 text-[9px] shrink-0">Usage idéal :</span>
+              <span className="text-white/80">{p.useCase}</span>
+            </div>
+          )}
+
+          {p.famousArtists && p.famousArtists.length > 0 && (
+            <div className="flex items-baseline gap-1.5 flex-wrap text-cyan-300">
+              <span className="font-mono font-bold uppercase text-cyan-400 text-[9px] shrink-0">Artistes &amp; Réalisateurs :</span>
+              <div className="flex flex-wrap gap-1">
+                {p.famousArtists.map((artist: string, idx: number) => (
+                  <span key={idx} className="bg-cyan-950/60 text-cyan-200 px-1.5 py-0.2 rounded border border-cyan-500/30">
+                    {artist}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Technical Specs Tags */}
+        <div className="mt-1 flex flex-wrap gap-1.5 text-[9.5px] text-white/60 pt-1 border-t border-white/5">
+          <Tag>{HUD_LABEL[p.hud as HudSkin] ?? p.hud}</Tag>
+          {p.iso && <Tag>ISO {p.iso}</Tag>}
+          {p.kelvin && <Tag>{p.kelvin}K</Tag>}
+          {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
+        </div>
+      </div>
+    </Card>
   );
 }
 

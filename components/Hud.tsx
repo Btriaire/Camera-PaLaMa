@@ -719,6 +719,132 @@ export default function Hud({
           </div>
         </>
       )}
+
+      {/* Linhof Master Technika 4x5 Large Format */}
+      {skin === "linhof" && (
+        <>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-amber-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <Badge>LINHOF 4×5 TECHNIKA</Badge>
+            <Badge>ISO {iso}</Badge>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-amber-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>PLAN FILM 4×5&quot;</div>
+            <div className="text-[10px] text-white/60">BASCULE &amp; DÉCENTREMENT</div>
+          </div>
+          <Reticle />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-amber-200 ${mono}`}>
+            <span>SCHNEIDER SYMMAR 150mm</span>
+            <span>1/60s</span>
+            <span>f/22</span>
+            <span>EXP {shotCount}</span>
+          </div>
+        </>
+      )}
+
+      {/* Contax T2 Titanium 35mm */}
+      {skin === "contax" && (
+        <>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-emerald-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-emerald-500 text-black font-black text-[9px] rounded">CONTAX T2</span>
+            <Badge>CARL ZEISS T*</Badge>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-emerald-400 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>SONNAR 38mm F2.8</div>
+            <div className="text-[10px] text-white/60">TITANIUM BODY</div>
+          </div>
+          <Reticle thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-emerald-300 font-bold ${mono}`}>
+            <span>[● AF]</span>
+            <span>1/500</span>
+            <span>F2.8</span>
+            <span>ISO {iso}</span>
+            <span>EXP {shotCount}</span>
+          </div>
+        </>
+      )}
+
+      {/* Mamiya RB67 Pro SD 6x7 Medium Format */}
+      {skin === "mamiya" && (
+        <>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-amber-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <Badge>MAMIYA RB67 PRO</Badge>
+            <Badge>120 FILM 6×7</Badge>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-amber-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>SEKOR C 90mm</div>
+            <div className="text-[10px] text-white/60">DOS ROTATIF</div>
+          </div>
+          <Reticle circular />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-amber-200 ${mono}`}>
+            <span>1/125s</span>
+            <span>f/3.8</span>
+            <span>ISO {iso}</span>
+            <span>VUE {shotCount}/10</span>
+          </div>
+        </>
+      )}
+
+      {/* Nikon F3 HP NASA SLR */}
+      {skin === "nikon" && (
+        <>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-red-500 font-black ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-red-600 text-white font-black text-[9px] rounded">NIKON F3</span>
+            <span className="text-white font-bold">HP NASA</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-white font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>HIGH-EYEPOINT 100%</div>
+            <div className="text-[10px] text-amber-400">LCD SHUTTER: 1/2000</div>
+          </div>
+          <Reticle thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-white font-bold ${mono}`}>
+            <span>NIKKOR 50mm F1.4</span>
+            <span>ISO {iso}</span>
+            <span className="text-red-400 font-mono">CW 80/20</span>
+            <span>EXP {shotCount}/36</span>
+          </div>
+        </>
+      )}
+
+      {/* Holga 120N Toy Camera */}
+      {skin === "holga" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-yellow-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-yellow-400 text-black text-[9px] font-black rounded w-max">HOLGA 120N</span>
+            <span className="text-[10px] text-white/70">PLASTIC OPTICAL LENS 60mm</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-yellow-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>1/100s FIXED</div>
+            <div className="text-[10px] text-white/60">ZONE FOCUS: ∞</div>
+          </div>
+          <Reticle />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-yellow-200 ${mono}`}>
+            <span>F/8 SUNNY</span>
+            <span>120 MEDIUM FORMAT</span>
+            <span>EXP {shotCount}/12</span>
+          </div>
+        </>
+      )}
+
+      {/* Olympus Pen F Half-Frame 18x24 */}
+      {skin === "olympus" && (
+        <>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-zinc-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <Badge>OLYMPUS PEN F</Badge>
+            <Badge>DEMI-FORMAT 18×24</Badge>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-zinc-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>F.ZUIKO 38mm F1.8</div>
+            <div className="text-[10px] text-amber-400">DOUBLE CAPACITÉ (72 VUES)</div>
+          </div>
+          <Reticle thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-zinc-200 ${mono}`}>
+            <span>ROTARY TITANIUM SHUTTER</span>
+            <span>1/500s</span>
+            <span>ISO {iso}</span>
+            <span>POSE {shotCount * 2}/72</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

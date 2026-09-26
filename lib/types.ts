@@ -132,15 +132,24 @@ export type HudSkin =
   | "pro"
   | "thermal"
   | "nvg"
-  | "glitch";
+  | "glitch"
+  | "linhof"
+  | "contax"
+  | "mamiya"
+  | "nikon"
+  | "holga"
+  | "olympus";
 
 export type PresetCategory = "color-film" | "bw-film" | "cinema" | "vintage-digi" | "curious" | "modern" | "pro-scenes";
 
 export type Preset = {
   id: string;
   label: string;
-  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Rolleiflex" | "ARRI" | "RED" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon";
+  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Rolleiflex" | "ARRI" | "RED" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon" | "Contax" | "Olympus" | "Mamiya" | "Minolta" | "Voigtländer" | "Linhof";
   blurb: string; // one line of flavor text shown under the name
+  history?: string; // historical background & origin of the film or camera
+  useCase?: string; // best use case (portrait, street, landscape, war reportage, etc.)
+  famousArtists?: string[]; // famous photographers, filmmakers, or works known for using it
   category: "vintage" | "modern" | "curious" | "pro-scenes"; // grouping in the camera picker
   hud: HudSkin;
   era?: string; // e.g. "1968" — shown as a spec badge
