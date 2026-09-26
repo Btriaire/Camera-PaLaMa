@@ -1,6 +1,6 @@
 type IconProps = { className?: string };
 
-const base = "w-6 h-6";
+const base = "w-6.5 h-6.5";
 
 export function BackIcon({ className = base }: IconProps) {
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { deletePhoto, photoUrl } from "@/lib/storage";
+import { deletePhoto, getPhotoBlob, photoUrl } from "@/lib/storage";
 import { shareOrDownloadPhoto } from "@/lib/sharePhoto";
 import { getPreset } from "@/lib/presets";
 import { SavedPhotoMeta } from "@/lib/types";
@@ -65,9 +65,16 @@ export default function PhotoViewer({
   };
 
   const handleDownload = async () => {
-    const res = await fetch(photoUrl(meta.id));
-    const blob = await res.blob();
-    await shareOrDownloadPhoto(blob, `photo-${meta.id}.jpg`);
+    const blob = await getPhotoBlob(meta.id);
+    if (blob) {
+      await shareOrDownloadPhoto(blob, `camera-palama-${meta.id}.jpg`);
+    } else {
+      const res = await fetch(photoUrl(meta.id));
+      if (res.ok) {
+        const fallbackBlob = await res.blob();
+        await shareOrDownloadPhoto(fallbackBlob, `camera-palama-${meta.id}.jpg`);
+      }
+    }
   };
 
   const handleDelete = async () => {

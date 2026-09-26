@@ -1181,53 +1181,53 @@ export default function Viewfinder({
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
         {/* Left capsule: Gallery, Settings & Audio */}
-        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/65 p-1.5 backdrop-blur-xl shadow-xl">
+        <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/75 p-2 backdrop-blur-xl shadow-xl">
           <button
             onClick={onOpenGallery}
             aria-label="Galerie"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
           >
-            <GalleryGridIcon className="w-6 h-6" />
+            <GalleryGridIcon className="w-7 h-7" />
           </button>
           <button
             onClick={() => setDashboardOpen(true)}
             aria-label="Tableau de bord"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
           >
-            <SettingsIcon className="w-6 h-6" />
+            <SettingsIcon className="w-7 h-7" />
           </button>
           <button
             onClick={toggleSoundMute}
             aria-label={soundMuted ? "Activer les sons" : "Désactiver les sons (silencieux)"}
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              soundMuted ? "bg-red-500/30 text-red-300 border border-red-400/50" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              soundMuted ? "bg-red-500/30 text-red-300 border border-red-400/50" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <SoundIcon className="w-5 h-5" mute={soundMuted} />
+            <SoundIcon className="w-6 h-6" mute={soundMuted} />
           </button>
         </div>
 
         {/* Right capsule: Quick Shooting Tools (Macro, Timer, Ratio, Grid, Zebra, Peaking, Burst, Flash, Flip) */}
-        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/65 p-1.5 backdrop-blur-xl shadow-xl overflow-x-auto max-w-[70vw] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/75 p-2 backdrop-blur-xl shadow-xl overflow-x-auto max-w-[70vw] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={toggleMacroMode}
             aria-label="Mode Macro (Mise au point ultra-proche)"
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              macroModeOn ? "bg-emerald-400 text-black font-bold shadow-[0_0_12px_rgba(52,211,153,0.5)] ring-2 ring-emerald-300" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              macroModeOn ? "bg-emerald-400 text-black font-bold shadow-[0_0_15px_rgba(52,211,153,0.6)] ring-2 ring-emerald-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <MacroFlowerIcon className="w-6 h-6" />
+            <MacroFlowerIcon className="w-7 h-7" />
           </button>
           <button
             onClick={() => setVintageMaskMenuOpen((v) => !v)}
             aria-label="Viseur Optique Rétro / Masque Dépoli d'appareil vintage"
-            className={`relative flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              vintageMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              vintageMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_15px_rgba(245,158,11,0.7)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <VintageViewfinderIcon className="w-6 h-6" />
+            <VintageViewfinderIcon className="w-7 h-7" />
             {vintageMask !== "none" && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[8.5px] font-mono font-black leading-none bg-black text-amber-400 px-0.5 rounded">
+              <span className="absolute -bottom-0.5 -right-0.5 text-[9px] font-mono font-black leading-none bg-black text-amber-400 px-1 py-0.2 rounded border border-amber-400/40">
                 {vintageMask === "slr-prism" ? "SLR" : vintageMask === "tlr-6x6" ? "TLR" : vintageMask === "lens-circle" ? "LENS" : "35M"}
               </span>
             )}
@@ -1235,13 +1235,13 @@ export default function Viewfinder({
           <button
             onClick={cycleAspectMask}
             aria-label="Cadre de cadrage / Ratio"
-            className={`relative flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              liveAspectMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              liveAspectMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <RatioFramingIcon className="w-6 h-6" />
+            <RatioFramingIcon className="w-7 h-7" />
             {liveAspectMask !== "none" && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[9px] font-mono font-black leading-none bg-black text-amber-400 px-0.5 rounded">
+              <span className="absolute -bottom-0.5 -right-0.5 text-[9.5px] font-mono font-black leading-none bg-black text-amber-400 px-1 rounded border border-amber-400/40">
                 {liveAspectMask === "65:24" ? "XP" : liveAspectMask}
               </span>
             )}
@@ -1249,22 +1249,22 @@ export default function Viewfinder({
           <button
             onClick={() => setShowHistogram((h) => !h)}
             aria-label="Histogramme en direct"
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              showHistogram ? "bg-cyan-400 text-black font-bold shadow-[0_0_10px_rgba(34,211,238,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              showHistogram ? "bg-cyan-400 text-black font-bold shadow-[0_0_12px_rgba(34,211,238,0.6)] ring-2 ring-cyan-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <HistogramIcon className="w-6 h-6" />
+            <HistogramIcon className="w-7 h-7" />
           </button>
           <button
             onClick={() => setTimerIndex((i) => (i + 1) % TIMER_STEPS.length)}
             aria-label="Retardateur"
-            className={`relative flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              timerSeconds > 0 ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              timerSeconds > 0 ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <TimerIcon className="w-6 h-6" />
+            <TimerIcon className="w-7 h-7" />
             {timerSeconds > 0 && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono font-black leading-none bg-black text-amber-400 px-0.5 rounded">
+              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono font-black leading-none bg-black text-amber-400 px-1 rounded border border-amber-400/40">
                 {timerSeconds}s
               </span>
             )}
@@ -1272,55 +1272,55 @@ export default function Viewfinder({
           <button
             onClick={() => setShowGrid((g) => !g)}
             aria-label="Grille"
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              showGrid ? "bg-white text-black font-bold shadow-sm" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              showGrid ? "bg-white text-black font-bold shadow-md ring-2 ring-white/60" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <GridIcon className="w-6 h-6" />
+            <GridIcon className="w-7 h-7" />
           </button>
           <button
             onClick={() => setZebraEnabled((z) => !z)}
             aria-label="Alerte de surexposition (zébrures)"
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              zebraEnabled ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              zebraEnabled ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <ZebraIcon className="w-6 h-6" />
+            <ZebraIcon className="w-7 h-7" />
           </button>
           <button
             onClick={() => setFocusPeakingEnabled((fp) => !fp)}
             aria-label="Aide à la mise au point (Focus Peaking vert)"
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              focusPeakingEnabled ? "bg-emerald-400 text-black font-bold shadow-[0_0_10px_rgba(52,211,153,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              focusPeakingEnabled ? "bg-emerald-400 text-black font-bold shadow-[0_0_12px_rgba(52,211,153,0.6)] ring-2 ring-emerald-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <FocusPeakingIcon className="w-6 h-6" />
+            <FocusPeakingIcon className="w-7 h-7" />
           </button>
           <button
             onClick={() => setBurstMenuOpen((v) => !v)}
             aria-label="Mode rafale"
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              burstModeArmed ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              burstModeArmed ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <BurstIcon className="w-6 h-6" />
+            <BurstIcon className="w-7 h-7" />
           </button>
           <button
             onClick={() => setFlashMenuOpen((v) => !v)}
             aria-label="Mode flash"
-            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-              flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+              flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <FlashModeIcon mode={flashMode} className="w-6 h-6" />
+            <FlashModeIcon mode={flashMode} className="w-7 h-7" />
           </button>
           {capabilities.canSwitch && (
             <button
               onClick={flip}
               aria-label="Changer de caméra"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
             >
-              <FlipCameraIcon className="w-6 h-6" />
+              <FlipCameraIcon className="w-7 h-7" />
             </button>
           )}
         </div>
@@ -1727,18 +1727,18 @@ export default function Viewfinder({
               <button
                 onClick={() => setViewerPhotoIndex(0)}
                 aria-label="Ouvrir la dernière photo en grand"
-                className="h-15 w-15 overflow-hidden rounded-2xl border-2 border-white/90 shadow-2xl relative active:scale-90 transition-transform bg-black/50"
+                className="h-17 w-17 overflow-hidden rounded-2xl border-2 border-white/95 shadow-2xl relative active:scale-90 transition-transform bg-black/60 ring-2 ring-white/20"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photoUrl(lastPhoto.id)} alt="" className="h-full w-full object-cover" />
                 {recentPhotos.length > 1 && (
-                  <span className="absolute bottom-1 right-1 bg-black/80 backdrop-blur text-[10px] font-mono font-bold text-white px-1.5 rounded-sm border border-white/30">
+                  <span className="absolute bottom-1 right-1 bg-black/85 backdrop-blur text-[11px] font-mono font-black text-amber-300 px-1.5 rounded-sm border border-white/30">
                     {recentPhotos.length}
                   </span>
                 )}
               </button>
             ) : (
-              <div className="h-15 w-15" aria-hidden />
+              <div className="h-17 w-17" aria-hidden />
             )}
           </div>
 
@@ -1749,20 +1749,20 @@ export default function Viewfinder({
               onPointerLeave={handleShutterUp}
               disabled={!ready}
               aria-label="Déclencher"
-              className={`flex h-[82px] w-[82px] items-center justify-center rounded-full border-4 shadow-2xl active:scale-95 transition-all disabled:opacity-40 ${
-                burstCount > 0 ? "border-amber-300 ring-4 ring-amber-400/50" : "border-white"
+              className={`flex h-[90px] w-[90px] items-center justify-center rounded-full border-[5px] shadow-2xl active:scale-95 transition-all disabled:opacity-40 ${
+                burstCount > 0 ? "border-amber-300 ring-4 ring-amber-400/50" : "border-white/90 ring-4 ring-white/20"
               }`}
             >
-              <span className={`h-16 w-16 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
+              <span className={`h-[72px] w-[72px] rounded-full bg-white shadow-inner transition-transform ${capturing ? "scale-75" : ""}`} />
             </button>
             {burstCount > 0 && (
-              <span className="absolute -top-2 -right-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-300 px-1.5 text-xs font-black text-black shadow-lg">
+              <span className="absolute -top-2 -right-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-400 px-2 text-xs font-black text-black shadow-lg">
                 {burstCount}
               </span>
             )}
           </div>
 
-          <div className="h-15 w-15" aria-hidden />
+          <div className="h-17 w-17" aria-hidden />
         </div>
       </div>
 

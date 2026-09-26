@@ -10,7 +10,7 @@ import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
 import CameraPicker from "./CameraPicker";
 import HorizontalSlider from "./HorizontalSlider";
-import { FilmCanisterBadge } from "./FilmCanister";
+import { FilmCanisterBadge, FILM_STYLES } from "./FilmCanister";
 import {
   ApertureIcon,
   BackIcon,
@@ -590,11 +590,23 @@ export default function Editor({
     return result;
   };
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    toastTimeout.current = setTimeout(() => setToastMessage(null), 3500);
+  };
+
   const handleDownload = async () => {
     setBusy("download");
     try {
       const { blob } = await runExport();
-      await shareOrDownloadPhoto(blob, `photo-${Date.now()}.jpg`);
+      await shareOrDownloadPhoto(blob, `camera-palama-${Date.now()}.jpg`);
+      showToast("Photo exportée vers la pellicule");
+    } catch {
+      showToast("Échec de l'export — réessayez");
     } finally {
       setBusy(null);
     }
@@ -614,11 +626,14 @@ export default function Editor({
       if (result.ok) {
         setSaved(true);
         onSaved?.(result.item);
+        showToast("Photo enregistrée dans la Galerie");
       } else {
         setSaveError(result.error);
+        showToast(result.error);
       }
     } catch {
       setSaveError("Échec de l'enregistrement — réessayez.");
+      showToast("Échec de l'enregistrement");
     } finally {
       setBusy(null);
     }
@@ -715,6 +730,13 @@ export default function Editor({
         </div>
       </div>
 
+      {toastMessage && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 rounded-full border border-white/20 bg-zinc-900/90 px-4 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md flex items-center gap-2 animate-in fade-in duration-200">
+          <CheckIcon className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {saveError && (
         <div className="mx-4 mt-2 rounded-xl border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-200">
           {saveError}
@@ -808,6 +830,40 @@ export default function Editor({
               {superRes ? `×2 (${superResSize.width}×${superResSize.height})` : `(${denoiseSize.width}×${denoiseSize.height})`}
             </span>
           )}
+        </div>
+
+        {/* Film Quick Bar */}
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto px-4 py-2 border-b border-white/5 bg-zinc-900/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <button
+            onClick={() => applyPreset(null)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-all border ${
+              presetId === null
+                ? "border-amber-400 bg-amber-400/20 text-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.25)]"
+                : "border-white/10 bg-white/5 text-white/60 hover:text-white"
+            }`}
+          >
+            <span>Neutre</span>
+          </button>
+          {PRESETS.map((p) => {
+            const isSelected = presetId === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p.id)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-all border ${
+                  isSelected
+                    ? "border-amber-400 bg-amber-400/20 text-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.25)]"
+                    : "border-white/10 bg-white/5 text-white/60 hover:text-white"
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full shadow-[0_0_4px_currentColor]" style={{ backgroundColor: FILM_STYLES[p.id]?.accentColor ?? "#fbbf24", color: FILM_STYLES[p.id]?.accentColor ?? "#fbbf24" }} />
+                <span>{p.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Hero Active Tool Slider (Large, tactile, high-precision) */}

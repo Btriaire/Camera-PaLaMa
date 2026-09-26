@@ -1,21 +1,13 @@
 "use client";
 
 import { Adjustments, SavedPhotoMeta } from "./types";
-import { dbDeletePhoto, dbListPhotos, dbPutPhoto, StoredPhoto } from "./photoDb";
+import { dbDeletePhoto, dbGetPhoto, dbListPhotos, dbPutPhoto, StoredPhoto } from "./photoDb";
 
 // The photo library lives entirely in this browser's IndexedDB (see
 // lib/photoDb.ts) — no server round-trip, so no dependency on the hosting
 // platform's storage being configured. Every function here keeps its old,
 // server-shaped signature (listPhotos/uploadPhoto/deletePhoto/photoUrl) so
 // none of the components consuming it needed to change.
-//
-// <img src>/fetch() both need a synchronous URL string, but reading a blob
-// back out of IndexedDB is async — so every blob gets a real object URL
-// the moment it's read (listPhotos) or written (uploadPhoto), cached here,
-// and photoUrl() is just a synchronous lookup into that cache. That's also
-// why `fetch(photoUrl(id))` elsewhere in the app (Gallery/PhotoViewer/
-// page.tsx, to re-decode a saved photo for editing or sharing) still
-// works unchanged: fetch() on a blob: URL resolves with that same blob.
 const urlCache = new Map<string, string>();
 
 function cacheUrl(id: string, blob: Blob): string {
@@ -48,9 +40,28 @@ export async function listPhotos(): Promise<{ items: SavedPhotoMeta[]; storageWa
   }
 }
 
-// Synchronous by design (see the module comment) — returns "" for an id
-// that hasn't been through listPhotos()/uploadPhoto() yet in this session,
-// same as the old API route returning 404 would have looked to an <img>.
+export async function getPhotoBlob(id: string): Promise<Blob | null> {
+  const cached = urlCache.get(id);
+  if (cached) {
+    try {
+      const res = await fetch(cached);
+      if (res.ok) return await res.blob();
+    } catch {
+      // fallback
+    }
+  }
+  try {
+    const record = await dbGetPhoto(id);
+    if (record?.blob) {
+      cacheUrl(record.id, record.blob);
+      return record.blob;
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
 export function photoUrl(id: string): string {
   return urlCache.get(id) ?? "";
 }

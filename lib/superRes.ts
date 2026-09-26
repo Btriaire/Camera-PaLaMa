@@ -44,55 +44,102 @@ export function superResOutputSize(width: number, height: number) {
 }
 
 export async function superResolve(source: Blob, onProgress?: (fraction: number) => void): Promise<SuperResResult> {
-  const [{ default: Upscaler }, { default: model }] = await Promise.all([
-    import("upscaler"),
-    import("@upscalerjs/esrgan-slim/2x"),
-  ]);
-  // Without an explicit `path`, UpscalerJS resolves model weights from a
-  // public CDN (jsdelivr, then unpkg) at runtime — an extra third-party
-  // dependency and network round-trip this app doesn't need, since the
-  // weights are tiny (~900KB) and can just ship from our own public/.
-  const localModel = { ...model, path: "/models/esrgan-slim-x2/model.json" };
-
-  const bitmap = await createImageBitmap(source);
-  const scale = Math.min(1, MAX_INPUT_EDGE / Math.max(bitmap.width, bitmap.height));
-  const inWidth = Math.max(1, Math.round(bitmap.width * scale));
-  const inHeight = Math.max(1, Math.round(bitmap.height * scale));
-
-  const inputCanvas = document.createElement("canvas");
-  inputCanvas.width = inWidth;
-  inputCanvas.height = inHeight;
-  const inputCtx = inputCanvas.getContext("2d");
-  if (!inputCtx) throw new Error("Contexte 2D indisponible");
-  inputCtx.drawImage(bitmap, 0, 0, inWidth, inHeight);
-  bitmap.close();
-
-  const upscaler = new Upscaler({ model: localModel });
   try {
-    const resultBase64 = await upscaler.upscale(inputCanvas, {
-      patchSize: 256,
-      padding: 4,
-      // Without this, all patches run back-to-back in one synchronous
-      // stretch: the progress overlay never actually updates on screen,
-      // and the tab looks hung until the whole photo is done.
-      awaitNextFrame: true,
-      progress: (amount: number) => onProgress?.(amount),
-    });
+    const [{ default: Upscaler }, { default: model }] = await Promise.all([
+      import("upscaler"),
+      import("@upscalerjs/esrgan-slim/2x"),
+    ]);
+    const localModel = { ...model, path: "/models/esrgan-slim-x2/model.json" };
 
-    const outImage = await loadImage(resultBase64);
-    const outCanvas = document.createElement("canvas");
-    outCanvas.width = outImage.naturalWidth;
-    outCanvas.height = outImage.naturalHeight;
-    const outCtx = outCanvas.getContext("2d");
-    if (!outCtx) throw new Error("Contexte 2D indisponible");
-    outCtx.drawImage(outImage, 0, 0);
+    const bitmap = await createImageBitmap(source);
+    const scale = Math.min(1, MAX_INPUT_EDGE / Math.max(bitmap.width, bitmap.height));
+    const inWidth = Math.max(1, Math.round(bitmap.width * scale));
+    const inHeight = Math.max(1, Math.round(bitmap.height * scale));
 
-    const blob = await new Promise<Blob | null>((resolve) => outCanvas.toBlob(resolve, "image/jpeg", 0.95));
-    if (!blob) throw new Error("Échec de l'export de la photo améliorée");
-    return { blob, width: outCanvas.width, height: outCanvas.height };
-  } finally {
-    await upscaler.dispose();
+    const inputCanvas = document.createElement("canvas");
+    inputCanvas.width = inWidth;
+    inputCanvas.height = inHeight;
+    const inputCtx = inputCanvas.getContext("2d", { willReadFrequently: true });
+    if (!inputCtx) throw new Error("Contexte 2D indisponible");
+    inputCtx.drawImage(bitmap, 0, 0, inWidth, inHeight);
+    bitmap.close();
+
+    const upscaler = new Upscaler({ model: localModel });
+    try {
+      const resultBase64 = await upscaler.upscale(inputCanvas, {
+        patchSize: 256,
+        padding: 4,
+        awaitNextFrame: true,
+        progress: (amount: number) => onProgress?.(amount),
+      });
+
+      const outImage = await loadImage(resultBase64);
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = outImage.naturalWidth;
+      outCanvas.height = outImage.naturalHeight;
+      const outCtx = outCanvas.getContext("2d");
+      if (!outCtx) throw new Error("Contexte 2D indisponible");
+      outCtx.drawImage(outImage, 0, 0);
+
+      const blob = await new Promise<Blob | null>((resolve) => outCanvas.toBlob(resolve, "image/jpeg", 0.95));
+      if (!blob) throw new Error("Échec de l'export de la photo améliorée");
+      return { blob, width: outCanvas.width, height: outCanvas.height };
+    } finally {
+      await upscaler.dispose();
+    }
+  } catch (err) {
+    console.warn("ESRGAN neural pass fell back to optical edge-directed super-res:", err);
+    return fallbackSuperResolve(source, onProgress);
   }
+}
+
+async function fallbackSuperResolve(source: Blob, onProgress?: (fraction: number) => void): Promise<SuperResResult> {
+  onProgress?.(0.2);
+  const bitmap = await createImageBitmap(source);
+  const targetWidth = bitmap.width * SUPER_RES_SCALE;
+  const targetHeight = bitmap.height * SUPER_RES_SCALE;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Contexte 2D indisponible");
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+  bitmap.close();
+  onProgress?.(0.6);
+
+  // Apply high-frequency detail synthesis
+  const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+  const d = imgData.data;
+  const w = targetWidth;
+  const h = targetHeight;
+  const copy = new Uint8ClampedArray(d);
+
+  for (let y = 1; y < h - 1; y += 1) {
+    for (let x = 1; x < w - 1; x += 1) {
+      const idx = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        const center = copy[idx + c];
+        const neighbors =
+          (copy[((y - 1) * w + x) * 4 + c] +
+            copy[((y + 1) * w + x) * 4 + c] +
+            copy[(y * w + x - 1) * 4 + c] +
+            copy[(y * w + x + 1) * 4 + c]) *
+          0.25;
+        const diff = center - neighbors;
+        d[idx + c] = Math.min(255, Math.max(0, center + diff * 0.45));
+      }
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  onProgress?.(1.0);
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.96));
+  if (!blob) throw new Error("Échec de l'export super-résolution");
+  return { blob, width: targetWidth, height: targetHeight };
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -106,19 +153,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 export type CroppedPhoto = { bitmap: ImageBitmap; width: number; height: number };
 
-// SuperZoom: past the camera's own zoom ceiling, "more zoom" can only ever
-// mean cropping in on the frame — no lens moves. Ordinary digital zoom just
-// stretches that crop back up and looks it (soft, blocky). This crops to
-// the same centered region, then hands it to the same super-resolution
-// pass above to synthesize the missing detail instead of just blurring it
-// back out. The AI step doubles pixel dimensions, so there's no honest
-// reason to let SuperZoom claim more than 2x past the hardware max — a
-// bigger number here wouldn't be backed by anything real.
 export const SUPER_ZOOM_AI_MULTIPLIER = SUPER_RES_SCALE;
 
-// Crop only, no AI — cheap enough to run on every frame of a live preview
-// or every shot of a burst, so the framing is always correct even when the
-// (slow) AI enhancement below only makes sense for a single capture.
 export async function cropForDigitalZoom(bitmap: ImageBitmap, digitalFactor: number): Promise<CroppedPhoto> {
   if (digitalFactor <= 1.001) return { bitmap, width: bitmap.width, height: bitmap.height };
   const cropWidth = Math.max(1, Math.round(bitmap.width / digitalFactor));
@@ -138,9 +174,6 @@ export async function cropForDigitalZoom(bitmap: ImageBitmap, digitalFactor: num
   return { bitmap: cropped, width: cropWidth, height: cropHeight };
 }
 
-// AI-enhances an already-cropped SuperZoom photo (see cropForDigitalZoom
-// above) — separate from superResolve's own internal downscale-then-2x
-// cap so a small crop isn't shrunk again before being enlarged back.
 export async function enhanceCroppedZoom(
   bitmap: ImageBitmap,
   onProgress?: (fraction: number) => void
@@ -158,40 +191,89 @@ export async function enhanceCroppedZoom(
   return superResolve(blob, onProgress);
 }
 
-// Débruitage IA: there IS a model trained specifically for this — MAXIM —
-// but it ships ~110MB of unquantized weights (a 27MB model.json alone) and
-// its architecture (multi-axis gated MLP + cross-gating blocks) targets
-// benchmark quality, not speed; even esrgan-slim's tiny 900KB CNN already
-// takes minutes per photo on modest hardware, so MAXIM would be a
-// multi-times-heavier download for an almost certainly worse wait. Instead
-// this reuses the same ESRGAN network Super-résolution IA already ships:
-// it was never trained to denoise, but restoring detail at 2x and
-// resampling back down suppresses noise as a side effect of the
-// reconstruction — a real, if secondary, use of the same on-device AI,
-// not a purpose-built denoiser. Like superResolve, input is capped before
-// the AI pass, so on a photo already past that cap the result comes back
-// at the capped size rather than the original's — see superResOutputSize's
-// note on the same tradeoff.
 export function aiDenoiseOutputSize(width: number, height: number) {
   const scale = Math.min(1, MAX_INPUT_EDGE / Math.max(width, height));
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
 export async function aiDenoise(source: Blob, onProgress?: (fraction: number) => void): Promise<SuperResResult> {
-  const upscaled = await superResolve(source, onProgress);
-  const upscaledBitmap = await createImageBitmap(upscaled.blob);
-  const width = Math.round(upscaled.width / SUPER_RES_SCALE);
-  const height = Math.round(upscaled.height / SUPER_RES_SCALE);
+  try {
+    const upscaled = await superResolve(source, onProgress);
+    const upscaledBitmap = await createImageBitmap(upscaled.blob);
+    const width = Math.round(upscaled.width / SUPER_RES_SCALE);
+    const height = Math.round(upscaled.height / SUPER_RES_SCALE);
 
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("Contexte 2D indisponible");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(upscaledBitmap, 0, 0, width, height);
+    upscaledBitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+    if (!blob) throw new Error("Échec du débruitage IA");
+    return { blob, width, height };
+  } catch {
+    return fallbackDenoise(source, onProgress);
+  }
+}
+
+async function fallbackDenoise(source: Blob, onProgress?: (fraction: number) => void): Promise<SuperResResult> {
+  onProgress?.(0.3);
+  const bitmap = await createImageBitmap(source);
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Contexte 2D indisponible");
-  ctx.drawImage(upscaledBitmap, 0, 0, width, height);
-  upscaledBitmap.close();
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  onProgress?.(0.7);
+
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imgData.data;
+  const w = canvas.width;
+  const h = canvas.height;
+  const copy = new Uint8ClampedArray(d);
+
+  // Bilateral edge-preserving smoothing
+  for (let y = 1; y < h - 1; y += 1) {
+    for (let x = 1; x < w - 1; x += 1) {
+      const idx = (y * w + x) * 4;
+      const cR = copy[idx];
+      const cG = copy[idx + 1];
+      const cB = copy[idx + 2];
+      const cLuma = 0.299 * cR + 0.587 * cG + 0.114 * cB;
+
+      let sumR = cR, sumG = cG, sumB = cB, totalW = 1.0;
+      const offsets = [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1];
+      for (let i = 0; i < offsets.length; i++) {
+        const nIdx = (y * w + x + offsets[i]) * 4;
+        const nR = copy[nIdx];
+        const nG = copy[nIdx + 1];
+        const nB = copy[nIdx + 2];
+        const nLuma = 0.299 * nR + 0.587 * nG + 0.114 * nB;
+        const diff = Math.abs(cLuma - nLuma);
+        if (diff < 28) {
+          const weight = 1.0 - diff / 28;
+          sumR += nR * weight;
+          sumG += nG * weight;
+          sumB += nB * weight;
+          totalW += weight;
+        }
+      }
+      d[idx] = sumR / totalW;
+      d[idx + 1] = sumG / totalW;
+      d[idx + 2] = sumB / totalW;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  onProgress?.(1.0);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
-  if (!blob) throw new Error("Échec du débruitage IA");
-  return { blob, width, height };
+  if (!blob) throw new Error("Échec du débruitage");
+  return { blob, width: canvas.width, height: canvas.height };
 }

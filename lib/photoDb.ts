@@ -58,6 +58,16 @@ export async function dbListPhotos(): Promise<StoredPhoto[]> {
   });
 }
 
+export async function dbGetPhoto(id: string): Promise<StoredPhoto | undefined> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).get(id);
+    req.onsuccess = () => resolve(req.result as StoredPhoto | undefined);
+    req.onerror = () => reject(tx.error);
+  });
+}
+
 export async function dbDeletePhoto(id: string): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {

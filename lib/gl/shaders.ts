@@ -122,17 +122,40 @@ void main() {
     color = texture2D(u_image, uv).rgb;
   }
 
-  // 4. Neighborhood sampling (blur / unsharp mask)
+  // 4. Smart Edge-Preserving Bilateral Denoise & Unsharp Mask
   vec2 tx = u_texelSize;
-  vec3 blurred = (
-    texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb +
-    texture2D(u_image, uv - vec2(tx.x, 0.0)).rgb +
-    texture2D(u_image, uv + vec2(0.0, tx.y)).rgb +
-    texture2D(u_image, uv - vec2(0.0, tx.y)).rgb
-  ) * 0.25;
+  if (u_denoise > 0.001) {
+    float centerL = luma(color);
+    vec3 cN1 = texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb;
+    vec3 cN2 = texture2D(u_image, uv - vec2(tx.x, 0.0)).rgb;
+    vec3 cN3 = texture2D(u_image, uv + vec2(0.0, tx.y)).rgb;
+    vec3 cN4 = texture2D(u_image, uv - vec2(0.0, tx.y)).rgb;
+    vec3 cN5 = texture2D(u_image, uv + tx).rgb;
+    vec3 cN6 = texture2D(u_image, uv - tx).rgb;
 
-  color = mix(color, blurred, clamp(u_denoise, 0.0, 1.0));
-  color = color + (color - blurred) * u_sharpen;
+    float w1 = exp(-pow(abs(luma(cN1) - centerL), 2.0) / 0.03);
+    float w2 = exp(-pow(abs(luma(cN2) - centerL), 2.0) / 0.03);
+    float w3 = exp(-pow(abs(luma(cN3) - centerL), 2.0) / 0.03);
+    float w4 = exp(-pow(abs(luma(cN4) - centerL), 2.0) / 0.03);
+    float w5 = exp(-pow(abs(luma(cN5) - centerL), 2.0) / 0.03) * 0.7;
+    float w6 = exp(-pow(abs(luma(cN6) - centerL), 2.0) / 0.03) * 0.7;
+
+    float totW = 1.0 + w1 + w2 + w3 + w4 + w5 + w6;
+    vec3 bilateral = (color + cN1 * w1 + cN2 * w2 + cN3 * w3 + cN4 * w4 + cN5 * w5 + cN6 * w6) / totW;
+    color = mix(color, bilateral, clamp(u_denoise * 1.5, 0.0, 1.0));
+  }
+
+  // 4b. Adaptive High-Pass Edge Sharpening
+  if (u_sharpen > 0.001) {
+    vec3 blurred = (
+      texture2D(u_image, uv + vec2(tx.x, 0.0)).rgb +
+      texture2D(u_image, uv - vec2(tx.x, 0.0)).rgb +
+      texture2D(u_image, uv + vec2(0.0, tx.y)).rgb +
+      texture2D(u_image, uv - vec2(0.0, tx.y)).rgb
+    ) * 0.25;
+    vec3 highPass = color - blurred;
+    color = color + highPass * (u_sharpen * 2.2);
+  }
 
   // 5. Super Contrast / Clarity
   if (u_superContrast > 0.001) {
