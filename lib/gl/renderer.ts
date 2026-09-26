@@ -16,6 +16,17 @@ function compile(gl: WebGLRenderingContext, type: number, source: string): WebGL
   return shader;
 }
 
+export type LiveAssistOptions = {
+  zebra?: boolean;
+  zebraThreshold?: number;
+  focusPeaking?: boolean;
+  focusPeakingColor?: number;
+  falseColor?: boolean;
+  liveDro?: boolean;
+  monoAssist?: boolean;
+  anamorphicDesqueeze?: number;
+};
+
 export class GLRenderer {
   private gl: WebGLRenderingContext;
   private program: WebGLProgram;
@@ -71,7 +82,9 @@ export class GLRenderer {
       "u_exposure", "u_contrast", "u_saturation", "u_temperature", "u_tint",
       "u_highlights", "u_shadows", "u_sharpen", "u_superContrast", "u_denoise", "u_vignette",
       "u_grain", "u_halation", "u_bloom", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
-      "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra", "u_focusPeaking",
+      "u_chromaticAberration", "u_lightLeak", "u_scanlines",
+      "u_zebra", "u_zebraThreshold", "u_focusPeaking", "u_focusPeakingColor",
+      "u_falseColor", "u_liveDro", "u_monoAssist", "u_anamorphicDesqueeze",
       "u_infrared", "u_thermal", "u_nightVision", "u_glitch", "u_kaleidoscope",
       "u_solarize", "u_cyanotype", "u_dither", "u_lomochrome", "u_crossProcess", "u_tiltShift", "u_macroBoost",
       "u_anamorphicFlare", "u_toneCurve", "u_shadowTint", "u_highlightTint", "u_dehaze", "u_skinSmooth",
@@ -93,10 +106,20 @@ export class GLRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   }
 
-  render(adjustments: Adjustments, seed = 0, zebra = false, focusPeaking = false) {
+  render(
+    adjustments: Adjustments,
+    seed = 0,
+    liveAssist: LiveAssistOptions | boolean = false,
+    legacyPeaking = false
+  ) {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.useProgram(this.program);
+
+    const opts: LiveAssistOptions =
+      typeof liveAssist === "boolean"
+        ? { zebra: liveAssist, focusPeaking: legacyPeaking }
+        : liveAssist;
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -104,8 +127,16 @@ export class GLRenderer {
     gl.uniform2f(this.uniforms.u_texelSize, 1 / Math.max(this.sourceWidth, 1), 1 / Math.max(this.sourceHeight, 1));
     gl.uniform2f(this.uniforms.u_resolution, this.sourceWidth, this.sourceHeight);
     gl.uniform1f(this.uniforms.u_seed, seed);
-    gl.uniform1f(this.uniforms.u_zebra, zebra ? 1.0 : 0.0);
-    gl.uniform1f(this.uniforms.u_focusPeaking, focusPeaking ? 1.0 : 0.0);
+
+    // Live Shooting Aids & Pro Tools
+    gl.uniform1f(this.uniforms.u_zebra, opts.zebra ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_zebraThreshold, opts.zebraThreshold ?? 0.92);
+    gl.uniform1f(this.uniforms.u_focusPeaking, opts.focusPeaking ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_focusPeakingColor, opts.focusPeakingColor ?? 0.0);
+    gl.uniform1f(this.uniforms.u_falseColor, opts.falseColor ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_liveDro, opts.liveDro ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_monoAssist, opts.monoAssist ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_anamorphicDesqueeze, opts.anamorphicDesqueeze ?? 1.0);
 
     gl.uniform1f(this.uniforms.u_exposure, adjustments.exposure / 50);
     gl.uniform1f(this.uniforms.u_contrast, adjustments.contrast / 100);

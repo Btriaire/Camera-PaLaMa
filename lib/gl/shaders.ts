@@ -70,9 +70,15 @@ uniform float u_casSharpness;
 uniform float u_remjetHalation;
 uniform float u_printFilmStock;
 
-// Live Viewfinder Shooting Aids
+// Live Viewfinder Shooting Aids & Pro Tools
 uniform float u_zebra;
+uniform float u_zebraThreshold;
 uniform float u_focusPeaking;
+uniform float u_focusPeakingColor;
+uniform float u_falseColor;
+uniform float u_liveDro;
+uniform float u_monoAssist;
+uniform float u_anamorphicDesqueeze;
 
 float luma(vec3 c) {
   return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -80,6 +86,35 @@ float luma(vec3 c) {
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(12.9898, 78.233)) + u_seed) * 43758.5453);
+}
+
+// Professional False Color Exposure Mapping (Arri / RED / Atomos Standard IRE Scale)
+vec3 applyFalseColor(float lum) {
+  if (lum > 0.98) {
+    return vec3(1.0, 0.0, 0.0); // >98 IRE Pure Red (Clipping)
+  } else if (lum >= 0.85) {
+    return vec3(1.0, 0.55, 0.0); // 85-95 IRE Amber/Orange (Highlight Warning)
+  } else if (lum >= 0.58 && lum < 0.70) {
+    return vec3(0.92, 0.78, 0.25); // 58-70 IRE Ochre Yellow (Medium Skin)
+  } else if (lum >= 0.50 && lum < 0.58) {
+    return vec3(1.0, 0.42, 0.68); // 50-58 IRE Pink (Light Skin)
+  } else if (lum >= 0.38 && lum <= 0.42) {
+    return vec3(0.18, 0.75, 0.35); // 38-42 IRE Green (18% Middle Grey)
+  } else if (lum <= 0.02) {
+    return vec3(0.55, 0.0, 0.65); // 0-2 IRE Purple (Crushed Black)
+  } else if (lum <= 0.10) {
+    return vec3(0.0, 0.25, 0.85); // 2-10 IRE Blue (Deep Shadow)
+  } else {
+    return vec3(lum * 0.45 + 0.15); // Desaturated tonal context
+  }
+}
+
+// Selectable Neon Focus Peaking Colors (0: Green, 1: Red, 2: Cyan, 3: Yellow)
+vec3 getPeakingColor(float code) {
+  if (code < 0.5) return vec3(0.0, 1.0, 0.35); // Neon Green
+  if (code < 1.5) return vec3(1.0, 0.15, 0.25); // Electric Red
+  if (code < 2.5) return vec3(0.0, 0.85, 1.0);  // Electric Cyan
+  return vec3(1.0, 0.92, 0.0);                   // Vivid Yellow
 }
 
 // 1. Academy Color Encoding System (ACES 1.3 Fitted RRT+ODT)
@@ -188,6 +223,15 @@ vec3 thermalMap(float val) {
 
 void main() {
   vec2 uv = v_texCoord;
+
+  // Anamorphic Optical De-Squeeze (1.33x / 1.55x / 2.0x)
+  if (u_anamorphicDesqueeze > 1.01) {
+    uv.x = (uv.x - 0.5) * u_anamorphicDesqueeze + 0.5;
+    if (uv.x < 0.0 || uv.x > 1.0) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
+  }
 
   // 1. Kaleidoscope optical prism distortion
   if (u_kaleidoscope > 0.001) {
@@ -539,18 +583,41 @@ void main() {
     color += (n - 0.5) * u_grain * 0.28 * max(0.2, grainWeight);
   }
 
-  // 19. Zebra stripes (Live overexposure warning)
-  if (u_zebra > 0.5 && luma(color) > 0.92) {
-    float stripe = mod(gl_FragCoord.x + gl_FragCoord.y, 16.0);
-    if (stripe < 8.0) color = mix(color, vec3(0.05), 0.55);
+  // 19. Live Dynamic Range Optimizer (DRO / Real-Time Shadow Recovery)
+  if (u_liveDro > 0.001) {
+    float lumVal = luma(color);
+    float shadowWeight = 1.0 - smoothstep(0.0, 0.65, lumVal);
+    vec3 lifted = color + (vec3(1.0) - color) * shadowWeight * 0.45 * u_liveDro;
+    color = mix(color, lifted, 0.88);
   }
 
-  // 20. Manual Focus Peaking Simulation (Live high-frequency green edge detection)
-  if (u_focusPeaking > 0.5) {
-    float edge = length(color - blurred) * 6.0;
-    if (edge > 0.45) {
-      color = mix(color, vec3(0.0, 1.0, 0.35), 0.85); // Bright neon green peaking
+  // 20. Live Monochrome Composition Assist (Framing / Contrast view)
+  if (u_monoAssist > 0.5) {
+    float mVal = luma(color);
+    color = vec3(mVal);
+  }
+
+  // 21. Dynamic Multi-Threshold Animated Zebra Stripes
+  if (u_zebra > 0.5) {
+    float thresh = u_zebraThreshold > 0.1 ? u_zebraThreshold : 0.92;
+    if (luma(color) >= thresh) {
+      float stripe = mod(gl_FragCoord.x + gl_FragCoord.y + u_seed * 50.0, 16.0);
+      if (stripe < 8.0) color = mix(color, vec3(0.04), 0.75);
     }
+  }
+
+  // 22. Multi-Color Manual Focus Peaking (0: Green, 1: Red, 2: Cyan, 3: Yellow)
+  if (u_focusPeaking > 0.5) {
+    float edge = length(color - blurred) * 6.5;
+    if (edge > 0.42) {
+      vec3 peakCol = getPeakingColor(u_focusPeakingColor);
+      color = mix(color, peakCol, 0.88);
+    }
+  }
+
+  // 23. Live False Color Exposure Monitor (Arri / RED / Atomos standard IRE heatmap)
+  if (u_falseColor > 0.5) {
+    color = applyFalseColor(luma(color));
   }
 
   gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);

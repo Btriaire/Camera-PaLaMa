@@ -402,5 +402,77 @@ export function VintageViewfinderIcon({ className = base }: IconProps) {
   );
 }
 
+export function FalseColorIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 8h10M7 12h10M7 16h10" strokeLinecap="round" strokeWidth="2.2" />
+      <circle cx="6" cy="8" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="16" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function WaveformIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l2.5-4 2 3 2.5-7 2.5 9 2.5-5 2 3 2-2" />
+    </svg>
+  );
+}
+
+export function DroHdrIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor" fillOpacity="0.3" stroke="none" />
+      <path strokeLinecap="round" d="M12 7v10M8.5 9.5l7 5M8.5 14.5l7-5" />
+    </svg>
+  );
+}
+
+export function MonochromeAssistIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 3.5v17a8.5 8.5 0 0 0 0-17Z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function AnamorphicIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <rect x="2" y="7" width="20" height="10" rx="1.5" />
+      <path strokeLinecap="round" d="M6 7v10M18 7v10M2 12h20" strokeDasharray="1.5 1.5" />
+    </svg>
+  );
+}
+
+export function Horizon3DIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="9" />
+      <line x1="3" y1="12" x2="8" y2="12" strokeLinecap="round" strokeWidth="2" />
+      <line x1="16" y1="12" x2="21" y2="12" strokeLinecap="round" strokeWidth="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <line x1="12" y1="6" x2="12" y2="8" strokeLinecap="round" />
+      <line x1="12" y1="16" x2="12" y2="18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ProBadgeIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 9v6M7 9h2.5a1.5 1.5 0 0 1 0 3H7M13 12v3M13 9h2.5a1.5 1.5 0 0 1 0 3H13m2.5 0L17 15" />
+    </svg>
+  );
+}
+
+
 
 
