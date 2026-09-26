@@ -25,6 +25,7 @@ import {
 } from "@/lib/longExposure";
 import { soundEngine } from "@/lib/audio";
 import { useOrientation } from "@/lib/useOrientation";
+import { useAiCoach } from "@/lib/useAiCoach";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
@@ -44,6 +45,7 @@ import AutofocusReticle, { ReticleData } from "./AutofocusReticle";
 import MasterControlDial, { DialParameter } from "./MasterControlDial";
 import LiveSplitCompare from "./LiveSplitCompare";
 import {
+  AiCoachIcon,
   AnamorphicIcon,
   ApertureIcon,
   AutofocusTargetIcon,
@@ -73,6 +75,7 @@ import {
   SettingsIcon,
   SoundIcon,
   SparkleIcon,
+  SparklesIcon,
   StabilizerIcon,
   StrobeIcon,
   TimerIcon,
@@ -443,6 +446,7 @@ export default function Viewfinder({
   }, [zoomMin, hardwareMaxZoom]);
 
   const preset = getPreset(presetId);
+  const aiCoach = useAiCoach(canvasRef, presetId ?? "portra-400");
   const baseAdjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
   const isoValue = ISO_STEPS[isoIndex];
   const kelvinValue = KELVIN_STEPS[kelvinIndex];
@@ -1362,6 +1366,59 @@ export default function Viewfinder({
 
       <LevelIndicator tiltDeg={tiltDeg} />
 
+      {/* Live AI Coach HUD Pill */}
+      {aiCoach.isEnabled && (
+        <div
+          className={`pointer-events-auto absolute left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-emerald-400/40 bg-black/85 px-3 py-1.5 backdrop-blur-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all ${
+            isLandscape ? "top-[calc(max(0.5rem,env(safe-area-inset-top))+3.5rem)]" : "top-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)]"
+          }`}
+        >
+          <div className="flex items-center gap-1.5 font-mono text-[10.5px]">
+            <SparklesIcon className={`w-4 h-4 text-emerald-400 ${aiCoach.isAnalyzing ? "animate-spin" : ""}`} />
+            <span className="font-bold text-emerald-300 uppercase tracking-wider text-[9.5px]">
+              IA Coach
+            </span>
+          </div>
+
+          {aiCoach.isAnalyzing ? (
+            <span className="text-[10px] font-mono text-emerald-200/80 animate-pulse">
+              Analyse du cadrage...
+            </span>
+          ) : aiCoach.advice ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[10.5px] text-white font-medium truncate max-w-[150px] sm:max-w-[240px]">
+                {aiCoach.advice.compositionAdvice}
+              </span>
+              {aiCoach.advice.recommendedFilmId !== presetId && (
+                <button
+                  onClick={() => onSelectPreset(aiCoach.advice!.recommendedFilmId)}
+                  className="flex items-center gap-1 rounded-full bg-emerald-400 hover:bg-emerald-300 px-2 py-0.5 text-[9.5px] font-bold text-black active:scale-95 transition-all shadow-md"
+                >
+                  <span>{aiCoach.advice.recommendedFilmName.split(" ")[0]}</span>
+                  <span className="text-[8px] uppercase tracking-wide">Appliquer</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={aiCoach.scanNow}
+              className="text-[10px] font-mono text-white/70 hover:text-white underline"
+            >
+              Scanner la scène
+            </button>
+          )}
+
+          <button
+            onClick={aiCoach.scanNow}
+            disabled={aiCoach.isAnalyzing}
+            aria-label="Relancer scan IA"
+            className="p-1 rounded-full text-white/50 hover:text-white transition-colors"
+          >
+            <AiCoachIcon className="w-3.5 h-3.5 text-emerald-300/80" />
+          </button>
+        </div>
+      )}
+
       <div
         className={`absolute inset-0 z-30 bg-white pointer-events-none transition-opacity duration-150 ${
           flash ? "opacity-80" : "opacity-0"
@@ -1686,6 +1743,12 @@ export default function Viewfinder({
         setFocusDistance={setFocusDistance}
         dofBlur={dofBlur}
         setDofBlur={setDofBlur}
+        aiCoachEnabled={aiCoach.isEnabled}
+        setAiCoachEnabled={aiCoach.setIsEnabled}
+        isAnalyzingAi={aiCoach.isAnalyzing}
+        onScanAiNow={aiCoach.scanNow}
+        aiAdvice={aiCoach.advice}
+        onApplyRecommendedFilm={(id) => onSelectPreset(id)}
       />
 
       {vintageMaskMenuOpen && (

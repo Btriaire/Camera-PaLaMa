@@ -525,3 +525,22 @@ export function BokehDepthIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function AiCoachIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2.5 2.5M16.5 16.5L19 19M5 19l2.5-2.5M16.5 7.5L19 5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function SparklesIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3zM19 15l1 2.2L22.2 18l-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1 1-2.2zM5 15l.8 1.8L7.6 17.6l-1.8.8L5 20.2l-.8-1.8L2.4 17.6l1.8-.8L5 15z" fill="currentColor" fillOpacity="0.15" />
+    </svg>
+  );
+}
+

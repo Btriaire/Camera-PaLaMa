@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AiCoachIcon,
   AnamorphicIcon,
   CheckIcon,
   ContrastIcon,
@@ -13,11 +14,13 @@ import {
   MonochromeAssistIcon,
   ProBadgeIcon,
   RatioFramingIcon,
+  SparklesIcon,
   UltraZoomIcon,
   VintageViewfinderIcon,
   WaveformIcon,
   ZebraIcon,
 } from "./Icons";
+import type { AiCoachResponse } from "@/app/api/ai-coach/route";
 import { ScopeMode } from "./ProScopesMonitor";
 import { VintageViewfinderMode, VINTAGE_VIEWFINDER_MODES } from "./VintageViewfinderMask";
 import AutofocusControls, { FocusMode } from "./AutofocusControls";
@@ -65,6 +68,12 @@ export default function ProLiveDrawer({
   setFocusDistance,
   dofBlur = 75,
   setDofBlur,
+  aiCoachEnabled = false,
+  setAiCoachEnabled,
+  isAnalyzingAi = false,
+  onScanAiNow,
+  aiAdvice,
+  onApplyRecommendedFilm,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -108,6 +117,12 @@ export default function ProLiveDrawer({
   setFocusDistance?: (d: number) => void;
   dofBlur?: number;
   setDofBlur?: (b: number) => void;
+  aiCoachEnabled?: boolean;
+  setAiCoachEnabled?: React.Dispatch<React.SetStateAction<boolean>>;
+  isAnalyzingAi?: boolean;
+  onScanAiNow?: () => void;
+  aiAdvice?: AiCoachResponse | null;
+  onApplyRecommendedFilm?: (id: string) => void;
 }) {
   if (!isOpen) return null;
 
@@ -258,6 +273,79 @@ export default function ProLiveDrawer({
             </button>
           </div>
         </div>
+
+        {/* Section 1.5: IA Coach Live & Emulsion Matcher */}
+        {setAiCoachEnabled && (
+          <div className="mb-4 rounded-2xl border border-emerald-500/40 bg-emerald-950/30 p-3 shadow-[0_0_20px_rgba(16,185,129,0.15)] backdrop-blur-md">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-400 text-black">
+                  <SparklesIcon className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wider block">
+                    IA Coach &amp; Emulsion Matcher
+                  </span>
+                  <span className="text-[9.5px] text-emerald-200/60 font-mono">Moteur Nemotron 3 / Qwen 2.5-VL</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setAiCoachEnabled((v) => !v)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold transition-all ${
+                  aiCoachEnabled
+                    ? "bg-emerald-400 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                    : "bg-white/10 text-white/60 hover:bg-white/20"
+                }`}
+              >
+                {aiCoachEnabled ? "LIVE ACTIF" : "OFF"}
+              </button>
+            </div>
+
+            <p className="text-[10.5px] text-white/70 mb-3 leading-relaxed">
+              Analyse la composition, l&apos;exposition et recommande la pellicule argentique optimale en temps réel.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onScanAiNow}
+                disabled={isAnalyzingAi}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 py-2 px-3 text-xs font-bold text-emerald-200 active:scale-98 transition-all disabled:opacity-50"
+              >
+                <AiCoachIcon className={`w-4 h-4 text-emerald-300 ${isAnalyzingAi ? "animate-spin" : ""}`} />
+                <span>{isAnalyzingAi ? "Analyse du cadrage en cours..." : "Scanner la scène maintenant"}</span>
+              </button>
+            </div>
+
+            {aiAdvice && (
+              <div className="mt-3 rounded-xl border border-white/10 bg-black/60 p-2.5 space-y-1.5 font-mono text-[11px]">
+                <div className="flex items-center justify-between text-[10px] text-white/50 border-b border-white/10 pb-1">
+                  <span className="uppercase text-emerald-400 font-bold">Diagnostic Scène</span>
+                  <span className="text-white/70 uppercase">{aiAdvice.sceneType} • {aiAdvice.lightingStatus}</span>
+                </div>
+                <div className="text-white text-xs font-sans font-medium">
+                  {aiAdvice.compositionAdvice}
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <div className="text-[10px] text-amber-300">
+                    Pellicule : <span className="font-bold text-white">{aiAdvice.recommendedFilmName}</span>
+                  </div>
+                  {onApplyRecommendedFilm && (
+                    <button
+                      onClick={() => onApplyRecommendedFilm(aiAdvice.recommendedFilmId)}
+                      className="px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-bold active:scale-95 transition-all"
+                    >
+                      Appliquer
+                    </button>
+                  )}
+                </div>
+                <div className="text-[9.5px] text-white/50 italic">
+                  {aiAdvice.filmReason}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Section 2: Autofocus & Profondeur de Champ */}
         {setFocusMode && setAperture && setFocusDistance && setDofBlur && (
