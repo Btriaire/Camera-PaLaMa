@@ -74,6 +74,7 @@ export class GLRenderer {
       "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra", "u_focusPeaking",
       "u_infrared", "u_thermal", "u_nightVision", "u_glitch", "u_kaleidoscope",
       "u_solarize", "u_cyanotype", "u_dither", "u_lomochrome", "u_crossProcess", "u_tiltShift", "u_macroBoost",
+      "u_anamorphicFlare", "u_toneCurve", "u_shadowTint", "u_highlightTint", "u_dehaze", "u_skinSmooth",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
@@ -145,6 +146,14 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_crossProcess, (adjustments.crossProcess ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_tiltShift, (adjustments.tiltShift ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_macroBoost, (adjustments.macroBoost ?? 0) / 100);
+
+    // Pro Cinema & Color Science
+    gl.uniform1f(this.uniforms.u_anamorphicFlare, (adjustments.anamorphicFlare ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_toneCurve, (adjustments.toneCurve ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_shadowTint, (adjustments.shadowTint ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_highlightTint, (adjustments.highlightTint ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_dehaze, (adjustments.dehaze ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_skinSmooth, (adjustments.skinSmooth ?? 0) / 100);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }

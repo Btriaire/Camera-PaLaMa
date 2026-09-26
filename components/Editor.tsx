@@ -90,6 +90,17 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     accent: "#fbbf24",
     format: (v) => `${v > 0 ? `+${Math.round(v)}` : Math.round(v)}`,
   },
+  {
+    key: "toneCurve",
+    label: "Courbe S-Curve Log",
+    category: "light",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#f59e0b",
+    format: (v) => `${Math.round(v)}% S-Log`,
+  },
 
   // Couleur
   {
@@ -124,6 +135,28 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     defaultValue: 0,
     accent: "#f472b6",
     format: (v) => `${v > 0 ? `+${Math.round(v)}` : Math.round(v)}`,
+  },
+  {
+    key: "shadowTint",
+    label: "Virage Ombres Teal",
+    category: "color",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#06b6d4",
+    format: (v) => `${Math.round(v)}% Teal`,
+  },
+  {
+    key: "highlightTint",
+    label: "Virage Hautes Lum. Ambre",
+    category: "color",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#f59e0b",
+    format: (v) => `${Math.round(v)}% Ambre`,
   },
   {
     key: "monochrome",
@@ -172,6 +205,28 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     format: (v) => `${Math.round(v)}%`,
   },
   {
+    key: "dehaze",
+    label: "Débrumage Clarté",
+    category: "detail",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#0ea5e9",
+    format: (v) => `${Math.round(v)}%`,
+  },
+  {
+    key: "skinSmooth",
+    label: "Lissage Peau Portrait",
+    category: "detail",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#fda4af",
+    format: (v) => `${Math.round(v)}% Melanin`,
+  },
+  {
     key: "denoise",
     label: "Réduct. Bruit",
     category: "detail",
@@ -183,7 +238,18 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     format: (v) => `${Math.round(v)}%`,
   },
 
-  // Effets Vintage
+  // Effets Vintage & Cinéma
+  {
+    key: "anamorphicFlare",
+    label: "Flare Anamorphique Bleu",
+    category: "effects",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#38bdf8",
+    format: (v) => `${Math.round(v)}% Scope`,
+  },
   {
     key: "halation",
     label: "Halation rouge",

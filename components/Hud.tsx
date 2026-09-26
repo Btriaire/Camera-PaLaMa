@@ -476,6 +476,222 @@ export default function Hud({
           </div>
         </>
       )}
+
+      {/* Rolleiflex 6x6 TLR Waist-Level Viewfinder */}
+      {skin === "rolleiflex" && (
+        <>
+          <div className="absolute inset-4 md:inset-8 border-2 border-white/30 rounded-xs pointer-events-none">
+            <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-white/20" />
+            <div className="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-white/20" />
+            {/* Center Focus Ground Glass Red Ring */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border border-red-500/40 bg-red-500/5 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+            </div>
+          </div>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/90 ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <Badge>ROLLEIFLEX 2.8F</Badge>
+            <Badge>120 FILM · EXP {shotCount}/12</Badge>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-white/70 ${mono}`}>
+            <span>SYNCHRO-COMPUR 1/250s</span>
+            <span>ZEISS PLANAR 80mm F2.8</span>
+            <span>ISO {iso}</span>
+          </div>
+        </>
+      )}
+
+      {/* Polaroid SX-70 Instant SLR */}
+      {skin === "polaroid" && (
+        <>
+          <div className="absolute inset-4 md:inset-8 border border-white/25 rounded-xs pointer-events-none">
+            {/* Split-Image Circle Rangefinder */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border border-amber-300/50 flex flex-col justify-center items-center">
+              <div className="w-full h-px bg-amber-400/60" />
+            </div>
+          </div>
+          <div className={`absolute left-3 flex items-center gap-1.5 text-[11px] text-white/90 ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="flex h-3 w-8 rounded-xs overflow-hidden">
+              <span className="w-1/5 bg-red-500" />
+              <span className="w-1/5 bg-orange-500" />
+              <span className="w-1/5 bg-yellow-400" />
+              <span className="w-1/5 bg-emerald-500" />
+              <span className="w-1/5 bg-blue-500" />
+            </span>
+            <Badge>SX-70 LAND CAMERA</Badge>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-amber-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span>EJECT: [{10 - Math.min(10, shotCount)}/10]</span>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-white/60 ${mono}`}>
+            <span>SONAR AUTOFOCUS</span>
+            <span>INSTANT FILM</span>
+          </div>
+        </>
+      )}
+
+      {/* Game Boy Camera 1998 2-Bit LCD */}
+      {skin === "gameboy" && (
+        <>
+          <div className="absolute inset-2 border-4 border-[#306230] rounded-lg pointer-events-none shadow-[inset_0_0_20px_rgba(15,56,15,0.4)]" />
+          <div className={`absolute left-4 top-16 text-[10px] font-mono text-[#8bac0f] font-black tracking-widest ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>GAME BOY CAMERA</div>
+            <div className="text-[9px] text-[#9bbc0f]">128×112 4-SHADES</div>
+          </div>
+          <div className={`absolute right-4 top-16 text-right text-[10px] font-mono text-[#8bac0f] font-black ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>PAGE {shotCount}/30</div>
+            <div className="text-[9px]">BATTERY: OK</div>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] font-mono text-[#8bac0f] font-black ${mono}`}>
+            <span className="bg-[#306230] text-[#9bbc0f] px-2 py-0.5 rounded">SHOOT</span>
+            <span>ITEMS</span>
+            <span>MAGIC</span>
+            <span>CHECK</span>
+          </div>
+        </>
+      )}
+
+      {/* Sony Mavica MVC-FD7 3.5" Floppy Disk */}
+      {skin === "mavica" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] font-bold text-amber-400 ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div className="flex items-center gap-2">
+              <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[9px] font-black rounded">MAVICA</span>
+              <span className="text-white">FD-7</span>
+            </div>
+            <span className="text-[10px] text-amber-300 animate-pulse">[DISK ACCESS READY]</span>
+          </div>
+          <div className={`absolute right-3 text-right text-[11px] text-amber-400 ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>3.5&quot; 2HD DISK</div>
+            <div className="text-[10px] text-white/70">REMAIN: {40 - Math.min(40, shotCount * 2)} IMAGES</div>
+          </div>
+          <Reticle circular />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-amber-300 ${mono}`}>
+            <span>10× OPTICAL ZOOM</span>
+            <span>640×480 CCD</span>
+            <span>ISO {iso}</span>
+          </div>
+        </>
+      )}
+
+      {/* Arriflex 35 BL Hollywood Motion Picture */}
+      {skin === "arriflex" && (
+        <>
+          {/* Cinema 2.39:1 Anamorphic Framelines */}
+          <div className="absolute inset-x-0 top-1/6 bottom-1/6 border-y-2 border-cyan-400/40 pointer-events-none">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[9px] text-cyan-400 font-mono">2.39:1 SCOPE</div>
+          </div>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-cyan-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <Badge>ARRI 35 BL</Badge>
+            <span className="text-red-500 animate-pulse font-mono">24.000 FPS SYNC</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-cyan-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>MAG 400FT: {400 - (shotCount * 12)}FT</div>
+            <div className="text-[10px] text-white/70">180.0° SHUTTER</div>
+          </div>
+          <Reticle thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-cyan-300/90 ${mono}`}>
+            <span>KODAK 5219 500T</span>
+            <span>T2.0 COOKE</span>
+            <span>TC 01:24:18:04</span>
+          </div>
+        </>
+      )}
+
+      {/* Sony Alpha 1 / A7R V Pro Mirrorless */}
+      {skin === "sony-alpha" && (
+        <>
+          {/* Real-time Eye AF green tracking brackets */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-emerald-400/60 rounded-xs pointer-events-none">
+            <div className="absolute top-1/3 left-1/3 w-8 h-8 border-2 border-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          </div>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-white ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-orange-600 text-white font-black text-[9px] rounded">SONY α1</span>
+            <Badge>AF-C [EYE-AF]</Badge>
+            <Badge>CFexpress A [1]</Badge>
+          </div>
+          {battery && (
+            <div className={`absolute right-3 text-[11px] text-emerald-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+              <span>NP-FZ100 {battery}</span>
+            </div>
+          )}
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-white/90 font-bold ${mono}`}>
+            <span>1/8000s</span>
+            <span>F1.4 GM</span>
+            <span>ISO {iso}</span>
+            <span>S-CINETONE</span>
+            <span className="text-emerald-400 font-mono">{evBias >= 0 ? `+${evBias.toFixed(1)}` : evBias.toFixed(1)} MM</span>
+          </div>
+        </>
+      )}
+
+      {/* Canon EOS R5 C Cinema */}
+      {skin === "canon-eos" && (
+        <>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-20 border border-white/40 pointer-events-none flex items-center justify-center">
+            <div className="w-12 h-8 border border-cyan-400/80 rounded-xs" />
+          </div>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-white ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-red-600 text-white font-black text-[9px] rounded">CANON EOS</span>
+            <Badge>DUAL PIXEL CMOS AF II</Badge>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-white font-mono ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>C-LOG 3 / 8K RAW</div>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-white/90 ${mono}`}>
+            <span>RF 50mm F1.2 L</span>
+            <span>1/1000</span>
+            <span>ISO {iso}</span>
+            <span>WB {kelvin}K</span>
+          </div>
+        </>
+      )}
+
+      {/* RED V-RAPTOR 8K VV Cinema */}
+      {skin === "red-cinema" && (
+        <>
+          {/* Cinema Tally frame border */}
+          <div className="absolute inset-1 border-2 border-red-600 pointer-events-none" />
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-red-500 font-black ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-red-600 text-white text-[9px] rounded">RED</span>
+            <span>V-RAPTOR 8K VV</span>
+            <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
+          </div>
+          <div className={`absolute right-3 text-[11px] text-white font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div className="text-red-500 font-bold">REDCODE RAW 8K</div>
+            <div className="text-[10px] text-white/60">CFexpress 2TB [78%]</div>
+          </div>
+          <Reticle circular thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-white font-bold ${mono}`}>
+            <span className="text-red-400">8K 120P</span>
+            <span>1/240s</span>
+            <span>ISO {iso}</span>
+            <span>5600K</span>
+            <span className="text-white/60">TC 02:15:44:19</span>
+          </div>
+        </>
+      )}
+
+      {/* ARRI ALEXA 35 LogC4 */}
+      {skin === "arri-alexa" && (
+        <>
+          <div className={`absolute left-3 flex items-center gap-2 text-[11px] text-sky-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-sky-500 text-black font-black text-[9px] rounded">ARRI</span>
+            <span>ALEXA 35</span>
+            <Badge>LogC4 REVEAL</Badge>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-sky-400 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>ARRIRAW 4.6K</div>
+            <div className="text-[10px] text-white/70">EI {iso} / 17 STOPS</div>
+          </div>
+          <Reticle circular thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-sky-300 font-bold ${mono}`}>
+            <span>24.000 FPS</span>
+            <span>180.0°</span>
+            <span>T1.8 ARRI MASTER</span>
+            <span>{kelvin}K +0.0CC</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

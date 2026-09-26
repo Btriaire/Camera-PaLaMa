@@ -56,6 +56,14 @@ uniform float u_crossProcess;
 uniform float u_tiltShift;
 uniform float u_macroBoost;
 
+// Pro Cinema & Color Science Shaders
+uniform float u_anamorphicFlare;
+uniform float u_toneCurve;
+uniform float u_shadowTint;
+uniform float u_highlightTint;
+uniform float u_dehaze;
+uniform float u_skinSmooth;
+
 // Live Viewfinder Shooting Aids
 uniform float u_zebra;
 uniform float u_focusPeaking;
@@ -316,6 +324,62 @@ void main() {
   if (u_macroBoost > 0.001) {
     vec3 fineDetail = color - blurred;
     color += fineDetail * u_macroBoost * 2.5;
+  }
+
+  // ==========================================
+  // PROFESSIONAL CINEMA & COLOR SCIENCE SUITE
+  // ==========================================
+
+  // K. Anamorphic Blue Streak Lens Flare
+  if (u_anamorphicFlare > 0.001) {
+    vec3 streak = vec3(0.0);
+    vec2 stx = u_texelSize;
+    for (float i = 1.0; i <= 5.0; i += 1.0) {
+      vec2 off = vec2(stx.x * i * 9.0, 0.0);
+      vec3 s1 = texture2D(u_image, uv + off).rgb;
+      vec3 s2 = texture2D(u_image, uv - off).rgb;
+      float l1 = smoothstep(0.72, 0.98, luma(s1));
+      float l2 = smoothstep(0.72, 0.98, luma(s2));
+      streak += (s1 * l1 + s2 * l2) / (i * 1.6);
+    }
+    vec3 anamorphicBlue = vec3(0.18, 0.55, 1.0) * streak * u_anamorphicFlare * 0.85;
+    color += anamorphicBlue;
+  }
+
+  // L. Atmospheric Dehaze & Micro-Contrast
+  if (u_dehaze > 0.001) {
+    vec3 minChannel = vec3(min(min(color.r, color.g), color.b));
+    float airlight = luma(minChannel);
+    color = (color - airlight * 0.35 * u_dehaze) / max(vec3(0.08), vec3(1.0) - airlight * 0.25 * u_dehaze);
+    color = mix(color, (color - 0.5) * (1.0 + u_dehaze * 0.25) + 0.5, 0.4);
+  }
+
+  // M. Portrait Melanin Protection & Skin Softening
+  if (u_skinSmooth > 0.001) {
+    bool isSkin = (color.r > color.g) && (color.g > color.b) && ((color.r - color.b) > 0.08);
+    if (isSkin) {
+      vec3 smoothSkin = mix(color, blurred, u_skinSmooth * 0.6);
+      color = mix(color, smoothSkin, clamp(u_skinSmooth, 0.0, 1.0));
+    }
+  }
+
+  // N. Cineon / Arri Film S-Curve Tone Mapping (Soft shoulder roll-off & deep rich blacks)
+  if (u_toneCurve > 0.001) {
+    vec3 x = max(vec3(0.0), color);
+    vec3 filmic = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);
+    color = mix(color, filmic, clamp(u_toneCurve, 0.0, 1.0));
+  }
+
+  // O. 3-Way Split Toning: Cinema Teal Shadows & Warm Amber Highlights
+  if (u_shadowTint > 0.001) {
+    float sWeight = 1.0 - smoothstep(0.0, 0.55, luma(color));
+    vec3 tealShadow = vec3(0.05, 0.35, 0.45);
+    color = mix(color, color + tealShadow * sWeight * 0.5, clamp(u_shadowTint, 0.0, 1.0));
+  }
+  if (u_highlightTint > 0.001) {
+    float hWeight = smoothstep(0.45, 1.0, luma(color));
+    vec3 amberHigh = vec3(0.45, 0.28, 0.05);
+    color = mix(color, color + amberHigh * hWeight * 0.5, clamp(u_highlightTint, 0.0, 1.0));
   }
 
   // 13. Monochrome & Duotone tinting

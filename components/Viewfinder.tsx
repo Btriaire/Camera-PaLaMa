@@ -1504,9 +1504,12 @@ export default function Viewfinder({
           <button
             onClick={() => setPickerOpen(true)}
             aria-label="Sélecteur d'émulsion et styles photographiques"
-            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-amber-400/40 bg-black/75 px-3 py-1.5 backdrop-blur shadow-lg active:scale-95 transition-all hover:border-amber-400"
+            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-amber-400/50 bg-black/85 px-3 py-1.5 backdrop-blur shadow-lg active:scale-95 transition-all hover:border-amber-400"
           >
             <FilmCanisterBadge preset={preset ?? null} />
+            <span className="text-[10px] font-bold text-amber-300/90 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
+              Pelliculothèque
+            </span>
           </button>
 
           <button

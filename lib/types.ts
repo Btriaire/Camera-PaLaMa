@@ -38,6 +38,14 @@ export type Adjustments = {
   tiltShift: number; // 0..100, miniature diorama focus band with progressive blur
   macroBoost: number; // 0..100, extreme high-pass texture relief for close-ups
 
+  // Professional Cinema & Color Science Adjustments
+  anamorphicFlare: number; // 0..100, Hollywood anamorphic blue horizontal streak flare
+  toneCurve: number; // 0..100, Cineon / Arri Log film S-curve tone mapping
+  shadowTint: number; // 0..100, Teal / Slate cool shadow split toning
+  highlightTint: number; // 0..100, Amber / Gold warm highlight split toning
+  dehaze: number; // 0..100, atmospheric dehaze & color contrast recovery
+  skinSmooth: number; // 0..100, portrait skin texture softening & tone preservation
+
   dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
   aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
   filmBorder?: "none" | "35mm" | "polaroid";
@@ -77,6 +85,12 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   crossProcess: 0,
   tiltShift: 0,
   macroBoost: 0,
+  anamorphicFlare: 0,
+  toneCurve: 0,
+  shadowTint: 0,
+  highlightTint: 0,
+  dehaze: 0,
+  skinSmooth: 0,
   dateStamp: false,
   aspectRatio: "original",
   filmBorder: "none",
@@ -94,6 +108,15 @@ export type HudSkin =
   | "webcam"
   | "leica"
   | "hasselblad"
+  | "rolleiflex"
+  | "polaroid"
+  | "gameboy"
+  | "mavica"
+  | "arriflex"
+  | "sony-alpha"
+  | "canon-eos"
+  | "red-cinema"
+  | "arri-alexa"
   | "digicam"
   | "xpan"
   | "pro"
@@ -101,12 +124,12 @@ export type HudSkin =
   | "nvg"
   | "glitch";
 
-export type PresetCategory = "color-film" | "bw-film" | "cinema" | "vintage-digi" | "curious" | "modern";
+export type PresetCategory = "color-film" | "bw-film" | "cinema" | "vintage-digi" | "curious" | "modern" | "pro-scenes";
 
 export type Preset = {
   id: string;
   label: string;
-  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon";
+  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Rolleiflex" | "ARRI" | "RED" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon";
   blurb: string; // one line of flavor text shown under the name
   category: "vintage" | "modern" | "curious" | "pro-scenes"; // grouping in the camera picker
   hud: HudSkin;
