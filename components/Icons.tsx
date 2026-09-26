@@ -386,5 +386,21 @@ export function SoundIcon({ className = base, mute = false }: IconProps & { mute
   );
 }
 
+export function VintageViewfinderIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      {/* Outer Viewfinder Bezel */}
+      <rect x="2.5" y="3.5" width="19" height="17" rx="3.5" />
+      {/* Central Ground Glass Circle */}
+      <circle cx="12" cy="12" r="5" strokeDasharray="1.5 1.5" />
+      {/* Stigmometer Split Line */}
+      <line x1="8" y1="12" x2="16" y2="12" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" fillOpacity="0.25" />
+      {/* Corner Optical Alignment Ticks */}
+      <path strokeLinecap="round" d="M5.5 6.5h2M5.5 6.5v2M18.5 6.5h-2M18.5 6.5v2M5.5 17.5h2M5.5 17.5v-2M18.5 17.5h-2M18.5 17.5v-2" />
+    </svg>
+  );
+}
+
 
 

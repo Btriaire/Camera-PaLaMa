@@ -34,6 +34,7 @@ import LevelIndicator from "./LevelIndicator";
 import ZoomSlider from "./ZoomSlider";
 import HorizontalSlider from "./HorizontalSlider";
 import PhotoViewer from "./PhotoViewer";
+import VintageViewfinderMask, { VINTAGE_VIEWFINDER_MODES, VintageViewfinderMode } from "./VintageViewfinderMask";
 import {
   ApertureIcon,
   BurstIcon,
@@ -58,6 +59,7 @@ import {
   StrobeIcon,
   TimerIcon,
   TorchIcon,
+  VintageViewfinderIcon,
   ZebraIcon,
 } from "@/components/Icons";
 
@@ -333,6 +335,15 @@ export default function Viewfinder({
     setUiZoomState(clamped);
     uiZoomRef.current = clamped;
     setHardwareZoom(Math.min(clamped, hardwareMaxZoom));
+  };
+
+  const [vintageMask, setVintageMask] = useState<VintageViewfinderMode>("none");
+  const [vintageMaskMenuOpen, setVintageMaskMenuOpen] = useState(false);
+
+  const cycleVintageMask = () => {
+    const steps: VintageViewfinderMode[] = ["none", "slr-prism", "tlr-6x6", "lens-circle", "film-sprockets"];
+    const idx = steps.indexOf(vintageMask);
+    setVintageMask(steps[(idx + 1) % steps.length]);
   };
 
   const cycleAspectMask = () => {
@@ -978,6 +989,14 @@ export default function Viewfinder({
         </div>
       )}
 
+      {/* Optional Vintage Optical Viewfinder Lens Mask */}
+      <VintageViewfinderMask
+        mode={vintageMask}
+        evBias={evBias}
+        iso={isoValue}
+        shotCount={shotCount}
+      />
+
       {/* Macro Mode Dedicated Live HUD & Reticle */}
       {macroModeOn && (
         <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-between p-4">
@@ -1200,6 +1219,20 @@ export default function Viewfinder({
             <MacroFlowerIcon className="w-6 h-6" />
           </button>
           <button
+            onClick={() => setVintageMaskMenuOpen((v) => !v)}
+            aria-label="Viseur Optique Rétro / Masque Dépoli d'appareil vintage"
+            className={`relative flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              vintageMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/90 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            <VintageViewfinderIcon className="w-6 h-6" />
+            {vintageMask !== "none" && (
+              <span className="absolute -bottom-0.5 -right-0.5 text-[8.5px] font-mono font-black leading-none bg-black text-amber-400 px-0.5 rounded">
+                {vintageMask === "slr-prism" ? "SLR" : vintageMask === "tlr-6x6" ? "TLR" : vintageMask === "lens-circle" ? "LENS" : "35M"}
+              </span>
+            )}
+          </button>
+          <button
             onClick={cycleAspectMask}
             aria-label="Cadre de cadrage / Ratio"
             className={`relative flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
@@ -1292,6 +1325,52 @@ export default function Viewfinder({
           )}
         </div>
       </div>
+
+      {vintageMaskMenuOpen && (
+        <>
+          <button className="fixed inset-0 z-30" aria-label="Fermer le menu viseur optique" onClick={() => setVintageMaskMenuOpen(false)} />
+          <div
+            className="absolute right-4 z-40 w-80 rounded-2xl border border-white/15 bg-zinc-950/95 p-2 backdrop-blur shadow-2xl"
+            style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.25rem)" }}
+          >
+            <div className="px-3 py-1.5 border-b border-white/10 mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400">
+                Masque Viseur Rétro &amp; Dépoli
+              </span>
+              <span className="text-[10px] text-white/50">Optionnel</span>
+            </div>
+            {VINTAGE_VIEWFINDER_MODES.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setVintageMask(m.id);
+                  setVintageMaskMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all ${
+                  vintageMask === m.id ? "bg-amber-400/15 border border-amber-400/40" : "hover:bg-white/5"
+                }`}
+              >
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-mono text-[10px] font-black border ${
+                    vintageMask === m.id
+                      ? "bg-amber-400 text-black border-amber-300 shadow-sm"
+                      : "bg-white/10 text-white/70 border-white/10"
+                  }`}
+                >
+                  {m.shortLabel}
+                </div>
+                <span className="flex-1">
+                  <span className={`block text-xs font-bold ${vintageMask === m.id ? "text-amber-300" : "text-white"}`}>
+                    {m.label}
+                  </span>
+                  <span className="block text-[10px] leading-tight text-white/50">{m.blurb}</span>
+                </span>
+                {vintageMask === m.id && <CheckIcon className="h-4 w-4 shrink-0 text-amber-400" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {flashMenuOpen && (
         <>
@@ -1441,6 +1520,28 @@ export default function Viewfinder({
           >
             <MacroFlowerIcon className="w-5 h-5" />
             Macro (Détails+)
+          </button>
+
+          <button
+            onClick={cycleVintageMask}
+            aria-pressed={vintageMask !== "none"}
+            aria-label="Changer de masque de viseur optique rétro"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur shadow-md active:scale-95 transition-all ${
+              vintageMask !== "none"
+                ? "border-amber-400 bg-amber-400/25 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] font-bold"
+                : "border-white/30 bg-black/55 text-white"
+            }`}
+          >
+            <VintageViewfinderIcon className="w-5 h-5" />
+            {vintageMask === "none"
+              ? "Viseur Rétro (OFF)"
+              : vintageMask === "slr-prism"
+              ? "Viseur SLR 1970"
+              : vintageMask === "tlr-6x6"
+              ? "Viseur 6×6 Dépoli"
+              : vintageMask === "lens-circle"
+              ? "Viseur Lentille"
+              : "Cadre 35mm"}
           </button>
 
           <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/30 bg-black/55 px-3.5 py-2.5 backdrop-blur shadow-md">
