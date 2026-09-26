@@ -955,6 +955,7 @@ export default function Viewfinder({
         elapsedSeconds={elapsedSeconds}
         batteryLevel={battery}
         now={now}
+        tiltDeg={tiltDeg}
       />
 
       {showHistogram && (

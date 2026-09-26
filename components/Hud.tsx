@@ -29,6 +29,7 @@ export default function Hud({
   elapsedSeconds,
   batteryLevel,
   now,
+  tiltDeg,
 }: {
   skin: HudSkin;
   preset: Preset | null;
@@ -43,6 +44,7 @@ export default function Hud({
   elapsedSeconds: number;
   batteryLevel: number | null;
   now: string;
+  tiltDeg?: number | null;
 }) {
   const mono = "font-mono tabular-nums";
   const battery = batteryLevel !== null ? `${Math.round(batteryLevel * 100)}%` : null;
