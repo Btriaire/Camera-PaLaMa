@@ -89,6 +89,7 @@ export class GLRenderer {
       "u_solarize", "u_cyanotype", "u_dither", "u_lomochrome", "u_crossProcess", "u_tiltShift", "u_macroBoost",
       "u_anamorphicFlare", "u_toneCurve", "u_shadowTint", "u_highlightTint", "u_dehaze", "u_skinSmooth",
       "u_acesToneMap", "u_casSharpness", "u_remjetHalation", "u_printFilmStock",
+      "u_jwstSpikes", "u_kirlianAura", "u_lidarMesh", "u_quantumEvent", "u_solarHAlpha", "u_electronMicro",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
@@ -192,6 +193,14 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_casSharpness, (adjustments.casSharpness ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_remjetHalation, (adjustments.remjetHalation ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_printFilmStock, adjustments.printFilmStock ?? 0);
+
+    // Exotic & Scientific Computational Sensors
+    gl.uniform1f(this.uniforms.u_jwstSpikes, (adjustments.jwstSpikes ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_kirlianAura, (adjustments.kirlianAura ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_lidarMesh, (adjustments.lidarMesh ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_quantumEvent, (adjustments.quantumEvent ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_solarHAlpha, (adjustments.solarHAlpha ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_electronMicro, (adjustments.electronMicro ?? 0) / 100);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }

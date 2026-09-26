@@ -41,9 +41,19 @@ const HUD_LABEL: Record<HudSkin, string> = {
   nikon: "Nikon F3 HP NASA",
   holga: "Holga 120N Toy Camera",
   olympus: "Olympus Pen F Demi-Format",
+  jwst: "Télescope Spatial JWST",
+  "phase-one": "Phase One IQ4 150MP Achromatic",
+  sem: "Microscope Électronique FE-SEM",
+  kirlian: "Électrophotographie Kirlian",
+  lidar: "LiDAR Spatial 3D Point Cloud",
+  blackhole: "Horizon du Trou Noir EHT",
+  "solar-halpha": "Télescope Solaire H-Alpha 656nm",
+  lytro: "Plénoptique Lytro 4D Light Field",
+  sonogram: "Échographie Doppler Médicale",
+  "drone-hud": "Drone Tactique Recon UAV",
 };
 
-type TabFilter = "all" | "films" | "bw" | "cinema" | "medium" | "pro-scenes" | "macro" | "curious" | "modern";
+type TabFilter = "all" | "films" | "bw" | "cinema" | "medium" | "pro-scenes" | "exotic" | "macro" | "curious" | "modern";
 
 export default function CameraPicker({
   camera,
@@ -60,13 +70,14 @@ export default function CameraPicker({
 }) {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
-  const bwPresets = PRESETS.filter((p) => p.adjustments.monochrome && p.adjustments.monochrome > 50);
+  const exoticPresets = PRESETS.filter((p) => p.id === "jwst-nircam" || p.id === "phase-one-iq4" || p.id === "electron-microscope" || p.id === "kirlian-aura" || p.id === "lidar-mesh" || p.id === "quantum-event-horizon" || p.id === "solar-h-alpha" || p.id === "lytro-illum" || p.id === "medical-sonogram" || p.id === "cyber-recon-drone");
+  const bwPresets = PRESETS.filter((p) => p.adjustments.monochrome && p.adjustments.monochrome > 50 && !exoticPresets.some(e => e.id === p.id));
   const cinemaPresets = PRESETS.filter((p) => p.id.includes("vision3") || p.id.includes("eterna") || p.id.includes("cinestill") || p.id.includes("arriflex") || p.id.includes("red-raptor") || p.id.includes("arri-alexa"));
-  const mediumFormatPresets = PRESETS.filter((p) => p.id.includes("hasselblad") || p.id.includes("rolleiflex") || p.id.includes("polaroid") || p.id.includes("xpan") || p.id.includes("leica") || p.id.includes("linhof") || p.id.includes("contax") || p.id.includes("mamiya") || p.id.includes("nikon") || p.id.includes("holga") || p.id.includes("olympus"));
+  const mediumFormatPresets = PRESETS.filter((p) => (p.id.includes("hasselblad") || p.id.includes("rolleiflex") || p.id.includes("polaroid") || p.id.includes("xpan") || p.id.includes("leica") || p.id.includes("linhof") || p.id.includes("contax") || p.id.includes("mamiya") || p.id.includes("nikon") || p.id.includes("holga") || p.id.includes("olympus")) && !exoticPresets.some(e => e.id === p.id));
   const macroPresets = PRESETS.filter((p) => p.id.startsWith("macro-") || p.id === "macro-ultra");
-  const filmPresets = PRESETS.filter((p) => p.category === "vintage" && !bwPresets.some(b => b.id === p.id) && !cinemaPresets.some(c => c.id === p.id) && !mediumFormatPresets.some(m => m.id === p.id));
-  const proScenes = PRO_SCENE_PRESETS.filter((p) => !macroPresets.some(m => m.id === p.id));
-  const curious = CURIOUS_PRESETS;
+  const filmPresets = PRESETS.filter((p) => p.category === "vintage" && !bwPresets.some(b => b.id === p.id) && !cinemaPresets.some(c => c.id === p.id) && !mediumFormatPresets.some(m => m.id === p.id) && !exoticPresets.some(e => e.id === p.id));
+  const proScenes = PRO_SCENE_PRESETS.filter((p) => !macroPresets.some(m => m.id === p.id) && !exoticPresets.some(e => e.id === p.id));
+  const curious = CURIOUS_PRESETS.filter((p) => !exoticPresets.some(e => e.id === p.id));
   const modern = MODERN_PRESETS;
 
   const thumbs = usePresetThumbnails(camera?.videoRef.current ?? photoSource ?? null);
@@ -90,6 +101,9 @@ export default function CameraPicker({
       <div className="flex items-center gap-2 overflow-x-auto px-4 py-2.5 border-b border-white/10 bg-zinc-900/60 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <TabButton active={activeTab === "all"} onClick={() => setActiveTab("all")}>
           Tous ({PRESETS.length})
+        </TabButton>
+        <TabButton active={activeTab === "exotic"} onClick={() => setActiveTab("exotic")} accent="text-fuchsia-400 border-fuchsia-400/40">
+          Exotiques &amp; Scientifiques ({exoticPresets.length})
         </TabButton>
         <TabButton active={activeTab === "films"} onClick={() => setActiveTab("films")} accent="text-amber-400 border-amber-400/40">
           Pellicules Couleur ({filmPresets.length})
@@ -215,6 +229,22 @@ export default function CameraPicker({
         {(activeTab === "all" || activeTab === "macro") && (
           <Section title="Macro &amp; Micro-Détails (Optiques Rapprochées &amp; Textures)">
             {macroPresets.map((p) => (
+              <PresetDetailCard
+                key={p.id}
+                preset={p}
+                active={activePresetId === p.id}
+                onSelect={() => onSelect(p.id)}
+                naturalThumb={thumbs[NATURAL_KEY]}
+                presetThumb={thumbs[p.id]}
+              />
+            ))}
+          </Section>
+        )}
+
+        {/* Section Appareils Exotiques & Capteurs Scientifiques */}
+        {(activeTab === "all" || activeTab === "exotic") && (
+          <Section title="Appareils Exotiques, Astrophysique &amp; Capteurs Scientifiques">
+            {exoticPresets.map((p) => (
               <PresetDetailCard
                 key={p.id}
                 preset={p}

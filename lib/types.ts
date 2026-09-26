@@ -52,6 +52,14 @@ export type Adjustments = {
   remjetHalation: number; // 0..100, Physical Remjet layer Gaussian PSF photon scatter
   printFilmStock: number; // 0 = none, 1 = Kodak 2383, 2 = Technicolor 3-Strip, 3 = Bleach Bypass
 
+  // Ultra-Modern & Exotic Optical Sensors
+  jwstSpikes: number; // 0..100, JWST 6-point hexagonal beryllium diffraction spikes & cosmic false color
+  kirlianAura: number; // 0..100, Kirlian bio-photonic corona discharge ionization glow
+  lidarMesh: number; // 0..100, LiDAR spatial time-of-flight depth gradient & point cloud mesh
+  quantumEvent: number; // 0..100, Relativistic Doppler beaming & gravitational lensing vortex
+  solarHAlpha: number; // 0..100, 656.3nm Hydrogen-Alpha solar plasma chromosphere filter
+  electronMicro: number; // 0..100, Scanning Electron Microscope secondary electron topological contrast
+
   dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
   aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
   filmBorder?: "none" | "35mm" | "polaroid";
@@ -101,6 +109,12 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   casSharpness: 0,
   remjetHalation: 0,
   printFilmStock: 0,
+  jwstSpikes: 0,
+  kirlianAura: 0,
+  lidarMesh: 0,
+  quantumEvent: 0,
+  solarHAlpha: 0,
+  electronMicro: 0,
   dateStamp: false,
   aspectRatio: "original",
   filmBorder: "none",
@@ -138,14 +152,24 @@ export type HudSkin =
   | "mamiya"
   | "nikon"
   | "holga"
-  | "olympus";
+  | "olympus"
+  | "jwst"
+  | "phase-one"
+  | "sem"
+  | "kirlian"
+  | "lidar"
+  | "blackhole"
+  | "solar-halpha"
+  | "lytro"
+  | "sonogram"
+  | "drone-hud";
 
 export type PresetCategory = "color-film" | "bw-film" | "cinema" | "vintage-digi" | "curious" | "modern" | "pro-scenes";
 
 export type Preset = {
   id: string;
   label: string;
-  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Rolleiflex" | "ARRI" | "RED" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon" | "Contax" | "Olympus" | "Mamiya" | "Minolta" | "Voigtländer" | "Linhof";
+  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Rolleiflex" | "ARRI" | "RED" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon" | "Contax" | "Olympus" | "Mamiya" | "Minolta" | "Voigtländer" | "Linhof" | "NASA" | "Phase One" | "Zeiss" | "Scientific" | "Lytro";
   blurb: string; // one line of flavor text shown under the name
   history?: string; // historical background & origin of the film or camera
   useCase?: string; // best use case (portrait, street, landscape, war reportage, etc.)

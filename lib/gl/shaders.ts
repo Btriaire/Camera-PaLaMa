@@ -70,6 +70,14 @@ uniform float u_casSharpness;
 uniform float u_remjetHalation;
 uniform float u_printFilmStock;
 
+// Ultra-Modern & Exotic Optical Sensors
+uniform float u_jwstSpikes;
+uniform float u_kirlianAura;
+uniform float u_lidarMesh;
+uniform float u_quantumEvent;
+uniform float u_solarHAlpha;
+uniform float u_electronMicro;
+
 // Live Viewfinder Shooting Aids & Pro Tools
 uniform float u_zebra;
 uniform float u_zebraThreshold;
@@ -546,6 +554,109 @@ void main() {
   if (u_acesToneMap > 0.001) {
     vec3 aces = acesFitted(color);
     color = mix(color, aces, clamp(u_acesToneMap, 0.0, 1.0));
+  }
+
+  // ==========================================
+  // EXOTIC & SCIENTIFIC COMPUTATIONAL SENSORS
+  // ==========================================
+
+  // T. JWST Space Telescope 6-Point Hexagonal Diffraction Spikes & Cosmic Infrared
+  if (u_jwstSpikes > 0.001) {
+    vec2 p = uv - 0.5;
+    float r = length(p);
+    float angle = atan(p.y, p.x);
+    float spike6 = pow(abs(cos(angle * 3.0)), 32.0) * exp(-r * 6.0);
+    float spike2 = pow(abs(sin(angle)), 48.0) * exp(-r * 7.0);
+    float jwstDiffraction = (spike6 * 1.5 + spike2 * 0.7) * u_jwstSpikes;
+    
+    float lum = luma(color);
+    float spec = smoothstep(0.65, 0.98, lum);
+    vec3 cosmicInfra = vec3(
+      smoothstep(0.1, 0.9, lum) * 1.25,
+      smoothstep(0.25, 0.85, lum) * 0.75 + smoothstep(0.7, 1.0, lum) * 0.4,
+      smoothstep(0.4, 0.95, lum) * 1.35
+    );
+    vec3 jwstColor = mix(color, cosmicInfra, 0.65);
+    vec3 starGlow = vec3(1.0, 0.85, 0.5) * spec * jwstDiffraction * 2.8;
+    color = mix(color, jwstColor + starGlow, clamp(u_jwstSpikes, 0.0, 1.0));
+  }
+
+  // U. Kirlian High-Voltage Plasma Bio-Electrography Discharge
+  if (u_kirlianAura > 0.001) {
+    vec3 edgeDiff = abs(color - blurred) * 4.0;
+    float edge = clamp(length(edgeDiff), 0.0, 1.0);
+    float lum = luma(color);
+    vec3 coronaViolet = vec3(0.75, 0.1, 1.0);
+    vec3 electricCyan = vec3(0.1, 0.9, 1.0);
+    vec3 neonAura = mix(coronaViolet, electricCyan, sin(lum * 12.0 + u_seed * 4.0) * 0.5 + 0.5);
+    vec3 kirlianCore = vec3(lum * 0.15);
+    vec3 electrified = mix(kirlianCore, neonAura * 2.2, smoothstep(0.15, 0.7, edge));
+    color = mix(color, electrified, clamp(u_kirlianAura, 0.0, 1.0));
+  }
+
+  // V. LiDAR Solid-State Sensor & Holographic Spatial Point Cloud
+  if (u_lidarMesh > 0.001) {
+    float lum = luma(color);
+    float topoBands = abs(sin(lum * 28.0));
+    float isIsoLine = smoothstep(0.85, 0.98, topoBands);
+    vec2 grid = fract(uv * vec2(80.0, 80.0 * (u_texelSize.x / u_texelSize.y)));
+    float dotGrid = smoothstep(0.85, 0.95, 1.0 - length(grid - 0.5));
+    vec3 lidarDepth = vec3(
+      smoothstep(0.4, 0.9, lum),
+      smoothstep(0.1, 0.7, lum) * (1.0 - smoothstep(0.7, 1.0, lum)),
+      1.0 - smoothstep(0.0, 0.6, lum)
+    );
+    vec3 lidarViz = lidarDepth * 0.75 + vec3(0.0, 1.0, 0.8) * isIsoLine * 0.6 + vec3(1.0, 1.0, 1.0) * dotGrid * 0.45;
+    color = mix(color, lidarViz, clamp(u_lidarMesh, 0.0, 1.0));
+  }
+
+  // W. Quantum Relativistic Event Horizon & Gravitational Lensing
+  if (u_quantumEvent > 0.001) {
+    vec2 center = vec2(0.5, 0.5);
+    vec2 p = uv - center;
+    float r = length(p);
+    float angle = atan(p.y, p.x);
+    float rs = 0.22;
+    float photonRing = exp(-pow(r - rs, 2.0) / 0.0035);
+    float deflection = rs / max(r, 0.05);
+    vec2 warpedUv = center + normalize(p) * (r + deflection * 0.12 * u_quantumEvent);
+    warpedUv = clamp(warpedUv, 0.0, 1.0);
+    vec3 warpedColor = texture2D(u_image, warpedUv).rgb;
+    float doppler = cos(angle + 0.5) * 0.45;
+    warpedColor.r += doppler * 0.35;
+    warpedColor.b -= doppler * 0.35;
+    float singularity = smoothstep(rs * 0.85, rs * 0.4, r);
+    warpedColor = mix(warpedColor, vec3(0.0), singularity);
+    vec3 accretionGlow = vec3(1.0, 0.65, 0.2) * photonRing * 2.2;
+    warpedColor += accretionGlow;
+    color = mix(color, warpedColor, clamp(u_quantumEvent, 0.0, 1.0));
+  }
+
+  // X. Solar H-Alpha (656.28nm) Chromosphere Solar Filter
+  if (u_solarHAlpha > 0.001) {
+    float lum = luma(color);
+    float microGranules = clamp(lum + (lum - luma(blurred)) * 2.2, 0.0, 1.0);
+    vec3 hAlphaCrimson = vec3(
+      pow(microGranules, 0.85) * 1.35,
+      pow(microGranules, 2.4) * 0.35,
+      pow(microGranules, 4.0) * 0.08
+    );
+    float flare = smoothstep(0.82, 1.0, lum);
+    hAlphaCrimson += vec3(1.0, 0.8, 0.4) * flare * 1.2;
+    color = mix(color, hAlphaCrimson, clamp(u_solarHAlpha, 0.0, 1.0));
+  }
+
+  // Y. Scanning Electron Microscope (SEM) Secondary Electron Topography
+  if (u_electronMicro > 0.001) {
+    float lCenter = luma(color);
+    float lRight = luma(texture2D(u_image, uv + vec2(tx.x * 2.0, 0.0)).rgb);
+    float lUp = luma(texture2D(u_image, uv + vec2(0.0, tx.y * 2.0)).rgb);
+    vec2 topoGrad = vec2(lRight - lCenter, lUp - lCenter) * 8.0;
+    float topoRelief = clamp(lCenter + length(topoGrad) * 1.4, 0.0, 1.0);
+    float semLuma = pow(topoRelief, 1.25);
+    vec3 semColor = vec3(semLuma);
+    vec3 electronMonochrome = mix(semColor, semColor * vec3(0.9, 1.0, 0.95), 0.3);
+    color = mix(color, electronMonochrome, clamp(u_electronMicro, 0.0, 1.0));
   }
 
   // 13. Monochrome & Duotone tinting

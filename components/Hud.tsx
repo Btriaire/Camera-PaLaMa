@@ -845,6 +845,255 @@ export default function Hud({
           </div>
         </>
       )}
+
+      {/* James Webb Space Telescope NIRCam Deep Space */}
+      {skin === "jwst" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-amber-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-amber-500/30 border border-amber-400 text-amber-300 text-[9px] font-black rounded w-max">JWST // NIRCAM + MIRI</span>
+            <span className="text-[10px] text-amber-200/80">L2 LAGRANGE POINT (1.5M km)</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-amber-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>FILTER: F200W + F444W</div>
+            <div className="text-[10px] text-amber-400/70">TEMP: 37.1 Kelvin (-236°C)</div>
+          </div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+            <svg width="120" height="120" viewBox="0 0 100 100" className="text-amber-400 stroke-current fill-none">
+              <polygon points="50,5 89,27.5 89,72.5 50,95 11,72.5 11,27.5" strokeWidth="1" strokeDasharray="3 3" />
+              <polygon points="50,20 76,35 76,65 50,80 24,65 24,35" strokeWidth="1.2" />
+              <circle cx="50" cy="50" r="4" fill="currentColor" />
+            </svg>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-amber-200 ${mono}`}>
+            <span>MIRROR 6.5m BERYLLIUM</span>
+            <span>INT: 1200s</span>
+            <span>DIFFRACTION 6-SPIKES</span>
+            <span>SNR: 98.4dB</span>
+          </div>
+        </>
+      )}
+
+      {/* Phase One IQ4 150MP Achromatic Medium Format */}
+      {skin === "phase-one" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-zinc-100 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-white/20 border border-white/50 text-white text-[9px] font-black rounded w-max">PHASE ONE IQ4 150MP</span>
+            <span className="text-[10px] text-zinc-300">BSI ACHROMATIC 53.4×40mm</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-zinc-200 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>16-BIT RAW (14,204×10,652)</div>
+            <div className="text-[10px] text-emerald-400">15 STOPS DYNAMIC RANGE</div>
+          </div>
+          <Reticle thin />
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-zinc-300 ${mono}`}>
+            <span>RODENSTOCK 70mm HR</span>
+            <span>1/125s F/8.0</span>
+            <span>BASE ISO {iso}</span>
+            <span>CAPACITÉ: 151.4 MP</span>
+          </div>
+        </>
+      )}
+
+      {/* Scanning Electron Microscope (SEM) */}
+      {skin === "sem" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-emerald-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-emerald-950/80 border border-emerald-500 text-emerald-300 text-[9px] font-black rounded w-max">FE-SEM 20.00 kV</span>
+            <span className="text-[10px] text-emerald-300/80">HIGH VACUUM: 1.2e-4 Pa</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-emerald-400 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>MAG: 45,000×</div>
+            <div className="text-[10px] text-emerald-300">WD: 4.8 mm // SE DETECTOR</div>
+          </div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+            <div className="w-16 h-16 border border-emerald-500/60 rounded flex items-center justify-center">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full" />
+            </div>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-6 text-[11px] text-emerald-300 ${mono}`}>
+            <span className="border-b border-emerald-400 pb-0.5 font-bold">1 µm |----|</span>
+            <span>SPOT: 2.0 nm</span>
+            <span>ELECTRON GUN: SCHOTTKY FEG</span>
+            <span>EHT: 20.0 kV</span>
+          </div>
+        </>
+      )}
+
+      {/* Kirlian Bio-Electrography Aura */}
+      {skin === "kirlian" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-fuchsia-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-fuchsia-950/80 border border-fuchsia-400 text-fuchsia-200 text-[9px] font-black rounded w-max">KIRLIAN ELECTROGRAPH</span>
+            <span className="text-[10px] text-fuchsia-300/80">BIO-PLASMA DISCHARGE</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-cyan-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>TESLA COIL: 50 kHz</div>
+            <div className="text-[10px] text-fuchsia-300">POTENTIAL: 25.0 kV</div>
+          </div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+            <div className="w-24 h-24 rounded-full border border-dashed border-fuchsia-400 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border border-cyan-400" />
+            </div>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-fuchsia-200 ${mono}`}>
+            <span>CORONA IONIZATION</span>
+            <span>FREQ: 50.0 kHz</span>
+            <span>AURA: ACTIVE</span>
+            <span>ELECTRODE DIELECTRIC</span>
+          </div>
+        </>
+      )}
+
+      {/* LiDAR Solid-State 3D Holographic Mesh */}
+      {skin === "lidar" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-cyan-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-cyan-950/80 border border-cyan-400 text-cyan-200 text-[9px] font-black rounded w-max">SOLID-STATE LIDAR // 3D POINT CLOUD</span>
+            <span className="text-[10px] text-cyan-300/80">905nm PULSED VCSEL ARRAY</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-cyan-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>PTS/SEC: 1,200,000</div>
+            <div className="text-[10px] text-emerald-400">TOF ACCURACY: 2.4 mm</div>
+          </div>
+          <div className="absolute inset-16 border border-cyan-500/20 grid grid-cols-4 grid-rows-4 pointer-events-none">
+            {Array.from({ length: 16 }).map((_, i) => (
+              <div key={i} className="border border-cyan-500/10 flex items-center justify-center">
+                <span className="w-0.5 h-0.5 bg-cyan-400/50" />
+              </div>
+            ))}
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-cyan-200 ${mono}`}>
+            <span>MESH: SPATIAL VOXELS</span>
+            <span>RANGE: 0.2 - 35.0m</span>
+            <span>FOV: 120° × 90°</span>
+            <span>DEPTH: CALIBRATED</span>
+          </div>
+        </>
+      )}
+
+      {/* Quantum Relativistic Event Horizon */}
+      {skin === "blackhole" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-orange-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-orange-950/80 border border-orange-400 text-orange-200 text-[9px] font-black rounded w-max">EVENT HORIZON // EHT SYNTHESIS</span>
+            <span className="text-[10px] text-orange-300/80">KERR METRIC SPIN a* = 0.94</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-orange-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>VLBI BASELINE: 10,700 km</div>
+            <div className="text-[10px] text-amber-400">λ: 1.3 mm (230 GHz)</div>
+          </div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+            <div className="w-32 h-32 rounded-full border-2 border-orange-500 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-black border border-orange-400/80" />
+            </div>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-orange-200 ${mono}`}>
+            <span>GRAVITATIONAL LENSING</span>
+            <span>DOPPLER BEAMING</span>
+            <span>RS: 0.22 UV</span>
+            <span>PHOTON RING: 2.6 RS</span>
+          </div>
+        </>
+      )}
+
+      {/* Solar H-Alpha 656.28nm Telescope */}
+      {skin === "solar-halpha" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-red-400 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-red-950/80 border border-red-500 text-red-200 text-[9px] font-black rounded w-max">SOLAR H-ALPHA // ETALON 0.5Å</span>
+            <span className="text-[10px] text-red-300/80">HYDROGEN CHROMOSPHERE 656.28nm</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-red-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>BANDPASS: 0.05 nm</div>
+            <div className="text-[10px] text-amber-400">PROMINENCE FLARE ACTIVE</div>
+          </div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+            <div className="w-28 h-28 rounded-full border border-red-500 flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full border border-dashed border-red-400" />
+            </div>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-red-200 ${mono}`}>
+            <span>BLOCKING FILTER: B1800</span>
+            <span>SPICULES + FILAMENTS</span>
+            <span>TUNING: 6562.8 Å</span>
+          </div>
+        </>
+      )}
+
+      {/* Lytro Illum Plenoptic Light Field */}
+      {skin === "lytro" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-indigo-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-indigo-950/80 border border-indigo-400 text-indigo-200 text-[9px] font-black rounded w-max">LYTRO ILLUM // PLENOPTIC LIGHT FIELD</span>
+            <span className="text-[10px] text-indigo-300/80">MICRO-LENS ARRAY (40 MEGARAY)</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-indigo-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>POST-CAPTURE REFOCUS: 4D</div>
+            <div className="text-[10px] text-indigo-400">30-250mm F/2.0 CONSTANT</div>
+          </div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+            <div className="w-20 h-20 border border-indigo-400 flex items-center justify-center">
+              <div className="w-10 h-10 border border-dashed border-indigo-300" />
+            </div>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-indigo-200 ${mono}`}>
+            <span>4D RAY MATRIX</span>
+            <span>VIRTUAL APERTURE: F/1.0 - F/16</span>
+            <span>DEPTH HISTOGRAM ACTIVE</span>
+          </div>
+        </>
+      )}
+
+      {/* Medical Ultrasound Doppler Sonogram */}
+      {skin === "sonogram" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-blue-300 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-blue-950/80 border border-blue-400 text-blue-200 text-[9px] font-black rounded w-max">ULTRASOUND // COLOR DOPPLER</span>
+            <span className="text-[10px] text-blue-300/80">TRANSDUCER: C5-1 PHASED ARRAY</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-blue-300 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>FREQ: 3.5 - 5.0 MHz</div>
+            <div className="text-[10px] text-amber-400">PRF: 4.2 kHz // TIS: 0.4</div>
+          </div>
+          <div className="absolute inset-x-8 top-1/4 bottom-1/3 border border-blue-400/30 pointer-events-none flex items-center justify-center">
+            <span className="text-[9px] text-blue-400/50 font-mono">ACOUSTIC SECTOR SCAN</span>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-blue-200 ${mono}`}>
+            <span>GAIN: 54 dB</span>
+            <span>DYNAMIC RANGE: 65 dB</span>
+            <span>VELOCITY: 32 cm/s</span>
+          </div>
+        </>
+      )}
+
+      {/* Cyber Recon Tactical Drone Avionics HUD */}
+      {skin === "drone-hud" && (
+        <>
+          <div className={`absolute left-3 flex flex-col gap-1 text-[11px] text-red-500 font-bold ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <span className="px-1.5 py-0.5 bg-red-950/80 border border-red-500 text-red-300 text-[9px] font-black rounded w-max">UAV RECON // OPTICAL TARGETING</span>
+            <span className="text-[10px] text-red-400/80">ALT: 1,420m AGL // HDG: 042°</span>
+          </div>
+          <div className={`absolute right-3 text-[11px] text-red-500 font-mono text-right ${mono}`} style={{ top: `calc(${topInset})` }}>
+            <div>LASER DESIGNATOR: ARMED</div>
+            <div className="text-[10px] text-red-400">TELEMETRY LINK: ENCRYPTED</div>
+          </div>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-60">
+            <svg width="100" height="100" viewBox="0 0 100 100" className="text-red-500 stroke-current fill-none">
+              <circle cx="50" cy="50" r="30" strokeWidth="1.5" strokeDasharray="6 4" />
+              <line x1="50" y1="10" x2="50" y2="35" strokeWidth="1.5" />
+              <line x1="50" y1="65" x2="65" y2="90" strokeWidth="1.5" />
+              <line x1="10" y1="50" x2="35" y2="50" strokeWidth="1.5" />
+              <line x1="65" y1="50" x2="90" y2="50" strokeWidth="1.5" />
+              <rect x="46" y="46" width="8" height="8" fill="currentColor" />
+            </svg>
+          </div>
+          <div className={`absolute bottom-[168px] left-0 right-0 flex items-center justify-center gap-5 text-[11px] text-red-400 ${mono}`}>
+            <span>EO/IR GIMBAL 3-AXIS</span>
+            <span>RANGEFINDER: 2,450m</span>
+            <span>TRACKING: ACTIVE LOCK</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
