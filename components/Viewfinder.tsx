@@ -991,6 +991,30 @@ export default function Viewfinder({
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
           </div>
 
+          {/* Macro Preset Quick Selector */}
+          <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto max-w-[95vw] rounded-full border border-emerald-500/40 bg-black/85 px-3 py-1.5 backdrop-blur-xl shadow-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <span className="text-[10px] font-mono font-bold text-emerald-400 mr-1 uppercase">Style :</span>
+            {[
+              { id: "macro-plus-ultra", label: "Ultra-Précision" },
+              { id: "macro-botanique-vivid", label: "Botanique" },
+              { id: "macro-mineral-textures", label: "Minéral" },
+              { id: "macro-insect-eye", label: "Œil Insecte" },
+              { id: "macro-microscope-40x", label: "Microscope" },
+            ].map((m) => (
+              <button
+                key={m.id}
+                onClick={() => onSelectPreset(m.id)}
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-all ${
+                  presetId === m.id
+                    ? "bg-emerald-400 text-black shadow-md font-bold"
+                    : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
           <div className="relative flex items-center justify-center">
             <div className="relative h-48 w-48 rounded-full border-2 border-dashed border-emerald-400/70 bg-emerald-950/15 backdrop-blur-[1px] shadow-[0_0_30px_rgba(52,211,153,0.3)] flex items-center justify-center">
               <div className="absolute h-full w-[1px] bg-emerald-400/40" />

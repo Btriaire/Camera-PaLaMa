@@ -27,7 +27,7 @@ const HUD_LABEL: Record<HudSkin, string> = {
   glitch: "Signal VHS Glitch",
 };
 
-type TabFilter = "all" | "pro-scenes" | "vintage" | "curious" | "modern";
+type TabFilter = "all" | "macro" | "pro-scenes" | "vintage" | "curious" | "modern";
 
 export default function CameraPicker({
   camera,
@@ -41,9 +41,10 @@ export default function CameraPicker({
   activePresetId: string | null;
   onSelect: (id: string | null) => void;
   onClose: () => void;
-  }) {
+}) {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
-  const proScenes = PRO_SCENE_PRESETS;
+  const macroPresets = PRESETS.filter((p) => p.id.startsWith("macro-"));
+  const proScenes = PRO_SCENE_PRESETS.filter((p) => !p.id.startsWith("macro-"));
   const vintage = VINTAGE_PRESETS;
   const curious = CURIOUS_PRESETS;
   const modern = MODERN_PRESETS;
@@ -68,6 +69,9 @@ export default function CameraPicker({
       <div className="flex items-center gap-2 overflow-x-auto px-4 py-2 border-b border-white/10 bg-zinc-900/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <TabButton active={activeTab === "all"} onClick={() => setActiveTab("all")}>
           Tous ({PRESETS.length})
+        </TabButton>
+        <TabButton active={activeTab === "macro"} onClick={() => setActiveTab("macro")} accent="text-emerald-400 border-emerald-400/40">
+          Macro ({macroPresets.length})
         </TabButton>
         <TabButton active={activeTab === "pro-scenes"} onClick={() => setActiveTab("pro-scenes")} accent="text-cyan-400 border-cyan-400/40">
           Scènes Pro ({proScenes.length})
@@ -97,9 +101,43 @@ export default function CameraPicker({
           </Card>
         )}
 
-        {/* Section 1: Modes Scènes Pro (Portrait, Panoramique, Macro+, Sports, Night) */}
+        {/* Section Macro & Micro-Détails */}
+        {(activeTab === "all" || activeTab === "macro") && (
+          <Section title="Macro &amp; Micro-Détails (Optiques Rapprochées &amp; Textures)">
+            {macroPresets.map((p) => (
+              <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
+                <div className="relative">
+                  <PresetBeforeAfter
+                    beforeSrc={thumbs[NATURAL_KEY]}
+                    afterSrc={thumbs[p.id]}
+                    gradient={swatchGradient(p)}
+                    className="h-28 w-full"
+                  />
+                  {activePresetId === p.id && <ActiveBadge />}
+                </div>
+                <div className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-emerald-300">{p.label}</div>
+                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-400/15 px-1.5 py-0.5 rounded border border-emerald-400/30">
+                      MACRO
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-white/70">{p.blurb}</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
+                    <Tag>{HUD_LABEL[p.hud]}</Tag>
+                    {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
+                    {p.iso && <Tag>ISO {p.iso}</Tag>}
+                    {p.kelvin && <Tag>{p.kelvin}K</Tag>}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </Section>
+        )}
+
+        {/* Section 1: Modes Scènes Pro (Portrait, Panoramique, Sports, Night) */}
         {(activeTab === "all" || activeTab === "pro-scenes") && (
-          <Section title="Modes Scènes Pro (Portrait, Panoramique, Macro+, Sports, Night)">
+          <Section title="Modes Scènes Pro (Portrait, Panoramique, Sports, Night)">
             {proScenes.map((p) => (
               <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
                 <div className="relative">
