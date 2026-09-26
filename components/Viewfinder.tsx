@@ -40,6 +40,8 @@ import VintageViewfinderMask, { VINTAGE_VIEWFINDER_MODES, VintageViewfinderMode 
 import AutofocusControls, { FocusMode } from "./AutofocusControls";
 import LiveAutofocusBar from "./LiveAutofocusBar";
 import AutofocusReticle, { ReticleData } from "./AutofocusReticle";
+import MasterControlDial, { DialParameter } from "./MasterControlDial";
+import LiveSplitCompare from "./LiveSplitCompare";
 import {
   AnamorphicIcon,
   ApertureIcon,
@@ -248,8 +250,24 @@ export default function Viewfinder({
   const [apertureFStop, setApertureFStop] = useState<number>(1.8);
   const [focusDistance, setFocusDistance] = useState<number>(30);
   const [dofBlur, setDofBlur] = useState<number>(75);
+  const [bokehAspect, setBokehAspect] = useState<number>(1.0);
+  const [petzvalSwirl, setPetzvalSwirl] = useState<number>(0);
   const [focusPoint, setFocusPoint] = useState<[number, number]>([0.5, 0.5]);
   const [afReticle, setAfReticle] = useState<ReticleData | null>(null);
+
+  // Master Control Dial & Live Split Compare
+  const [masterDialOpen, setMasterDialOpen] = useState(false);
+  const [dialActiveParam, setDialActiveParam] = useState<DialParameter>("aperture");
+  const [splitCompareOn, setSplitCompareOn] = useState(false);
+  const [splitPosition, setSplitPosition] = useState(50);
+  const splitCompareOnRef = useRef(false);
+  const splitPositionRef = useRef(50);
+  useEffect(() => {
+    splitCompareOnRef.current = splitCompareOn;
+  }, [splitCompareOn]);
+  useEffect(() => {
+    splitPositionRef.current = splitPosition;
+  }, [splitPosition]);
   // On by default, like a phone's own EIS -- the button is there to turn
   // it off (e.g. on a tripod, where the crop margin only costs framing for
   // nothing), not to opt in.
@@ -462,6 +480,9 @@ export default function Viewfinder({
       focusDistance: focusDistance,
       focusPoint: focusPoint,
       apertureFStop: apertureFStop,
+      bokehAspect: bokehAspect,
+      petzvalSwirl: petzvalSwirl,
+      highlightKnee: baseAdjustments.highlightKnee ?? 0,
       focusPlaneMode:
         focusMode === "foreground"
           ? 1
@@ -486,6 +507,8 @@ export default function Viewfinder({
       focusDistance,
       focusPoint,
       apertureFStop,
+      bokehAspect,
+      petzvalSwirl,
     ]
   );
   const hudSkin = preset?.hud ?? "modern";
@@ -651,16 +674,35 @@ export default function Viewfinder({
           currentAdj.casSharpness = Math.min(75, (currentAdj.casSharpness ?? 0) + Math.min(45, (digitalFactor - 1) * 6));
         }
 
-        renderer.render(currentAdj, seed, {
-          zebra: zebraEnabledRef.current,
-          zebraThreshold: zebraThresholdRef.current,
-          focusPeaking: focusPeakingEnabledRef.current,
-          focusPeakingColor: peakingColorRef.current,
-          falseColor: falseColorOnRef.current,
-          liveDro: liveDroOnRef.current,
-          monoAssist: monoAssistOnRef.current,
-          anamorphicDesqueeze: anamorphicDesqueezeRef.current,
-        });
+        if (splitCompareOnRef.current) {
+          renderer.renderSplit(
+            NEUTRAL_ADJUSTMENTS,
+            currentAdj,
+            splitPositionRef.current / 100,
+            seed,
+            {
+              zebra: zebraEnabledRef.current,
+              zebraThreshold: zebraThresholdRef.current,
+              focusPeaking: focusPeakingEnabledRef.current,
+              focusPeakingColor: peakingColorRef.current,
+              falseColor: falseColorOnRef.current,
+              liveDro: liveDroOnRef.current,
+              monoAssist: monoAssistOnRef.current,
+              anamorphicDesqueeze: anamorphicDesqueezeRef.current,
+            }
+          );
+        } else {
+          renderer.render(currentAdj, seed, {
+            zebra: zebraEnabledRef.current,
+            zebraThreshold: zebraThresholdRef.current,
+            focusPeaking: focusPeakingEnabledRef.current,
+            focusPeakingColor: peakingColorRef.current,
+            falseColor: falseColorOnRef.current,
+            liveDro: liveDroOnRef.current,
+            monoAssist: monoAssistOnRef.current,
+            anamorphicDesqueeze: anamorphicDesqueezeRef.current,
+          });
+        }
         seed += 0.016;
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -710,7 +752,16 @@ export default function Viewfinder({
 
   const captureOnce = async () => {
     setCapturing(true);
-    soundEngine.playShutter();
+    const pid = presetId ?? "";
+    if (pid.includes("hasselblad") || pid.includes("rolleiflex") || pid.includes("portra-400-120") || pid.includes("fuji-gfx")) {
+      soundEngine.playHasselbladShutter();
+    } else if (pid.includes("polaroid") || pid.includes("instax") || pid.includes("sx-70")) {
+      soundEngine.playPolaroidEject();
+    } else if (pid.includes("leica") || pid.includes("tri-x") || pid.includes("rangefinder")) {
+      soundEngine.playLeicaWinding();
+    } else {
+      soundEngine.playShutter();
+    }
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate([35, 25, 35]);
     }
@@ -1121,6 +1172,15 @@ export default function Viewfinder({
 
       {/* Live Interactive Autofocus Target Reticle */}
       <AutofocusReticle reticle={afReticle} />
+
+      {/* Real-Time Split-Screen Emulsion Comparison Slider */}
+      <LiveSplitCompare
+        isActive={splitCompareOn}
+        onToggleActive={() => setSplitCompareOn((v) => !v)}
+        splitPosition={splitPosition}
+        onChangeSplitPosition={setSplitPosition}
+        presetName={preset?.label ?? "Pellicule"}
+      />
 
       {/* Ultra-Zoom Telephoto HUD: PiP Radar, MTF Detail Analysis & OIS Target Lock */}
       {inUltraZoom && (
@@ -1708,6 +1768,10 @@ export default function Viewfinder({
           onChangeFocusDistance={setFocusDistance}
           dofBlur={dofBlur}
           onChangeDofBlur={setDofBlur}
+          bokehAspect={bokehAspect}
+          onChangeBokehAspect={setBokehAspect}
+          petzvalSwirl={petzvalSwirl}
+          onChangePetzvalSwirl={setPetzvalSwirl}
           focusPeaking={focusPeakingEnabled}
           onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
           peakingColor={peakingColor}
@@ -1722,6 +1786,45 @@ export default function Viewfinder({
           className="flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
+          {/* Master Control Dial */}
+          <MasterControlDial
+            activeParam={dialActiveParam}
+            onSelectParam={setDialActiveParam}
+            aperture={apertureFStop}
+            onChangeAperture={setApertureFStop}
+            focusDistance={focusDistance}
+            onChangeFocusDistance={setFocusDistance}
+            dofBlur={dofBlur}
+            onChangeDofBlur={setDofBlur}
+            exposure={evBias}
+            onChangeExposure={setEvBias}
+            temperature={kelvinValue - 5500}
+            onChangeTemperature={(t) => {
+              const targetK = 5500 + t;
+              setKelvinIndex(nearestStepIndex(KELVIN_STEPS, targetK));
+            }}
+            petzvalSwirl={petzvalSwirl}
+            onChangePetzvalSwirl={setPetzvalSwirl}
+            isOpen={masterDialOpen}
+            onToggleOpen={() => setMasterDialOpen((v) => !v)}
+          />
+
+          {/* Live Split-Compare Quick Toggle */}
+          <button
+            onClick={() => setSplitCompareOn((v) => !v)}
+            aria-label="Comparer avant/après le rendu argentique en temps réel"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+              splitCompareOn
+                ? "border-amber-400 bg-amber-400 text-black shadow-[0_0_15px_rgba(251,191,36,0.5)]"
+                : "border-white/30 bg-black/55 text-white hover:bg-black/75"
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 3v18M3 12h18M3 3h18v18H3z" />
+            </svg>
+            <span className="text-xs font-mono tracking-wide">{splitCompareOn ? "SPLIT (ACTIF)" : "SPLIT VUE"}</span>
+          </button>
+
           {/* Autofocus & Depth-of-Field Quick Pill */}
           <button
             onClick={() => setAfControlsOpen((v) => !v)}

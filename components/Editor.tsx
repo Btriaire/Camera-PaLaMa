@@ -112,6 +112,17 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     accent: "#38bdf8",
     format: (v) => `${Math.round(v)}% ACES`,
   },
+  {
+    key: "highlightKnee",
+    label: "Knee Compression HL",
+    category: "light",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#fbbf24",
+    format: (v) => `${Math.round(v)}% Knee`,
+  },
 
   // Couleur
   {
@@ -381,6 +392,28 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     defaultValue: 1.8,
     accent: "#f59e0b",
     format: (v) => `f/${v.toFixed(1)}`,
+  },
+  {
+    key: "bokehAspect",
+    label: "Bokeh Ratio Anamorphique",
+    category: "effects",
+    min: 1.0,
+    max: 2.0,
+    step: 0.1,
+    defaultValue: 1.0,
+    accent: "#e879f9",
+    format: (v) => `${v.toFixed(1)}x Oval`,
+  },
+  {
+    key: "petzvalSwirl",
+    label: "Tourbillon Petzval Helios",
+    category: "effects",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#34d399",
+    format: (v) => `${Math.round(v)}% Swirl`,
   },
   {
     key: "chromaticAberration",

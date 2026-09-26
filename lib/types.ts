@@ -66,6 +66,9 @@ export type Adjustments = {
   focusPoint?: [number, number]; // [0..1, 0..1], normalized tap-to-focus point [x, y]
   apertureFStop?: number; // 1.2, 1.4, 1.8, 2.8, 4.0, 5.6, 8.0, 16.0
   focusPlaneMode?: number; // 0 = standard/off, 1 = foreground sharp/bg blur, 2 = bg sharp/foreground blur, 3 = tap point AF, 4 = manual MF
+  bokehAspect?: number; // 1.0 = spherical 35mm, 1.5 = 1.5x anamorphic oval, 2.0 = 2.0x scope oval
+  petzvalSwirl?: number; // 0..100, Helios 44-2 / Petzval peripheral optical swirly vortex
+  highlightKnee?: number; // 0..100, Kodak Vision3 500T analog soft-clip highlight compression knee
 
   dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
   aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
@@ -127,6 +130,9 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   focusPoint: [0.5, 0.5],
   apertureFStop: 1.8,
   focusPlaneMode: 0,
+  bokehAspect: 1.0,
+  petzvalSwirl: 0,
+  highlightKnee: 0,
   dateStamp: false,
   aspectRatio: "original",
   filmBorder: "none",

@@ -20,6 +20,10 @@ export default function LiveAutofocusBar({
   onChangeFocusDistance,
   dofBlur,
   onChangeDofBlur,
+  bokehAspect = 1.0,
+  onChangeBokehAspect,
+  petzvalSwirl = 0,
+  onChangePetzvalSwirl,
   focusPeaking,
   onToggleFocusPeaking,
   peakingColor = 0,
@@ -35,6 +39,10 @@ export default function LiveAutofocusBar({
   onChangeFocusDistance: (dist: number) => void;
   dofBlur: number;
   onChangeDofBlur: (blur: number) => void;
+  bokehAspect?: number;
+  onChangeBokehAspect?: (aspect: number) => void;
+  petzvalSwirl?: number;
+  onChangePetzvalSwirl?: (swirl: number) => void;
   focusPeaking: boolean;
   onToggleFocusPeaking: () => void;
   peakingColor?: number;
@@ -265,15 +273,15 @@ export default function LiveAutofocusBar({
             </div>
           )}
 
-          {/* Sub-tool 4: Bokeh Blur Intensity Slider */}
+          {/* Sub-tool 4: Bokeh Blur Intensity & Geometry */}
           {subTool === "bokeh" && (
-            <div className="flex flex-col gap-1.5 py-1">
+            <div className="flex flex-col gap-2 py-1">
               <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-fuchsia-300">Flou Doux (0%)</span>
+                <span className="text-fuchsia-300">Intensité Bokeh</span>
                 <span className="font-bold text-fuchsia-400 bg-fuchsia-950/60 px-2 py-0.5 rounded border border-fuchsia-500/30">
                   {dofBlur}% Bokeh
                 </span>
-                <span className="text-fuchsia-300">Ultra-Crémeux (100%)</span>
+                <span className="text-fuchsia-300">Ultra-Crémeux</span>
               </div>
               <input
                 type="range"
@@ -284,6 +292,74 @@ export default function LiveAutofocusBar({
                 onChange={(e) => onChangeDofBlur(Number(e.target.value))}
                 className="w-full accent-fuchsia-400 h-2 bg-white/10 rounded-lg cursor-pointer"
               />
+
+              {/* Bokeh Optical Geometry Selector */}
+              <div className="flex flex-col gap-1 pt-1 border-t border-white/10">
+                <span className="text-[9.5px] font-mono font-bold text-white/70">GÉOMÉTRIE OPTIQUE DU BOKEH</span>
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChangeBokehAspect?.(1.0);
+                      onChangePetzvalSwirl?.(0);
+                    }}
+                    className={`py-1 px-1.5 rounded-lg text-[9px] font-mono font-bold border transition-all ${
+                      bokehAspect <= 1.1 && petzvalSwirl <= 5
+                        ? "bg-fuchsia-500/30 border-fuchsia-400 text-white shadow-sm"
+                        : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    1. Sphérique (35mm)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChangeBokehAspect?.(2.0);
+                      onChangePetzvalSwirl?.(0);
+                    }}
+                    className={`py-1 px-1.5 rounded-lg text-[9px] font-mono font-bold border transition-all ${
+                      bokehAspect > 1.4 && petzvalSwirl <= 5
+                        ? "bg-fuchsia-500/30 border-fuchsia-400 text-white shadow-sm"
+                        : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    2. Anamorphique 2x
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChangeBokehAspect?.(1.0);
+                      onChangePetzvalSwirl?.(petzvalSwirl > 10 ? petzvalSwirl : 65);
+                    }}
+                    className={`py-1 px-1.5 rounded-lg text-[9px] font-mono font-bold border transition-all ${
+                      petzvalSwirl > 5
+                        ? "bg-emerald-500/30 border-emerald-400 text-white shadow-sm"
+                        : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    3. Petzval Helios
+                  </button>
+                </div>
+              </div>
+
+              {/* Petzval Swirl Vortex Intensity (if active) */}
+              {petzvalSwirl > 0 && (
+                <div className="flex flex-col gap-1 pt-1">
+                  <div className="flex items-center justify-between text-[9px] font-mono text-emerald-300">
+                    <span>Tourbillon Petzval Swirl</span>
+                    <span className="font-bold">{petzvalSwirl}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={petzvalSwirl}
+                    onChange={(e) => onChangePetzvalSwirl?.(Number(e.target.value))}
+                    className="w-full accent-emerald-400 h-1.5 bg-white/10 rounded-lg cursor-pointer"
+                  />
+                </div>
+              )}
             </div>
           )}
 

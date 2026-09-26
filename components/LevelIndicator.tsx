@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { playLevelLock } from "@/lib/audio";
+
 // Professional Electronic Dual-Axis Horizon Level Gauge.
 // Used by Sony Alpha, Canon EOS, Hasselblad and Leica pro camera viewfinders.
 // Turns vibrant luminous amber/green once level within 1.0°.
@@ -10,9 +13,18 @@ export default function LevelIndicator({
   tiltDeg: number | null;
   className?: string;
 }) {
+  const wasLevelRef = useRef(false);
+
   if (tiltDeg === null) return null;
   const clamped = Math.max(-45, Math.min(45, tiltDeg));
-  const isLevel = Math.abs(tiltDeg) < 1.0;
+  const isLevel = Math.abs(tiltDeg) < 0.8;
+
+  useEffect(() => {
+    if (isLevel && !wasLevelRef.current) {
+      playLevelLock();
+    }
+    wasLevelRef.current = isLevel;
+  }, [isLevel]);
 
   return (
     <div className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none z-20 ${className}`}>

@@ -91,6 +91,7 @@ export class GLRenderer {
       "u_acesToneMap", "u_casSharpness", "u_remjetHalation", "u_printFilmStock",
       "u_jwstSpikes", "u_kirlianAura", "u_lidarMesh", "u_quantumEvent", "u_solarHAlpha", "u_electronMicro",
       "u_dofBlur", "u_focusDistance", "u_focusPoint", "u_apertureFStop", "u_focusPlaneMode",
+      "u_bokehAspect", "u_petzvalSwirl", "u_highlightKnee",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
@@ -213,8 +214,35 @@ export class GLRenderer {
     );
     gl.uniform1f(this.uniforms.u_apertureFStop, (adjustments.apertureFStop ?? 1.8));
     gl.uniform1f(this.uniforms.u_focusPlaneMode, (adjustments.focusPlaneMode ?? 0));
+    gl.uniform1f(this.uniforms.u_bokehAspect, (adjustments.bokehAspect ?? 1.0));
+    gl.uniform1f(this.uniforms.u_petzvalSwirl, (adjustments.petzvalSwirl ?? 0));
+    gl.uniform1f(this.uniforms.u_highlightKnee, (adjustments.highlightKnee ?? 0));
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  renderSplit(
+    neutralAdj: Adjustments,
+    activeAdj: Adjustments,
+    splitRatio = 0.5,
+    seed = 0,
+    liveAssist: LiveAssistOptions | boolean = false,
+    legacyPeaking = false
+  ) {
+    const gl = this.gl;
+    const splitX = Math.round(this.canvas.width * Math.max(0.01, Math.min(0.99, splitRatio)));
+
+    gl.enable(gl.SCISSOR_TEST);
+
+    // Left: Unfiltered Neutral Sensor
+    gl.scissor(0, 0, splitX, this.canvas.height);
+    this.render(neutralAdj, seed, liveAssist, legacyPeaking);
+
+    // Right: Active Emulsion
+    gl.scissor(splitX, 0, this.canvas.width - splitX, this.canvas.height);
+    this.render(activeAdj, seed, liveAssist, legacyPeaking);
+
+    gl.disable(gl.SCISSOR_TEST);
   }
 
   dispose() {

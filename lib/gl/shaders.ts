@@ -84,6 +84,9 @@ uniform float u_focusDistance;
 uniform vec2 u_focusPoint;
 uniform float u_apertureFStop;
 uniform float u_focusPlaneMode;
+uniform float u_bokehAspect;
+uniform float u_petzvalSwirl;
+uniform float u_highlightKnee;
 
 // Live Viewfinder Shooting Aids & Pro Tools
 uniform float u_zebra;
@@ -132,8 +135,8 @@ vec3 getPeakingColor(float code) {
   return vec3(1.0, 0.92, 0.0);                   // Vivid Yellow
 }
 
-// Optical Depth of Field, Focus Plane & Multi-Blade Bokeh Simulation
-vec3 opticalDepthOfFieldBokeh(sampler2D tex, vec2 uv, vec2 tx, vec3 baseCol, float dofStrength, float fDistance, vec2 fPoint, float fStop, float planeMode) {
+// Optical Depth of Field, Focus Plane & Multi-Blade Bokeh Simulation (Anamorphic Oval & Petzval Swirl)
+vec3 opticalDepthOfFieldBokeh(sampler2D tex, vec2 uv, vec2 tx, vec3 baseCol, float dofStrength, float fDistance, vec2 fPoint, float fStop, float planeMode, float bokehAspect, float petzvalSwirl) {
   if (dofStrength <= 0.001 && planeMode <= 0.1) return baseCol;
 
   // Scene Depth Estimator (Perspective vertical depth + Radial distance relative to focus point)
@@ -169,6 +172,17 @@ vec3 opticalDepthOfFieldBokeh(sampler2D tex, vec2 uv, vec2 tx, vec3 baseCol, flo
 
   if (coc < 0.2) return baseCol;
 
+  // Anamorphic aspect ratio scaling (stretch vertical bokeh disks)
+  float aspect = max(0.5, bokehAspect > 0.1 ? bokehAspect : 1.0);
+
+  // Petzval optical swirl (tangential rotational vortex towards frame periphery)
+  vec2 fromCenter = uv - vec2(0.5);
+  float distCenter = length(fromCenter);
+  float swirlAngle = distCenter * (petzvalSwirl / 100.0) * 2.2;
+  float cosS = cos(swirlAngle);
+  float sinS = sin(swirlAngle);
+  mat2 swirlMat = mat2(cosS, -sinS, sinS, cosS);
+
   // 24-tap Golden Angle Spiral Poisson Disk Bokeh Kernel with Specular Thresholding
   vec3 accumColor = baseCol;
   float accumWeight = 1.0;
@@ -177,10 +191,12 @@ vec3 opticalDepthOfFieldBokeh(sampler2D tex, vec2 uv, vec2 tx, vec3 baseCol, flo
     float fi = float(i);
     float theta = fi * 2.39996323; // Golden angle 137.5°
     float radius = sqrt(fi / 24.0) * coc;
-    vec2 sampleOffset = vec2(cos(theta), sin(theta)) * radius * tx * 2.6;
+    vec2 dir = vec2(cos(theta) / aspect, sin(theta) * aspect);
+    dir = swirlMat * dir;
+    vec2 sampleOffset = dir * radius * tx * 2.6;
     vec3 s = texture2D(tex, clamp(uv + sampleOffset, 0.0, 1.0)).rgb;
     
-    // Specular highlight boost for luminous spherical bokeh disks
+    // Specular highlight boost for luminous spherical or oval bokeh disks
     float lum = luma(s);
     float specWeight = 1.0 + pow(lum, 3.2) * 3.8;
     accumColor += s * specWeight;
@@ -344,8 +360,8 @@ void main() {
 
   vec2 tx = u_texelSize;
 
-  // 3b. Optical Depth of Field & Bokeh Simulation (Avant-plan / Arrière-plan / AF Tactile)
-  color = opticalDepthOfFieldBokeh(u_image, uv, tx, color, u_dofBlur, u_focusDistance, u_focusPoint, u_apertureFStop, u_focusPlaneMode);
+  // 3b. Optical Depth of Field & Bokeh Simulation (Avant-plan / Arrière-plan / AF Tactile / Anamorphique / Petzval)
+  color = opticalDepthOfFieldBokeh(u_image, uv, tx, color, u_dofBlur, u_focusDistance, u_focusPoint, u_apertureFStop, u_focusPlaneMode, u_bokehAspect, u_petzvalSwirl);
 
   // 4. Smart Edge-Preserving Bilateral Denoise & Unsharp Mask
   vec3 blurred = (
@@ -758,11 +774,25 @@ void main() {
     color *= 1.0 - u_scanlines * 0.35 * (1.0 - line);
   }
 
-  // 18. Film Grain (luma-weighted noise)
+  // 17b. Analog Highlight Soft-Clip Roll-off Knee (Kodak Vision3 / Filmic Highlight Shoulder)
+  if (u_highlightKnee > 0.001) {
+    float kneeAmount = u_highlightKnee / 100.0;
+    float lumH = luma(color);
+    if (lumH > 0.62) {
+      float over = lumH - 0.62;
+      vec3 compressed = 1.0 - exp(-color * 1.55);
+      color = mix(color, compressed, smoothstep(0.0, 0.38, over) * kneeAmount * 0.88);
+    }
+  }
+
+  // 18. Physical Multi-Octave Dye-Cloud Film Grain
   if (u_grain > 0.001) {
-    float n = hash(uv * u_resolution.xy);
-    float grainWeight = 1.0 - pow(luma(color), 1.8);
-    color += (n - 0.5) * u_grain * 0.28 * max(0.2, grainWeight);
+    float n1 = hash(uv * u_resolution.xy);
+    float n2 = hash(uv * u_resolution.xy * 0.5 + vec2(13.7, 47.9));
+    float n3 = hash(uv * u_resolution.xy * 0.25 + vec2(91.3, 21.1));
+    float dyeCloud = (n1 * 0.52 + n2 * 0.32 + n3 * 0.16);
+    float grainWeight = 1.0 - pow(luma(color), 1.6);
+    color += (dyeCloud - 0.5) * u_grain * 0.32 * max(0.22, grainWeight);
   }
 
   // 19. Live Dynamic Range Optimizer (DRO / Real-Time Shadow Recovery)
