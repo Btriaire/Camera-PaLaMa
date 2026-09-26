@@ -1500,49 +1500,49 @@ export default function Viewfinder({
       {/* Portrait Top Controls Bar with Clean Touch Ergonomics */}
       {!isLandscape && (
         <div
-          className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 z-30 pointer-events-auto"
+          className="absolute top-0 left-0 right-0 flex items-center justify-between px-3.5 z-30 pointer-events-auto"
           style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
         >
           {/* Left capsule: Gallery, Settings & Audio */}
-          <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 p-1.5 backdrop-blur-xl shadow-xl">
+          <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/80 p-1.5 backdrop-blur-2xl shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
             <button
               onClick={onOpenGallery}
               aria-label="Galerie"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
             >
-              <GalleryGridIcon className="w-6 h-6" />
+              <GalleryGridIcon className="w-5.5 h-5.5" />
             </button>
             <button
               onClick={() => setDashboardOpen(true)}
               aria-label="Tableau de bord"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
             >
-              <SettingsIcon className="w-6 h-6" />
+              <SettingsIcon className="w-5.5 h-5.5" />
             </button>
             <button
               onClick={toggleSoundMute}
               aria-label={soundMuted ? "Activer les sons" : "Désactiver les sons (silencieux)"}
               className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-                soundMuted ? "bg-red-500/30 text-red-300 border border-red-400/50" : "text-white/95 hover:bg-white/20 hover:text-white"
+                soundMuted ? "bg-red-500/25 text-red-300 border border-red-400/40" : "text-white/90 hover:bg-white/15 hover:text-white"
               }`}
             >
-              <SoundIcon className="w-5.5 h-5.5" mute={soundMuted} />
+              <SoundIcon className="w-5 h-5" mute={soundMuted} />
             </button>
           </div>
 
           {/* Right capsule: AF/Bokeh, PRO Drawer Trigger, Macro, Flash & Flip */}
-          <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 p-1.5 backdrop-blur-xl shadow-xl">
+          <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/80 p-1.5 backdrop-blur-2xl shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
             {/* AF & Bokeh Depth-of-field button */}
             <button
               onClick={() => setAfControlsOpen((v) => !v)}
               aria-label="Autofocus & Profondeur de champ"
-              className={`flex h-10 px-2.5 items-center gap-1 rounded-full border transition-all active:scale-90 ${
+              className={`flex h-10 px-2.5 items-center gap-1.5 rounded-full border transition-all active:scale-90 ${
                 focusMode !== "auto" || afControlsOpen
-                  ? "bg-emerald-400 text-black font-black border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]"
+                  ? "bg-emerald-400 text-black font-black border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.5)]"
                   : "border-emerald-400/40 bg-emerald-400/15 text-emerald-300 hover:bg-emerald-400/25"
               }`}
             >
-              <AutofocusTargetIcon className="w-4.5 h-4.5" />
+              <AutofocusTargetIcon className="w-4 h-4" />
               <span className="text-[10px] font-mono font-bold tracking-wider">
                 {focusMode === "foreground"
                   ? "AVANT"
@@ -1559,40 +1559,40 @@ export default function Viewfinder({
             <button
               onClick={() => setProDrawerOpen((v) => !v)}
               aria-label="Outils Pro Live & Traitement d'image"
-              className={`flex h-10 px-3 items-center gap-1.5 rounded-full border transition-all active:scale-90 ${
+              className={`flex h-10 px-2.5 items-center gap-1 rounded-full border transition-all active:scale-90 ${
                 proDrawerOpen || falseColorOn || liveDroOn || monoAssistOn || anamorphicDesqueeze > 1.0 || showHistogram || zebraEnabled || focusPeakingEnabled
-                  ? "bg-amber-400 text-black font-black border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.6)]"
+                  ? "bg-amber-400 text-black font-black border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)]"
                   : "border-amber-400/40 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25"
               }`}
             >
-              <ProBadgeIcon className="w-4.5 h-4.5" />
-              <span className="text-[11px] font-mono font-bold tracking-wider">PRO</span>
+              <ProBadgeIcon className="w-4 h-4" />
+              <span className="text-[10.5px] font-mono font-bold tracking-wider">PRO</span>
             </button>
             <button
               onClick={toggleMacroMode}
               aria-label="Mode Macro"
               className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-                macroModeOn ? "bg-emerald-400 text-black font-bold shadow-[0_0_15px_rgba(52,211,153,0.6)] ring-2 ring-emerald-300" : "text-white/95 hover:bg-white/20 hover:text-white"
+                macroModeOn ? "bg-emerald-400 text-black font-bold shadow-[0_0_15px_rgba(52,211,153,0.5)] ring-2 ring-emerald-300" : "text-white/90 hover:bg-white/15 hover:text-white"
               }`}
             >
-              <MacroFlowerIcon className="w-6 h-6" />
+              <MacroFlowerIcon className="w-5.5 h-5.5" />
             </button>
             <button
               onClick={() => setFlashMenuOpen((v) => !v)}
               aria-label="Mode flash"
               className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
-                flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
+                flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.5)] ring-2 ring-amber-300" : "text-white/90 hover:bg-white/15 hover:text-white"
               }`}
             >
-              <FlashModeIcon mode={flashMode} className="w-6 h-6" />
+              <FlashModeIcon mode={flashMode} className="w-5.5 h-5.5" />
             </button>
             {capabilities.canSwitch && (
               <button
                 onClick={flip}
                 aria-label="Changer de caméra"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
               >
-                <FlipCameraIcon className="w-6 h-6" />
+                <FlipCameraIcon className="w-5.5 h-5.5" />
               </button>
             )}
           </div>
@@ -2143,12 +2143,14 @@ export default function Viewfinder({
                 onClick={() => toggleStabilizer(setSuperStabilizerOn)}
                 aria-pressed={superStabilizerOn}
                 aria-label="Ultra-stabilisateur électronique"
-                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
-                  superStabilizerOn ? "border-violet-300 bg-violet-300/20 text-violet-300 shadow-[0_0_10px_rgba(196,181,253,0.3)]" : "border-white/30 bg-black/55 text-white"
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  superStabilizerOn
+                    ? "border-violet-300 bg-violet-400/25 text-violet-300 shadow-[0_0_12px_rgba(196,181,253,0.35)]"
+                    : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                 }`}
               >
-                <StabilizerIcon className="w-5 h-5" />
-                {superStabilizerOn && !stabilizer.available ? "Ultra-stabilisateur (capteur indisponible)" : "Ultra-stabilisateur"}
+                <StabilizerIcon className="w-4 h-4" />
+                {superStabilizerOn && !stabilizer.available ? "Ultra-Stab (Indispo)" : "Ultra-Stabilisateur"}
               </button>
 
               <button
@@ -2160,13 +2162,13 @@ export default function Viewfinder({
                   });
                 }}
                 aria-pressed={ultraZoomMode || uiZoom >= 5}
-                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
                   ultraZoomMode || uiZoom >= 5
-                    ? "border-fuchsia-400 bg-fuchsia-500/25 text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.4)] font-bold"
-                    : "border-white/30 bg-black/55 text-white"
+                    ? "border-fuchsia-400 bg-fuchsia-500/25 text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.4)]"
+                    : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                 }`}
               >
-                <UltraZoomIcon className="w-5 h-5" />
+                <UltraZoomIcon className="w-4 h-4" />
                 {ultraZoomMode || uiZoom >= 5 ? `Ultra-Zoom (${uiZoom.toFixed(1)}×)` : "Ultra-Zoom 100×"}
               </button>
 
@@ -2174,11 +2176,11 @@ export default function Viewfinder({
                 <button
                   onClick={() => setSuperZoomOn((v) => !v)}
                   aria-pressed={superZoomOn}
-                  className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
-                    superZoomOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
+                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                    superZoomOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                   }`}
                 >
-                  <SparkleIcon className="w-5 h-5" />
+                  <SparkleIcon className="w-4 h-4" />
                   SuperZoom IA
                 </button>
               )}
@@ -2186,55 +2188,55 @@ export default function Viewfinder({
               <button
                 onClick={() => setSuperContrastOn((v) => !v)}
                 aria-pressed={superContrastOn}
-                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
-                  superContrastOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  superContrastOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                 }`}
               >
-                <ContrastIcon className="w-5 h-5" />
+                <ContrastIcon className="w-4 h-4" />
                 Super Contraste
               </button>
 
               <button
                 onClick={() => setDenoiseAIOn((v) => !v)}
                 aria-pressed={denoiseAIOn}
-                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
-                  denoiseAIOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  denoiseAIOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                 }`}
               >
-                <SparkleIcon className="w-5 h-5" />
+                <SparkleIcon className="w-4 h-4" />
                 Débruitage IA
               </button>
 
               <button
                 onClick={() => setSuperResOn((v) => !v)}
                 aria-pressed={superResOn}
-                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
-                  superResOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  superResOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                 }`}
               >
-                <SparkleIcon className="w-5 h-5" />
+                <SparkleIcon className="w-4 h-4" />
                 Super-résolution IA
               </button>
 
               <button
                 onClick={() => setBurstMenuOpen((v) => !v)}
                 aria-pressed={burstModeArmed}
-                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
-                  burstModeArmed ? "border-amber-300 bg-amber-300/20 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/30 bg-black/55 text-white"
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  burstModeArmed ? "border-amber-300 bg-amber-400/25 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                 }`}
               >
-                <BurstIcon className="w-5 h-5" />
+                <BurstIcon className="w-4 h-4" />
                 {burstModeArmed ? `Rafale (${burstSpeed === "fast" ? "10fps" : burstSpeed === "eco" ? "3fps" : "5fps"})` : "Mode Rafale"}
               </button>
 
               <button
                 onClick={() => setLongExposureMenuOpen((v) => !v)}
                 aria-pressed={longExposureSeconds > 0}
-                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
-                  longExposureSeconds > 0 ? "border-amber-300 bg-amber-300/20 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/30 bg-black/55 text-white"
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  longExposureSeconds > 0 ? "border-amber-300 bg-amber-400/25 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
                 }`}
               >
-                <LongExposureIcon className="w-5 h-5" />
+                <LongExposureIcon className="w-4 h-4" />
                 {longExposureSeconds > 0 ? `Pose longue ${longExposureSeconds}s` : "Pose longue"}
               </button>
             </div>
@@ -2284,21 +2286,27 @@ export default function Viewfinder({
                 )}
               </div>
 
-              <div className="relative justify-self-center">
+              <div className="relative justify-self-center flex items-center justify-center">
                 <button
                   onPointerDown={handleShutterDown}
                   onPointerUp={handleShutterUp}
                   onPointerLeave={handleShutterUp}
                   disabled={!ready}
                   aria-label="Déclencher"
-                  className={`flex h-[90px] w-[90px] items-center justify-center rounded-full border-[5px] shadow-2xl active:scale-95 transition-all disabled:opacity-40 ${
-                    burstCount > 0 ? "border-amber-300 ring-4 ring-amber-400/50" : "border-white/90 ring-4 ring-white/20"
+                  className={`relative flex h-[92px] w-[92px] items-center justify-center rounded-full border-4 shadow-[0_8px_30px_rgba(0,0,0,0.8)] active:scale-92 transition-all duration-100 disabled:opacity-40 p-1.5 ${
+                    burstCount > 0
+                      ? "border-amber-400 bg-amber-950/40 ring-4 ring-amber-400/50 shadow-[0_0_30px_rgba(245,158,11,0.6)]"
+                      : "border-white/90 bg-zinc-900/60 ring-4 ring-white/20 backdrop-blur-md"
                   }`}
                 >
-                  <span className={`h-[72px] w-[72px] rounded-full bg-white shadow-inner transition-transform ${capturing ? "scale-75" : ""}`} />
+                  <span
+                    className={`h-full w-full rounded-full bg-gradient-to-b from-white via-zinc-100 to-zinc-300 shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.4)] transition-all duration-150 ${
+                      capturing ? "scale-85 brightness-90" : "scale-100"
+                    }`}
+                  />
                 </button>
                 {burstCount > 0 && (
-                  <span className="absolute -top-2 -right-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-400 px-2 text-xs font-black text-black shadow-lg">
+                  <span className="absolute -top-1.5 -right-1.5 flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-400 px-2 text-xs font-black font-mono text-black shadow-xl ring-2 ring-black">
                     {burstCount}
                   </span>
                 )}
@@ -2488,14 +2496,20 @@ export default function Viewfinder({
                 onPointerLeave={handleShutterUp}
                 disabled={!ready}
                 aria-label="Déclencher"
-                className={`flex h-[88px] w-[88px] items-center justify-center rounded-full border-[5px] shadow-2xl active:scale-95 transition-all disabled:opacity-40 ${
-                  burstCount > 0 ? "border-amber-300 ring-4 ring-amber-400/50" : "border-white/90 ring-4 ring-white/20"
+                className={`relative flex h-[90px] w-[90px] items-center justify-center rounded-full border-4 shadow-[0_8px_30px_rgba(0,0,0,0.8)] active:scale-92 transition-all duration-100 disabled:opacity-40 p-1.5 ${
+                  burstCount > 0
+                    ? "border-amber-400 bg-amber-950/40 ring-4 ring-amber-400/50 shadow-[0_0_30px_rgba(245,158,11,0.6)]"
+                    : "border-white/90 bg-zinc-900/60 ring-4 ring-white/20 backdrop-blur-md"
                 }`}
               >
-                <span className={`h-[70px] w-[70px] rounded-full bg-white shadow-inner transition-transform ${capturing ? "scale-75" : ""}`} />
+                <span
+                  className={`h-full w-full rounded-full bg-gradient-to-b from-white via-zinc-100 to-zinc-300 shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.4)] transition-all duration-150 ${
+                    capturing ? "scale-85 brightness-90" : "scale-100"
+                  }`}
+                />
               </button>
               {burstCount > 0 && (
-                <span className="absolute -top-2 -right-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-400 px-2 text-xs font-black text-black shadow-lg">
+                <span className="absolute -top-1.5 -right-1.5 flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-400 px-2 text-xs font-black font-mono text-black shadow-xl ring-2 ring-black">
                   {burstCount}
                 </span>
               )}

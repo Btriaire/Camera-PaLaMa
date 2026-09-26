@@ -1151,10 +1151,17 @@ function EvScale({ value, compact }: { value: number; compact?: boolean }) {
 
 function Grid() {
   return (
-    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
-      {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="border border-white/15" />
-      ))}
+    <div className="absolute inset-0 pointer-events-none">
+      {/* Rule of thirds lines */}
+      <div className="absolute left-1/3 top-0 bottom-0 border-l border-white/20" />
+      <div className="absolute left-2/3 top-0 bottom-0 border-l border-white/20" />
+      <div className="absolute top-1/3 left-0 right-0 border-t border-white/20" />
+      <div className="absolute top-2/3 left-0 right-0 border-t border-white/20" />
+      {/* Golden intersection crosshairs */}
+      <div className="absolute left-1/3 top-1/3 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 border-t border-l border-white/50" />
+      <div className="absolute left-2/3 top-1/3 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 border-t border-r border-white/50" />
+      <div className="absolute left-1/3 top-2/3 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 border-b border-l border-white/50" />
+      <div className="absolute left-2/3 top-2/3 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 border-b border-r border-white/50" />
     </div>
   );
 }
