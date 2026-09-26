@@ -75,6 +75,7 @@ export class GLRenderer {
       "u_infrared", "u_thermal", "u_nightVision", "u_glitch", "u_kaleidoscope",
       "u_solarize", "u_cyanotype", "u_dither", "u_lomochrome", "u_crossProcess", "u_tiltShift", "u_macroBoost",
       "u_anamorphicFlare", "u_toneCurve", "u_shadowTint", "u_highlightTint", "u_dehaze", "u_skinSmooth",
+      "u_acesToneMap", "u_casSharpness", "u_remjetHalation", "u_printFilmStock",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
@@ -154,6 +155,12 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_highlightTint, (adjustments.highlightTint ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_dehaze, (adjustments.dehaze ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_skinSmooth, (adjustments.skinSmooth ?? 0) / 100);
+
+    // Cutting-Edge Computational Photography
+    gl.uniform1f(this.uniforms.u_acesToneMap, (adjustments.acesToneMap ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_casSharpness, (adjustments.casSharpness ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_remjetHalation, (adjustments.remjetHalation ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_printFilmStock, adjustments.printFilmStock ?? 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }

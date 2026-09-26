@@ -30,6 +30,7 @@ export default function Hud({
   batteryLevel,
   now,
   tiltDeg,
+  meteringMode = "matrix",
 }: {
   skin: HudSkin;
   preset: Preset | null;
@@ -45,6 +46,7 @@ export default function Hud({
   batteryLevel: number | null;
   now: string;
   tiltDeg?: number | null;
+  meteringMode?: "matrix" | "center" | "spot";
 }) {
   const mono = "font-mono tabular-nums";
   const battery = batteryLevel !== null ? `${Math.round(batteryLevel * 100)}%` : null;
@@ -59,6 +61,29 @@ export default function Hud({
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
       {showGrid && <Grid />}
+
+      {/* Dynamic Multi-Zone Exposure Metering Reticle */}
+      {meteringMode === "spot" && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full border border-amber-300/80 flex items-center justify-center pointer-events-none z-10">
+          <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <span className="absolute -bottom-4 text-[9px] font-mono text-amber-300 font-bold">SPOT</span>
+        </div>
+      )}
+      {meteringMode === "center" && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full border border-dashed border-white/40 flex items-center justify-center pointer-events-none z-10">
+          <div className="w-8 h-8 rounded-full border border-white/60" />
+          <span className="absolute -bottom-4 text-[9px] font-mono text-white/70 font-bold">CENTER</span>
+        </div>
+      )}
+      {meteringMode === "matrix" && showGrid && (
+        <div className="absolute inset-8 grid grid-cols-5 grid-rows-5 pointer-events-none opacity-20 z-10">
+          {Array.from({ length: 25 }).map((_, i) => (
+            <div key={i} className="border border-white/40 flex items-center justify-center">
+              <span className="w-1 h-1 rounded-full bg-white/50" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {skin === "film" && (
         <>

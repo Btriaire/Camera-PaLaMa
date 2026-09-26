@@ -64,6 +64,12 @@ uniform float u_highlightTint;
 uniform float u_dehaze;
 uniform float u_skinSmooth;
 
+// Cutting-Edge Computational Photography Engine
+uniform float u_acesToneMap;
+uniform float u_casSharpness;
+uniform float u_remjetHalation;
+uniform float u_printFilmStock;
+
 // Live Viewfinder Shooting Aids
 uniform float u_zebra;
 uniform float u_focusPeaking;
@@ -74,6 +80,94 @@ float luma(vec3 c) {
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(12.9898, 78.233)) + u_seed) * 43758.5453);
+}
+
+// 1. Academy Color Encoding System (ACES 1.3 Fitted RRT+ODT)
+vec3 acesFitted(vec3 col) {
+  mat3 m1 = mat3(
+    0.59719, 0.07600, 0.02840,
+    0.35458, 0.90834, 0.13383,
+    0.04823, 0.01566, 0.83777
+  );
+  mat3 m2 = mat3(
+    1.60475, -0.10208, -0.00327,
+    -0.53108, 1.10813, -0.07276,
+    -0.07367, -0.00605, 1.07602
+  );
+  vec3 v = m1 * col;
+  vec3 a = v * (v + 0.0245786) - 0.000090537;
+  vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+  return clamp(m2 * (a / b), 0.0, 1.0);
+}
+
+// 2. AMD FidelityFX Contrast-Adaptive Sharpening (CAS)
+vec3 casSharpen(sampler2D tex, vec2 uv, vec2 tx, float sharpness) {
+  vec3 e = texture2D(tex, uv).rgb;
+  vec3 b = texture2D(tex, uv + vec2(0.0, -tx.y)).rgb;
+  vec3 d = texture2D(tex, uv + vec2(-tx.x, 0.0)).rgb;
+  vec3 f = texture2D(tex, uv + vec2(tx.x, 0.0)).rgb;
+  vec3 h = texture2D(tex, uv + vec2(0.0, tx.y)).rgb;
+
+  vec3 minRGB = min(min(min(d, e), min(f, b)), h);
+  vec3 maxRGB = max(max(max(d, e), max(f, b)), h);
+
+  vec3 rcpMRGB = 1.0 / max(maxRGB, vec3(0.0001));
+  vec3 ampRGB = clamp(min(minRGB, 2.0 - maxRGB) * rcpMRGB, 0.0, 1.0);
+  ampRGB = inversesqrt(ampRGB);
+
+  float peak = -3.0 * sharpness + 8.0;
+  vec3 wRGB = -1.0 / (ampRGB * peak);
+  vec3 rcpWeightRGB = 1.0 / (1.0 + 4.0 * wRGB);
+
+  return clamp((b * wRGB + d * wRGB + f * wRGB + h * wRGB + e) * rcpWeightRGB, 0.0, 1.0);
+}
+
+// 3. Physical Remjet Anti-Halation Layer Red Scatter Simulation
+vec3 remjetScatter(sampler2D tex, vec2 uv, vec2 tx, float amount) {
+  if (amount <= 0.001) return vec3(0.0);
+  vec3 halationSum = vec3(0.0);
+  for (int x = -3; x <= 3; x++) {
+    for (int y = -3; y <= 3; y++) {
+      float dist = length(vec2(float(x), float(y)));
+      if (dist <= 3.0) {
+        float weight = exp(-dist * dist / 4.5);
+        vec3 s = texture2D(tex, uv + vec2(float(x), float(y)) * tx * 3.2).rgb;
+        float lum = luma(s);
+        float threshold = smoothstep(0.65, 0.98, lum);
+        halationSum += vec3(1.0, 0.16, 0.04) * s.r * threshold * weight;
+      }
+    }
+  }
+  return halationSum * amount * 0.07;
+}
+
+// 4. Hollywood Print Film 3D LUT Simulation (Kodak 2383 / Technicolor 3-Strip / Bleach Bypass)
+vec3 applyPrintFilmStock(vec3 c, float mode) {
+  if (mode < 0.5) return c;
+  if (mode < 1.5) {
+    // Kodak 2383 Print Film
+    vec3 k = c;
+    k.r = pow(k.r, 1.12) * 1.06;
+    k.g = pow(k.g, 1.06);
+    k.b = pow(k.b, 0.94) * 0.94;
+    k = (k * (k * 0.45 + 0.55)) / (k * (k * 0.35 + 0.45) + 0.2);
+    return clamp(k, 0.0, 1.0);
+  } else if (mode < 2.5) {
+    // Technicolor 3-Strip 1935
+    float r = c.r; float g = c.g; float b = c.b;
+    vec3 tech;
+    tech.r = clamp(r * 1.4 - (g + b) * 0.2, 0.0, 1.0);
+    tech.g = clamp(g * 1.3 - (r + b) * 0.15, 0.0, 1.0);
+    tech.b = clamp(b * 1.35 - (r + g) * 0.18, 0.0, 1.0);
+    return mix(c, tech, 0.85);
+  } else if (mode < 3.5) {
+    // Bleach Bypass Silver Retention
+    float lum = luma(c);
+    vec3 blend = mix(c, vec3(lum), 0.65);
+    vec3 bb = mix(2.0 * c * blend, 1.0 - 2.0 * (1.0 - c) * (1.0 - blend), step(0.5, lum));
+    return mix(c, bb, 0.85);
+  }
+  return c;
 }
 
 // Thermal false-color heatmap (Black -> Blue -> Purple -> Orange -> Yellow -> White)
@@ -380,6 +474,33 @@ void main() {
     float hWeight = smoothstep(0.45, 1.0, luma(color));
     vec3 amberHigh = vec3(0.45, 0.28, 0.05);
     color = mix(color, color + amberHigh * hWeight * 0.5, clamp(u_highlightTint, 0.0, 1.0));
+  }
+
+  // ==========================================
+  // ADVANCED COMPUTATIONAL PHOTOGRAPHY PIPELINE
+  // ==========================================
+
+  // P. AMD FidelityFX Contrast-Adaptive Sharpening (Zero-Halo & Zero-Ringing)
+  if (u_casSharpness > 0.001) {
+    vec3 cas = casSharpen(u_image, uv, tx, clamp(u_casSharpness, 0.0, 1.0));
+    color = mix(color, cas, clamp(u_casSharpness, 0.0, 1.0));
+  }
+
+  // Q. Physical Remjet Anti-Halation Layer Scatter
+  if (u_remjetHalation > 0.001) {
+    vec3 remjet = remjetScatter(u_image, uv, tx, u_remjetHalation);
+    color += remjet;
+  }
+
+  // R. Hollywood Print Film Stock Emulation (Kodak 2383 / Technicolor 3-Strip / Bleach Bypass)
+  if (u_printFilmStock > 0.1) {
+    color = applyPrintFilmStock(color, u_printFilmStock);
+  }
+
+  // S. Academy Color Encoding System (ACES 1.3 Fitted RRT+ODT Tone Curve)
+  if (u_acesToneMap > 0.001) {
+    vec3 aces = acesFitted(color);
+    color = mix(color, aces, clamp(u_acesToneMap, 0.0, 1.0));
   }
 
   // 13. Monochrome & Duotone tinting

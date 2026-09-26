@@ -46,6 +46,12 @@ export type Adjustments = {
   dehaze: number; // 0..100, atmospheric dehaze & color contrast recovery
   skinSmooth: number; // 0..100, portrait skin texture softening & tone preservation
 
+  // Advanced Computational Photography Engine (ACES, AMD CAS, Physical Remjet, Print LUTs)
+  acesToneMap: number; // 0..100, Academy Color Encoding System ACES 1.3 Fitted RRT+ODT
+  casSharpness: number; // 0..100, AMD FidelityFX Contrast-Adaptive Sharpening
+  remjetHalation: number; // 0..100, Physical Remjet layer Gaussian PSF photon scatter
+  printFilmStock: number; // 0 = none, 1 = Kodak 2383, 2 = Technicolor 3-Strip, 3 = Bleach Bypass
+
   dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
   aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
   filmBorder?: "none" | "35mm" | "polaroid";
@@ -91,6 +97,10 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   highlightTint: 0,
   dehaze: 0,
   skinSmooth: 0,
+  acesToneMap: 0,
+  casSharpness: 0,
+  remjetHalation: 0,
+  printFilmStock: 0,
   dateStamp: false,
   aspectRatio: "original",
   filmBorder: "none",

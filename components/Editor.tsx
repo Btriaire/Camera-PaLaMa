@@ -101,6 +101,17 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     accent: "#f59e0b",
     format: (v) => `${Math.round(v)}% S-Log`,
   },
+  {
+    key: "acesToneMap",
+    label: "ACES 1.3 Filmic Academy",
+    category: "light",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#38bdf8",
+    format: (v) => `${Math.round(v)}% ACES`,
+  },
 
   // Couleur
   {
@@ -194,6 +205,17 @@ const TOOL_DEFINITIONS: ToolDef[] = [
     format: (v) => `${Math.round(v)}%`,
   },
   {
+    key: "casSharpness",
+    label: "FidelityFX CAS Adaptatif",
+    category: "detail",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#38bdf8",
+    format: (v) => `${Math.round(v)}% CAS`,
+  },
+  {
     key: "superContrast",
     label: "Super Contraste",
     category: "detail",
@@ -239,6 +261,28 @@ const TOOL_DEFINITIONS: ToolDef[] = [
   },
 
   // Effets Vintage & Cinéma
+  {
+    key: "remjetHalation",
+    label: "Remjet Halation 35mm",
+    category: "effects",
+    min: 0,
+    max: 100,
+    step: 1,
+    defaultValue: 0,
+    accent: "#ef4444",
+    format: (v) => `${Math.round(v)}% Remjet`,
+  },
+  {
+    key: "printFilmStock",
+    label: "Tirage Film 3D LUT",
+    category: "effects",
+    min: 0,
+    max: 3,
+    step: 1,
+    defaultValue: 0,
+    accent: "#f59e0b",
+    format: (v) => (v === 1 ? "Kodak 2383" : v === 2 ? "Technicolor 3-Strip" : v === 3 ? "Bleach Bypass" : "Off"),
+  },
   {
     key: "anamorphicFlare",
     label: "Flare Anamorphique Bleu",
