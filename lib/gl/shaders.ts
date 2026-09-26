@@ -788,12 +788,28 @@ void main() {
     }
   }
 
-  // 22. Multi-Color Manual Focus Peaking (0: Green, 1: Red, 2: Cyan, 3: Yellow)
+  // 22. High-Precision 3x3 Sobel Broadcast Focus Peaking
   if (u_focusPeaking > 0.5) {
-    float edge = length(color - blurred) * 6.5;
-    if (edge > 0.42) {
+    float lTL = luma(texture2D(u_image, uv + vec2(-tx.x * 1.5, tx.y * 1.5)).rgb);
+    float lTC = luma(texture2D(u_image, uv + vec2(0.0, tx.y * 1.5)).rgb);
+    float lTR = luma(texture2D(u_image, uv + vec2(tx.x * 1.5, tx.y * 1.5)).rgb);
+    float lML = luma(texture2D(u_image, uv + vec2(-tx.x * 1.5, 0.0)).rgb);
+    float lMR = luma(texture2D(u_image, uv + vec2(tx.x * 1.5, 0.0)).rgb);
+    float lBL = luma(texture2D(u_image, uv + vec2(-tx.x * 1.5, -tx.y * 1.5)).rgb);
+    float lBC = luma(texture2D(u_image, uv + vec2(0.0, -tx.y * 1.5)).rgb);
+    float lBR = luma(texture2D(u_image, uv + vec2(tx.x * 1.5, -tx.y * 1.5)).rgb);
+
+    float gx = (lTR + 2.0 * lMR + lBR) - (lTL + 2.0 * lML + lBL);
+    float gy = (lTL + 2.0 * lTC + lTR) - (lBL + 2.0 * lBC + lBR);
+    float edgeMag = length(vec2(gx, gy)) * 4.5;
+
+    // High sensitivity threshold for fine details & optical focus plane
+    float peakIntensity = smoothstep(0.14, 0.40, edgeMag);
+
+    if (peakIntensity > 0.02) {
       vec3 peakCol = getPeakingColor(u_focusPeakingColor);
-      color = mix(color, peakCol, 0.88);
+      // Vivid laser outline highlight with glow
+      color = mix(color, peakCol, clamp(peakIntensity * 1.15, 0.0, 1.0));
     }
   }
 

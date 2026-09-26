@@ -4,6 +4,13 @@ import { useState } from "react";
 import { ApertureIcon, AutofocusTargetIcon, BokehDepthIcon, CheckIcon, FocusPeakingIcon } from "./Icons";
 import { FocusMode, APERTURE_STOPS } from "./AutofocusControls";
 
+export const PEAKING_COLORS = [
+  { id: 0, label: "Vert Néon", bg: "bg-[#00ff59]", hex: "#00ff59" },
+  { id: 1, label: "Rouge Laser", bg: "bg-[#ff2640]", hex: "#ff2640" },
+  { id: 2, label: "Cyan Électrique", bg: "bg-[#00d9ff]", hex: "#00d9ff" },
+  { id: 3, label: "Jaune Vif", bg: "bg-[#ffea00]", hex: "#ffea00" },
+] as const;
+
 export default function LiveAutofocusBar({
   focusMode,
   onChangeFocusMode,
@@ -15,6 +22,8 @@ export default function LiveAutofocusBar({
   onChangeDofBlur,
   focusPeaking,
   onToggleFocusPeaking,
+  peakingColor = 0,
+  onChangePeakingColor,
   isOpen,
   onToggleOpen,
 }: {
@@ -28,10 +37,12 @@ export default function LiveAutofocusBar({
   onChangeDofBlur: (blur: number) => void;
   focusPeaking: boolean;
   onToggleFocusPeaking: () => void;
+  peakingColor?: number;
+  onChangePeakingColor?: (c: number) => void;
   isOpen: boolean;
   onToggleOpen: () => void;
 }) {
-  const [subTool, setSubTool] = useState<"mode" | "aperture" | "distance" | "bokeh">("mode");
+  const [subTool, setSubTool] = useState<"mode" | "aperture" | "distance" | "bokeh" | "peaking">("mode");
 
   const modeLabel =
     focusMode === "foreground"
@@ -51,13 +62,13 @@ export default function LiveAutofocusBar({
       {/* Expanded Live Tuning Dock (Non-intrusive bottom glass panel over viewfinder) */}
       {isOpen && (
         <div className="w-full flex flex-col gap-2 rounded-2xl border border-emerald-500/30 bg-black/85 p-3 backdrop-blur-2xl shadow-[0_4px_25px_rgba(0,0,0,0.8)] animate-in fade-in slide-in-from-bottom-3 duration-200">
-          {/* Top Bar: Sub-Tool Selector & Peaking */}
-          <div className="flex items-center justify-between border-b border-white/10 pb-2">
-            <div className="flex items-center gap-1.5">
+          {/* Top Bar: Sub-Tool Selector & Peaking Quick Toggle */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-2 overflow-x-auto [scrollbar-width:none]">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setSubTool("mode")}
-                className={`px-2.5 py-1 rounded-lg font-mono text-[10px] font-bold uppercase transition-all ${
+                className={`px-2 py-1 rounded-lg font-mono text-[9.5px] font-bold uppercase whitespace-nowrap transition-all ${
                   subTool === "mode"
                     ? "bg-emerald-500 text-black shadow-sm"
                     : "bg-white/5 text-white/70 hover:bg-white/10"
@@ -68,18 +79,18 @@ export default function LiveAutofocusBar({
               <button
                 type="button"
                 onClick={() => setSubTool("aperture")}
-                className={`px-2.5 py-1 rounded-lg font-mono text-[10px] font-bold uppercase transition-all ${
+                className={`px-2 py-1 rounded-lg font-mono text-[9.5px] font-bold uppercase whitespace-nowrap transition-all ${
                   subTool === "aperture"
                     ? "bg-amber-400 text-black shadow-sm"
                     : "bg-white/5 text-white/70 hover:bg-white/10"
                 }`}
               >
-                2. Diaphragme f/{aperture.toFixed(1)}
+                2. Diaph f/{aperture.toFixed(1)}
               </button>
               <button
                 type="button"
                 onClick={() => setSubTool("distance")}
-                className={`px-2.5 py-1 rounded-lg font-mono text-[10px] font-bold uppercase transition-all ${
+                className={`px-2 py-1 rounded-lg font-mono text-[9.5px] font-bold uppercase whitespace-nowrap transition-all ${
                   subTool === "distance"
                     ? "bg-cyan-400 text-black shadow-sm"
                     : "bg-white/5 text-white/70 hover:bg-white/10"
@@ -90,7 +101,7 @@ export default function LiveAutofocusBar({
               <button
                 type="button"
                 onClick={() => setSubTool("bokeh")}
-                className={`px-2.5 py-1 rounded-lg font-mono text-[10px] font-bold uppercase transition-all ${
+                className={`px-2 py-1 rounded-lg font-mono text-[9.5px] font-bold uppercase whitespace-nowrap transition-all ${
                   subTool === "bokeh"
                     ? "bg-fuchsia-400 text-black shadow-sm"
                     : "bg-white/5 text-white/70 hover:bg-white/10"
@@ -98,20 +109,21 @@ export default function LiveAutofocusBar({
               >
                 4. Flou ({dofBlur}%)
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubTool("peaking");
+                  if (!focusPeaking) onToggleFocusPeaking();
+                }}
+                className={`px-2 py-1 rounded-lg font-mono text-[9.5px] font-bold uppercase whitespace-nowrap transition-all ${
+                  subTool === "peaking" || focusPeaking
+                    ? "bg-emerald-400 text-black font-black shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                    : "bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                5. Peaking Laser
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={onToggleFocusPeaking}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg font-mono text-[10px] font-bold transition-all border ${
-                focusPeaking
-                  ? "bg-emerald-500 text-black border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                  : "bg-white/5 text-white/70 border-white/10"
-              }`}
-            >
-              <FocusPeakingIcon className="w-3 h-3" />
-              PEAK
-            </button>
           </div>
 
           {/* Sub-tool 1: Mode Selection Pills */}
@@ -274,6 +286,51 @@ export default function LiveAutofocusBar({
               />
             </div>
           )}
+
+          {/* Sub-tool 5: Peaking Laser Color & Activation */}
+          {subTool === "peaking" && (
+            <div className="flex flex-col gap-2 py-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono font-bold text-emerald-300 flex items-center gap-1.5">
+                  <FocusPeakingIcon className="w-3.5 h-3.5" />
+                  COULEUR DU SURLIGNAGE LASER
+                </span>
+                <button
+                  type="button"
+                  onClick={onToggleFocusPeaking}
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded transition-all ${
+                    focusPeaking ? "bg-emerald-400 text-black shadow-sm" : "bg-white/10 text-white/60"
+                  }`}
+                >
+                  {focusPeaking ? "PEAKING ACTIF" : "PEAKING OFF"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5">
+                {PEAKING_COLORS.map((c) => {
+                  const isSel = peakingColor === c.id && focusPeaking;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        onChangePeakingColor?.(c.id);
+                        if (!focusPeaking) onToggleFocusPeaking();
+                      }}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl border text-[10px] font-mono font-bold transition-all ${
+                        isSel
+                          ? "bg-white/20 border-white text-white shadow-[0_0_12px_rgba(255,255,255,0.4)] scale-105"
+                          : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                      }`}
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${c.bg} shadow-sm`} />
+                      <span>{c.label.split(" ")[0]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -340,6 +397,20 @@ export default function LiveAutofocusBar({
           }`}
         >
           Tactile
+        </button>
+
+        {/* Quick Peaking toggle icon button */}
+        <button
+          type="button"
+          onClick={onToggleFocusPeaking}
+          aria-label="Activer ou désactiver le focus peaking laser"
+          className={`flex h-7 w-7 items-center justify-center rounded-full transition-all border ${
+            focusPeaking
+              ? "bg-emerald-400 text-black border-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+              : "bg-white/5 text-white/70 border-white/10 hover:bg-white/15"
+          }`}
+        >
+          <FocusPeakingIcon className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

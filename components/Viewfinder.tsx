@@ -1710,6 +1710,8 @@ export default function Viewfinder({
           onChangeDofBlur={setDofBlur}
           focusPeaking={focusPeakingEnabled}
           onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
+          peakingColor={peakingColor}
+          onChangePeakingColor={setPeakingColor}
           isOpen={afControlsOpen}
           onToggleOpen={() => setAfControlsOpen((v) => !v)}
         />
