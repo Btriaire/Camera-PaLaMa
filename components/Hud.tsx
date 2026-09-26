@@ -56,7 +56,7 @@ export default function Hud({
   // Viewfinder.tsx) -- a plain "top-16" here ignored the safe-area part, so
   // on any phone with a tall inset (notch/Dynamic Island/punch-hole) these
   // badges crept up underneath those icons instead of sitting below them.
-  const topInset = "max(0.75rem, env(safe-area-inset-top)) + 3rem";
+  const topInset = "max(0.75rem, env(safe-area-inset-top)) + 3.8rem";
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
@@ -76,10 +76,10 @@ export default function Hud({
         </div>
       )}
       {meteringMode === "matrix" && showGrid && (
-        <div className="absolute inset-8 grid grid-cols-5 grid-rows-5 pointer-events-none opacity-20 z-10">
+        <div className="absolute inset-10 grid grid-cols-5 grid-rows-5 pointer-events-none opacity-30 z-10">
           {Array.from({ length: 25 }).map((_, i) => (
-            <div key={i} className="border border-white/40 flex items-center justify-center">
-              <span className="w-1 h-1 rounded-full bg-white/50" />
+            <div key={i} className="flex items-center justify-center">
+              <span className="w-1 h-1 rounded-full bg-white/40 shadow-xs" />
             </div>
           ))}
         </div>

@@ -29,6 +29,7 @@ import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
 import { FilmCanisterBadge } from "./FilmCanister";
 import BurstReview from "./BurstReview";
+import ProLiveDrawer from "./ProLiveDrawer";
 import ProScopesMonitor, { ScopeMode } from "./ProScopesMonitor";
 import LevelIndicator from "./LevelIndicator";
 import ZoomSlider from "./ZoomSlider";
@@ -1253,478 +1254,117 @@ export default function Viewfinder({
         </div>
       )}
 
-      {/* Top Controls Bar with Large Touch Icons */}
+      {/* Top Controls Bar with Clean Touch Ergonomics */}
       <div
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 z-30 pointer-events-auto"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        {/* Left capsule: Gallery, Settings, Audio & PRO Drawer */}
-        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 p-2 backdrop-blur-xl shadow-xl">
+        {/* Left capsule: Gallery, Settings & Audio */}
+        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 p-1.5 backdrop-blur-xl shadow-xl">
           <button
             onClick={onOpenGallery}
             aria-label="Galerie"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
           >
-            <GalleryGridIcon className="w-7 h-7" />
+            <GalleryGridIcon className="w-6 h-6" />
           </button>
           <button
             onClick={() => setDashboardOpen(true)}
             aria-label="Tableau de bord"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
           >
-            <SettingsIcon className="w-7 h-7" />
+            <SettingsIcon className="w-6 h-6" />
           </button>
           <button
             onClick={toggleSoundMute}
             aria-label={soundMuted ? "Activer les sons" : "Désactiver les sons (silencieux)"}
-            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
               soundMuted ? "bg-red-500/30 text-red-300 border border-red-400/50" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <SoundIcon className="w-6 h-6" mute={soundMuted} />
+            <SoundIcon className="w-5.5 h-5.5" mute={soundMuted} />
           </button>
+        </div>
+
+        {/* Right capsule: PRO Drawer Trigger, Macro, Flash & Flip */}
+        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 p-1.5 backdrop-blur-xl shadow-xl">
           <button
             onClick={() => setProDrawerOpen((v) => !v)}
             aria-label="Outils Pro Live & Traitement d'image"
-            className={`flex h-11 px-3 items-center gap-1.5 rounded-full border transition-all active:scale-90 ${
-              proDrawerOpen || falseColorOn || liveDroOn || monoAssistOn || anamorphicDesqueeze > 1.0
+            className={`flex h-10 px-3 items-center gap-1.5 rounded-full border transition-all active:scale-90 ${
+              proDrawerOpen || falseColorOn || liveDroOn || monoAssistOn || anamorphicDesqueeze > 1.0 || showHistogram || zebraEnabled || focusPeakingEnabled
                 ? "bg-amber-400 text-black font-black border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.6)]"
                 : "border-amber-400/40 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25"
             }`}
           >
-            <ProBadgeIcon className="w-5 h-5" />
+            <ProBadgeIcon className="w-4.5 h-4.5" />
             <span className="text-[11px] font-mono font-bold tracking-wider">PRO</span>
-          </button>
-        </div>
-
-        {/* Right capsule: Quick Shooting Tools (Macro, False Color, Scopes, DRO, Peaking, Zebra, Ratio, Grid, Burst, Flash, Flip) */}
-        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 p-2 backdrop-blur-xl shadow-xl overflow-x-auto max-w-[65vw] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button
-            onClick={() => setFalseColorOn((v) => !v)}
-            aria-label="False Color IRE (Arri Exposure Mapping)"
-            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              falseColorOn ? "bg-red-500 text-white font-bold shadow-[0_0_15px_rgba(239,68,68,0.7)] ring-2 ring-red-400" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <FalseColorIcon className="w-7 h-7" />
-          </button>
-          <button
-            onClick={() => setLiveDroOn((v) => !v)}
-            aria-label="Dynamic Range Optimizer (DRO HDR Live Shadow Boost)"
-            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              liveDroOn ? "bg-amber-400 text-black font-bold shadow-[0_0_15px_rgba(245,158,11,0.7)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <DroHdrIcon className="w-7 h-7" />
           </button>
           <button
             onClick={toggleMacroMode}
-            aria-label="Mode Macro (Mise au point ultra-proche)"
-            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+            aria-label="Mode Macro"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
               macroModeOn ? "bg-emerald-400 text-black font-bold shadow-[0_0_15px_rgba(52,211,153,0.6)] ring-2 ring-emerald-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <MacroFlowerIcon className="w-7 h-7" />
-          </button>
-          <button
-            onClick={() => setVintageMaskMenuOpen((v) => !v)}
-            aria-label="Viseur Optique Rétro / Masque Dépoli d'appareil vintage"
-            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              vintageMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_15px_rgba(245,158,11,0.7)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <VintageViewfinderIcon className="w-7 h-7" />
-            {vintageMask !== "none" && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[9px] font-mono font-black leading-none bg-black text-amber-400 px-1 py-0.2 rounded border border-amber-400/40">
-                {vintageMask === "slr-prism" ? "SLR" : vintageMask === "tlr-6x6" ? "TLR" : vintageMask === "lens-circle" ? "LENS" : "35M"}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={cycleAspectMask}
-            aria-label="Cadre de cadrage / Ratio"
-            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              liveAspectMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <RatioFramingIcon className="w-7 h-7" />
-            {liveAspectMask !== "none" && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[9.5px] font-mono font-black leading-none bg-black text-amber-400 px-1 rounded border border-amber-400/40">
-                {liveAspectMask === "65:24" ? "XP" : liveAspectMask}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => {
-              if (!showHistogram) {
-                setShowHistogram(true);
-              } else {
-                if (scopeMode === "histogram") setScopeMode("waveform");
-                else if (scopeMode === "waveform") setScopeMode("vectorscope");
-                else setShowHistogram(false);
-              }
-            }}
-            aria-label="Oscilloscopes en direct (Histogramme / Waveform / Vectorscope)"
-            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              showHistogram ? "bg-cyan-400 text-black font-bold shadow-[0_0_12px_rgba(34,211,238,0.6)] ring-2 ring-cyan-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <WaveformIcon className="w-7 h-7" />
-            {showHistogram && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[8.5px] font-mono font-black leading-none bg-black text-cyan-400 px-1 rounded border border-cyan-400/40 uppercase">
-                {scopeMode === "histogram" ? "HST" : scopeMode === "waveform" ? "WAV" : "VEC"}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => {
-              if (!zebraEnabled) {
-                setZebraEnabled(true);
-                setZebraThreshold(0.70);
-              } else if (Math.abs(zebraThreshold - 0.70) < 0.05) {
-                setZebraThreshold(0.90);
-              } else if (Math.abs(zebraThreshold - 0.90) < 0.05) {
-                setZebraThreshold(0.98);
-              } else {
-                setZebraEnabled(false);
-              }
-            }}
-            aria-label="Alerte de surexposition (zébrures)"
-            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              zebraEnabled ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <ZebraIcon className="w-7 h-7" />
-            {zebraEnabled && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[8.5px] font-mono font-black leading-none bg-black text-amber-400 px-1 rounded border border-amber-400/40">
-                {Math.round(zebraThreshold * 100)}%
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => {
-              if (!focusPeakingEnabled) {
-                setFocusPeakingEnabled(true);
-                setPeakingColor(0);
-              } else if (peakingColor === 0) {
-                setPeakingColor(1);
-              } else if (peakingColor === 1) {
-                setPeakingColor(2);
-              } else if (peakingColor === 2) {
-                setPeakingColor(3);
-              } else {
-                setFocusPeakingEnabled(false);
-              }
-            }}
-            aria-label="Aide à la mise au point (Focus Peaking)"
-            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              focusPeakingEnabled ? "bg-emerald-400 text-black font-bold shadow-[0_0_12px_rgba(52,211,153,0.6)] ring-2 ring-emerald-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <FocusPeakingIcon className="w-7 h-7" />
-            {focusPeakingEnabled && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono font-black leading-none bg-black text-emerald-400 px-1 rounded border border-emerald-400/40">
-                {peakingColor === 0 ? "V" : peakingColor === 1 ? "R" : peakingColor === 2 ? "C" : "J"}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setShowGrid((g) => !g)}
-            aria-label="Grille"
-            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              showGrid ? "bg-white text-black font-bold shadow-md ring-2 ring-white/60" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <GridIcon className="w-7 h-7" />
-          </button>
-          <button
-            onClick={() => setTimerIndex((i) => (i + 1) % TIMER_STEPS.length)}
-            aria-label="Retardateur"
-            className={`relative flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              timerSeconds > 0 ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <TimerIcon className="w-7 h-7" />
-            {timerSeconds > 0 && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono font-black leading-none bg-black text-amber-400 px-1 rounded border border-amber-400/40">
-                {timerSeconds}s
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setBurstMenuOpen((v) => !v)}
-            aria-label="Mode rafale"
-            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
-              burstModeArmed ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            <BurstIcon className="w-7 h-7" />
+            <MacroFlowerIcon className="w-6 h-6" />
           </button>
           <button
             onClick={() => setFlashMenuOpen((v) => !v)}
             aria-label="Mode flash"
-            className={`flex h-11 w-11 items-center justify-center rounded-full active:scale-90 transition-all ${
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
               flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.6)] ring-2 ring-amber-300" : "text-white/95 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <FlashModeIcon mode={flashMode} className="w-7 h-7" />
+            <FlashModeIcon mode={flashMode} className="w-6 h-6" />
           </button>
           {capabilities.canSwitch && (
             <button
               onClick={flip}
               aria-label="Changer de caméra"
-              className="flex h-11 w-11 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white/95 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
             >
-              <FlipCameraIcon className="w-7 h-7" />
+              <FlipCameraIcon className="w-6 h-6" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Pro Live Tools Drawer Modal */}
-      {proDrawerOpen && (
-        <>
-          <button
-            className="fixed inset-0 z-30"
-            aria-label="Fermer le menu outils pro"
-            onClick={() => setProDrawerOpen(false)}
-          />
-          <div
-            className="absolute left-3 right-3 z-40 max-h-[82vh] overflow-y-auto rounded-3xl border border-amber-400/40 bg-zinc-950/95 p-4 backdrop-blur-2xl shadow-[0_0_35px_rgba(245,158,11,0.3)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.8rem)" }}
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
-              <div className="flex items-center gap-2">
-                <ProBadgeIcon className="w-5 h-5 text-amber-400" />
-                <span className="text-sm font-mono font-black uppercase tracking-wider text-amber-300">
-                  Outils Pro &amp; Traitement Image Live
-                </span>
-              </div>
-              <button
-                onClick={() => setProDrawerOpen(false)}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80 hover:bg-white/20"
-              >
-                Fermer
-              </button>
-            </div>
-
-            {/* Grid of Pro Quick Toggles */}
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* False Color IRE */}
-              <button
-                onClick={() => setFalseColorOn((v) => !v)}
-                className={`flex flex-col items-start gap-1 rounded-2xl p-3 border text-left transition-all ${
-                  falseColorOn
-                    ? "border-red-400 bg-red-950/40 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
-                    : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <FalseColorIcon className="w-5 h-5 text-red-400" />
-                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${falseColorOn ? "bg-red-400 text-black" : "bg-white/10 text-white/60"}`}>
-                    {falseColorOn ? "ACTIF" : "OFF"}
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-white mt-1">False Color IRE</span>
-                <span className="text-[10px] leading-tight text-white/50">Carte d&apos;exposition thermique Arri standard</span>
-              </button>
-
-              {/* Dynamic Range Optimizer (DRO) */}
-              <button
-                onClick={() => setLiveDroOn((v) => !v)}
-                className={`flex flex-col items-start gap-1 rounded-2xl p-3 border text-left transition-all ${
-                  liveDroOn
-                    ? "border-amber-400 bg-amber-950/40 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                    : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <DroHdrIcon className="w-5 h-5 text-amber-400" />
-                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${liveDroOn ? "bg-amber-400 text-black" : "bg-white/10 text-white/60"}`}>
-                    {liveDroOn ? "ACTIF" : "OFF"}
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-white mt-1">DRO / HDR Live</span>
-                <span className="text-[10px] leading-tight text-white/50">Débouchage temps réel des ombres en direct</span>
-              </button>
-
-              {/* Monochrome Framing Assist */}
-              <button
-                onClick={() => setMonoAssistOn((v) => !v)}
-                className={`flex flex-col items-start gap-1 rounded-2xl p-3 border text-left transition-all ${
-                  monoAssistOn
-                    ? "border-cyan-400 bg-cyan-950/40 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
-                    : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <MonochromeAssistIcon className="w-5 h-5 text-cyan-400" />
-                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${monoAssistOn ? "bg-cyan-400 text-black" : "bg-white/10 text-white/60"}`}>
-                    {monoAssistOn ? "ACTIF" : "OFF"}
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-white mt-1">Aide N&amp;B Viseur</span>
-                <span className="text-[10px] leading-tight text-white/50">Évalue la lumière et la structure sans couleur</span>
-              </button>
-
-              {/* Pro Scopes Switcher */}
-              <button
-                onClick={() => {
-                  if (!showHistogram) setShowHistogram(true);
-                  else setScopeMode((m) => (m === "histogram" ? "waveform" : m === "waveform" ? "vectorscope" : "histogram"));
-                }}
-                className={`flex flex-col items-start gap-1 rounded-2xl p-3 border text-left transition-all ${
-                  showHistogram
-                    ? "border-cyan-400 bg-cyan-950/40 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
-                    : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <WaveformIcon className="w-5 h-5 text-cyan-400" />
-                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-400 text-black uppercase">
-                    {showHistogram ? scopeMode : "OFF"}
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-white mt-1">Oscilloscopes Live</span>
-                <span className="text-[10px] leading-tight text-white/50">Histo / Waveform Parade / Vectorscope</span>
-              </button>
-            </div>
-
-            {/* Focus Peaking Color Selection */}
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-white">Couleur du Focus Peaking</span>
-                <button
-                  onClick={() => setFocusPeakingEnabled((v) => !v)}
-                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                    focusPeakingEnabled ? "bg-emerald-400 text-black" : "bg-white/10 text-white/60"
-                  }`}
-                >
-                  {focusPeakingEnabled ? "ACTIVÉ" : "DÉSACTIVÉ"}
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { id: 0, label: "Vert Néon", bg: "bg-[#00ff59]" },
-                  { id: 1, label: "Rouge", bg: "bg-[#ff2640]" },
-                  { id: 2, label: "Cyan", bg: "bg-[#00d9ff]" },
-                  { id: 3, label: "Jaune", bg: "bg-[#ffea00]" },
-                ].map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setPeakingColor(c.id);
-                      setFocusPeakingEnabled(true);
-                    }}
-                    className={`flex flex-col items-center gap-1 rounded-xl p-2 border transition-all ${
-                      peakingColor === c.id && focusPeakingEnabled
-                        ? "border-white bg-white/20 shadow-sm font-bold"
-                        : "border-transparent bg-black/40 hover:bg-white/10 text-white/70"
-                    }`}
-                  >
-                    <span className={`w-4 h-4 rounded-full ${c.bg} shadow-sm`} />
-                    <span className="text-[10px] font-medium text-white/90">{c.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Zebra Threshold Selection */}
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-white">Seuil Zébrures d&apos;exposition</span>
-                <button
-                  onClick={() => setZebraEnabled((v) => !v)}
-                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                    zebraEnabled ? "bg-amber-400 text-black" : "bg-white/10 text-white/60"
-                  }`}
-                >
-                  {zebraEnabled ? "ACTIVÉ" : "DÉSACTIVÉ"}
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { val: 0.70, label: "70% Peau", desc: "Visages & Tonalités chair" },
-                  { val: 0.90, label: "90% Ciel", desc: "Hautes lumières vives" },
-                  { val: 0.98, label: "98% Clip", desc: "Écrêtage pur des blancs" },
-                ].map((z) => (
-                  <button
-                    key={z.val}
-                    onClick={() => {
-                      setZebraThreshold(z.val);
-                      setZebraEnabled(true);
-                    }}
-                    className={`flex flex-col items-center gap-0.5 rounded-xl p-2 border text-center transition-all ${
-                      Math.abs(zebraThreshold - z.val) < 0.02 && zebraEnabled
-                        ? "border-amber-400 bg-amber-400/20 text-amber-300 font-bold"
-                        : "border-transparent bg-black/40 text-white/70 hover:bg-white/10"
-                    }`}
-                  >
-                    <span className="text-xs font-bold font-mono">{z.label}</span>
-                    <span className="text-[9px] text-white/45">{z.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Anamorphic De-Squeeze Preview */}
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-white">Décompression Optique Anamorphique</span>
-                <span className="text-[10px] font-mono text-amber-400">Lentilles Cinéma</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { val: 1.0, label: "1.0× Standard" },
-                  { val: 1.33, label: "1.33× Anamor." },
-                  { val: 1.55, label: "1.55× Ultra" },
-                  { val: 2.0, label: "2.0× Cinema" },
-                ].map((a) => (
-                  <button
-                    key={a.val}
-                    onClick={() => setAnamorphicDesqueeze(a.val)}
-                    className={`rounded-xl py-2 px-1 text-center border font-mono text-xs font-bold transition-all ${
-                      Math.abs(anamorphicDesqueeze - a.val) < 0.02
-                        ? "border-amber-400 bg-amber-400 text-black shadow-sm"
-                        : "border-transparent bg-black/40 text-white/80 hover:bg-white/10"
-                    }`}
-                  >
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick White Balance Presets */}
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-              <span className="block text-xs font-bold text-white mb-2">Presets Balance des Blancs (Kelvins)</span>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { k: 2200, label: "Bougie", desc: "2200K Chaud" },
-                  { k: 3200, label: "Tungstène", desc: "3200K Studio" },
-                  { k: 4000, label: "Fluo", desc: "4000K Bureau" },
-                  { k: 5500, label: "Soleil", desc: "5500K Plein jour" },
-                  { k: 6500, label: "Nuageux", desc: "6500K Ciel couvert" },
-                  { k: 7500, label: "Ombre", desc: "7500K Ombre fraîche" },
-                ].map((wb) => (
-                  <button
-                    key={wb.k}
-                    onClick={() => setKelvinIndex(nearestStepIndex(KELVIN_STEPS, wb.k))}
-                    className={`flex flex-col items-center gap-0.5 rounded-xl p-2 border transition-all ${
-                      Math.abs(kelvinValue - wb.k) < 300
-                        ? "border-amber-400 bg-amber-400/25 text-amber-300 font-bold"
-                        : "border-transparent bg-black/40 text-white/70 hover:bg-white/10"
-                    }`}
-                  >
-                    <span className="text-xs font-bold font-mono">{wb.label}</span>
-                    <span className="text-[9px] text-white/50">{wb.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      {/* Pro Live Tools Drawer Component */}
+      <ProLiveDrawer
+        isOpen={proDrawerOpen}
+        onClose={() => setProDrawerOpen(false)}
+        falseColorOn={falseColorOn}
+        setFalseColorOn={setFalseColorOn}
+        liveDroOn={liveDroOn}
+        setLiveDroOn={setLiveDroOn}
+        monoAssistOn={monoAssistOn}
+        setMonoAssistOn={setMonoAssistOn}
+        showHistogram={showHistogram}
+        setShowHistogram={setShowHistogram}
+        scopeMode={scopeMode}
+        setScopeMode={setScopeMode}
+        focusPeakingEnabled={focusPeakingEnabled}
+        setFocusPeakingEnabled={setFocusPeakingEnabled}
+        peakingColor={peakingColor}
+        setPeakingColor={setPeakingColor}
+        zebraEnabled={zebraEnabled}
+        setZebraEnabled={setZebraEnabled}
+        zebraThreshold={zebraThreshold}
+        setZebraThreshold={setZebraThreshold}
+        anamorphicDesqueeze={anamorphicDesqueeze}
+        setAnamorphicDesqueeze={setAnamorphicDesqueeze}
+        liveAspectMask={liveAspectMask}
+        setLiveAspectMask={setLiveAspectMask}
+        vintageMask={vintageMask}
+        setVintageMask={setVintageMask}
+        macroModeOn={macroModeOn}
+        toggleMacroMode={toggleMacroMode}
+        showGrid={showGrid}
+        setShowGrid={setShowGrid}
+        kelvinValue={kelvinValue}
+        onSelectKelvin={(k) => setKelvinIndex(nearestStepIndex(KELVIN_STEPS, k))}
+      />
 
       {vintageMaskMenuOpen && (
         <>
@@ -1902,75 +1542,40 @@ export default function Viewfinder({
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <button
-            onClick={() => setProDrawerOpen(true)}
-            aria-label="Ouvrir le panneau Outils Pro Live"
-            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-amber-400 bg-amber-400/20 px-3.5 py-2.5 backdrop-blur shadow-lg active:scale-95 transition-all text-amber-300 font-bold"
-          >
-            <ProBadgeIcon className="w-5 h-5 text-amber-400" />
-            <span className="text-xs font-mono tracking-wide">OUTILS PRO</span>
-          </button>
-
-          <button
-            onClick={() => setFalseColorOn((v) => !v)}
-            aria-pressed={falseColorOn}
-            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2.5 text-xs font-bold backdrop-blur shadow-md active:scale-95 transition-all ${
-              falseColorOn
-                ? "border-red-400 bg-red-500/25 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-                : "border-white/30 bg-black/55 text-white"
-            }`}
-          >
-            <FalseColorIcon className="w-4 h-4" />
-            False Color
-          </button>
-
-          <button
-            onClick={() => setLiveDroOn((v) => !v)}
-            aria-pressed={liveDroOn}
-            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2.5 text-xs font-bold backdrop-blur shadow-md active:scale-95 transition-all ${
-              liveDroOn
-                ? "border-amber-400 bg-amber-400/25 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
-                : "border-white/30 bg-black/55 text-white"
-            }`}
-          >
-            <DroHdrIcon className="w-4 h-4" />
-            DRO HDR Live
-          </button>
-
-          <button
             onClick={() => setPickerOpen(true)}
             aria-label="Sélecteur d'émulsion et styles photographiques"
-            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-amber-400/50 bg-black/85 px-3 py-1.5 backdrop-blur shadow-lg active:scale-95 transition-all hover:border-amber-400"
+            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-amber-400 bg-black/85 px-3.5 py-2 backdrop-blur shadow-lg active:scale-95 transition-all hover:border-amber-300"
           >
             <FilmCanisterBadge preset={preset ?? null} />
-            <span className="text-[10px] font-bold text-amber-300/90 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
+            <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
               Pelliculothèque
             </span>
           </button>
 
           <button
-            onClick={toggleMacroMode}
-            aria-pressed={macroModeOn}
-            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur shadow-md active:scale-95 transition-all ${
-              macroModeOn
-                ? "border-emerald-400 bg-emerald-400/25 text-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.4)]"
-                : "border-white/30 bg-black/55 text-white"
+            onClick={() => setProDrawerOpen(true)}
+            aria-label="Ouvrir le panneau Outils Pro Live"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+              falseColorOn || liveDroOn || monoAssistOn || anamorphicDesqueeze > 1.0 || showHistogram || zebraEnabled || focusPeakingEnabled
+                ? "border-amber-400 bg-amber-400 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+                : "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
             }`}
           >
-            <MacroFlowerIcon className="w-5 h-5" />
-            Macro (Détails+)
+            <ProBadgeIcon className="w-4.5 h-4.5" />
+            <span className="text-xs font-mono tracking-wide">OUTILS PRO</span>
           </button>
 
           <button
             onClick={cycleVintageMask}
             aria-pressed={vintageMask !== "none"}
             aria-label="Changer de masque de viseur optique rétro"
-            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur shadow-md active:scale-95 transition-all ${
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold backdrop-blur shadow-md active:scale-95 transition-all ${
               vintageMask !== "none"
                 ? "border-amber-400 bg-amber-400/25 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] font-bold"
                 : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <VintageViewfinderIcon className="w-5 h-5" />
+            <VintageViewfinderIcon className="w-4.5 h-4.5" />
             {vintageMask === "none"
               ? "Viseur Rétro (OFF)"
               : vintageMask === "slr-prism"
