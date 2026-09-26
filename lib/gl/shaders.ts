@@ -136,58 +136,59 @@ vec3 getPeakingColor(float code) {
 vec3 opticalDepthOfFieldBokeh(sampler2D tex, vec2 uv, vec2 tx, vec3 baseCol, float dofStrength, float fDistance, vec2 fPoint, float fStop, float planeMode) {
   if (dofStrength <= 0.001 && planeMode <= 0.1) return baseCol;
 
-  // 1. Scene Depth Estimator (Perspective gradient + Radial offset relative to tap focus point)
-  // WebGL v_texCoord: (0,0) is bottom-left, (1,1) is top-right.
-  // In real camera perspectives, bottom (y=0) corresponds to foreground ground/subject, top (y=1) to background.
-  float rawDepth = uv.y;
-  
-  float targetFocus = fDistance / 100.0;
+  // Scene Depth Estimator (Perspective vertical depth + Radial distance relative to focus point)
+  // v_texCoord: (0,0) is bottom-left (foreground), (1,1) is top-right (background).
+  float focalDiff = 0.0;
+
   if (planeMode > 0.5 && planeMode < 1.5) {
-    // Mode 1: Avant-plan net / Arrière-plan flou (Portrait / Macro)
-    targetFocus = 0.15;
-    rawDepth = uv.y * 0.75 + distance(uv, vec2(0.5, 0.2)) * 0.25;
+    // Mode 1: Avant-Plan Net (Foreground Sharp / Background Blur)
+    // Bottom of frame (y < 0.3) is crystal sharp; upper background (y > 0.35) blurs into creamy bokeh
+    focalDiff = max(0.0, uv.y - 0.28);
   } else if (planeMode > 1.5 && planeMode < 2.5) {
-    // Mode 2: Arrière-plan net / Avant-plan flou (Deep background focus / foreground blur)
-    targetFocus = 0.85;
-    rawDepth = uv.y * 0.75 + distance(uv, vec2(0.5, 0.8)) * 0.25;
+    // Mode 2: Arrière-Plan Net (Background Sharp / Foreground Blur)
+    // Top of frame (y > 0.65) is crystal sharp; lower foreground (y < 0.60) blurs out
+    focalDiff = max(0.0, 0.72 - uv.y);
   } else if (planeMode > 2.5 && planeMode < 3.5) {
     // Mode 3: AF Tactile au point touché
-    targetFocus = fPoint.y;
-    rawDepth = uv.y * 0.55 + distance(uv, fPoint) * 0.65;
+    // Tapped point is in pin-sharp focus, radial distance creates smooth depth falloff
+    focalDiff = distance(uv, fPoint) * 1.5;
   } else if (planeMode > 3.5) {
     // Mode 4: MF Bague manuelle
-    targetFocus = fDistance / 100.0;
-    rawDepth = uv.y * 0.7 + distance(uv, vec2(0.5, 0.4)) * 0.3;
+    float targetDepth = fDistance / 100.0;
+    focalDiff = abs(uv.y - targetDepth);
+  } else {
+    // Standard DoF from slider
+    float targetDepth = fDistance / 100.0;
+    focalDiff = abs(uv.y - targetDepth);
   }
 
-  // Calculate Circle of Confusion (CoC) based on thin lens optical equation
-  float focalDiff = abs(rawDepth - targetFocus);
-  float apertureGain = 5.6 / max(0.9, fStop);
-  float effectiveStrength = max(dofStrength, planeMode > 0.5 ? 70.0 : 0.0) / 100.0;
-  float coc = smoothstep(0.04, 0.42, focalDiff) * apertureGain * effectiveStrength * 10.0;
+  // Calculate Circle of Confusion (CoC)
+  float apertureGain = 2.8 / max(0.7, fStop);
+  float effectiveStrength = max(dofStrength, planeMode > 0.5 ? 85.0 : 0.0) / 100.0;
+  float coc = smoothstep(0.02, 0.38, focalDiff) * apertureGain * effectiveStrength * 18.0;
 
-  if (coc < 0.25) return baseCol;
+  if (coc < 0.2) return baseCol;
 
-  // 16-tap Golden Spiral Poisson Disk Bokeh Kernel with Specular Thresholding
+  // 24-tap Golden Angle Spiral Poisson Disk Bokeh Kernel with Specular Thresholding
   vec3 accumColor = baseCol;
   float accumWeight = 1.0;
 
-  for (int i = 1; i <= 16; i++) {
+  for (int i = 1; i <= 24; i++) {
     float fi = float(i);
-    float theta = fi * 2.39996323; // Golden angle ~137.5 deg
-    float radius = sqrt(fi / 16.0) * coc;
-    vec2 sampleOffset = vec2(cos(theta), sin(theta)) * radius * tx * 1.8;
+    float theta = fi * 2.39996323; // Golden angle 137.5°
+    float radius = sqrt(fi / 24.0) * coc;
+    vec2 sampleOffset = vec2(cos(theta), sin(theta)) * radius * tx * 2.6;
     vec3 s = texture2D(tex, clamp(uv + sampleOffset, 0.0, 1.0)).rgb;
     
-    // Specular highlight boost for creamy bokeh orbs
+    // Specular highlight boost for luminous spherical bokeh disks
     float lum = luma(s);
-    float specWeight = 1.0 + pow(lum, 3.2) * 2.8;
+    float specWeight = 1.0 + pow(lum, 3.2) * 3.8;
     accumColor += s * specWeight;
     accumWeight += specWeight;
   }
 
   vec3 blurredResult = accumColor / max(0.001, accumWeight);
-  return mix(baseCol, blurredResult, clamp(coc / 1.8, 0.0, 1.0));
+  return mix(baseCol, blurredResult, clamp(coc / 1.4, 0.0, 1.0));
 }
 
 // 1. Academy Color Encoding System (ACES 1.3 Fitted RRT+ODT)

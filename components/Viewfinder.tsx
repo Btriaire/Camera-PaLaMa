@@ -38,6 +38,7 @@ import PhotoViewer from "./PhotoViewer";
 import UltraZoomHUD, { ULTRA_ZOOM_STEPS } from "./UltraZoomHUD";
 import VintageViewfinderMask, { VINTAGE_VIEWFINDER_MODES, VintageViewfinderMode } from "./VintageViewfinderMask";
 import AutofocusControls, { FocusMode } from "./AutofocusControls";
+import LiveAutofocusBar from "./LiveAutofocusBar";
 import AutofocusReticle, { ReticleData } from "./AutofocusReticle";
 import {
   AnamorphicIcon,
@@ -1477,36 +1478,6 @@ export default function Viewfinder({
         </div>
       </div>
 
-      {/* Floating Autofocus & Depth of Field Control Panel */}
-      {afControlsOpen && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-35"
-            aria-label="Fermer le panneau autofocus"
-            onClick={() => setAfControlsOpen(false)}
-          />
-          <div
-            className="absolute left-3 right-3 z-40 max-w-md mx-auto pointer-events-auto transition-all animate-in fade-in slide-in-from-top-4"
-            style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.75rem)" }}
-          >
-            <AutofocusControls
-              focusMode={focusMode}
-              onChangeFocusMode={setFocusMode}
-              aperture={apertureFStop}
-              onChangeAperture={setApertureFStop}
-              focusDistance={focusDistance}
-              onChangeFocusDistance={setFocusDistance}
-              dofBlur={dofBlur}
-              onChangeDofBlur={setDofBlur}
-              focusPeaking={focusPeakingEnabled}
-              onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
-              onClose={() => setAfControlsOpen(false)}
-            />
-          </div>
-        </>
-      )}
-
       {/* Pro Live Tools Drawer Component */}
       <ProLiveDrawer
         isOpen={proDrawerOpen}
@@ -1723,11 +1694,56 @@ export default function Viewfinder({
         {inSuperZoom && superZoomOn && <SparkleIcon className="w-3.5 h-3.5 text-cyan-300" />}
       </div>
 
+      {/* Live On-Screen Autofocus & Bokeh Quick Bar (Always Visible / Expandable directly over live view) */}
+      <div
+        className="absolute left-0 right-0 z-25 flex flex-col items-center pointer-events-none"
+        style={{ bottom: "calc(max(1.5rem, env(safe-area-inset-bottom)) + 5.6rem)" }}
+      >
+        <LiveAutofocusBar
+          focusMode={focusMode}
+          onChangeFocusMode={setFocusMode}
+          aperture={apertureFStop}
+          onChangeAperture={setApertureFStop}
+          focusDistance={focusDistance}
+          onChangeFocusDistance={setFocusDistance}
+          dofBlur={dofBlur}
+          onChangeDofBlur={setDofBlur}
+          focusPeaking={focusPeakingEnabled}
+          onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
+          isOpen={afControlsOpen}
+          onToggleOpen={() => setAfControlsOpen((v) => !v)}
+        />
+      </div>
+
       <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div
           className="flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
+          {/* Autofocus & Depth-of-Field Quick Pill */}
+          <button
+            onClick={() => setAfControlsOpen((v) => !v)}
+            aria-label="Autofocus et Profondeur de champ"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+              focusMode !== "auto" || afControlsOpen
+                ? "border-emerald-400 bg-emerald-400 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                : "border-emerald-400/50 bg-emerald-400/20 text-emerald-300 hover:bg-emerald-400/30"
+            }`}
+          >
+            <AutofocusTargetIcon className="w-4.5 h-4.5" />
+            <span className="text-xs font-mono tracking-wide">
+              {focusMode === "foreground"
+                ? "AF : AVANT-PLAN"
+                : focusMode === "background"
+                ? "AF : ARRIÈRE-PLAN"
+                : focusMode === "point"
+                ? "AF : TACTILE"
+                : focusMode === "manual"
+                ? "MF : BAGUE"
+                : "AUTOFOCUS"}
+            </span>
+          </button>
+
           <button
             onClick={() => setPickerOpen(true)}
             aria-label="Sélecteur d'émulsion et styles photographiques"
