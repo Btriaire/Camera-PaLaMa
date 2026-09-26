@@ -27,6 +27,7 @@ import { soundEngine } from "@/lib/audio";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
+import { FilmCanisterBadge } from "./FilmCanister";
 import BurstReview from "./BurstReview";
 import Histogram from "./Histogram";
 import LevelIndicator from "./LevelIndicator";
@@ -1423,10 +1424,10 @@ export default function Viewfinder({
         >
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex flex-shrink-0 items-center gap-2.5 rounded-full border border-white/30 bg-black/55 px-4.5 py-3 text-sm font-semibold text-white backdrop-blur shadow-md active:scale-95 transition-all"
+            aria-label="Sélecteur d'émulsion et styles photographiques"
+            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-amber-400/40 bg-black/75 px-3 py-1.5 backdrop-blur shadow-lg active:scale-95 transition-all hover:border-amber-400"
           >
-            <ApertureIcon className="w-5 h-5 text-amber-400" />
-            {preset?.label ?? "Naturel"}
+            <FilmCanisterBadge preset={preset ?? null} />
           </button>
 
           <button

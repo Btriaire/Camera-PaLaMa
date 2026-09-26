@@ -10,6 +10,7 @@ import { Adjustments, NEUTRAL_ADJUSTMENTS, SavedPhotoMeta } from "@/lib/types";
 import { PRESETS } from "@/lib/presets";
 import CameraPicker from "./CameraPicker";
 import HorizontalSlider from "./HorizontalSlider";
+import { FilmCanisterBadge } from "./FilmCanister";
 import {
   ApertureIcon,
   BackIcon,
@@ -683,10 +684,14 @@ export default function Editor({
         {/* Center: Preset Selector */}
         <button
           onClick={() => setPickerOpen(true)}
-          className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-3.5 py-1 text-xs font-semibold text-white/90 hover:border-white/40 hover:bg-white/10 active:scale-95 transition-all shadow-sm"
+          aria-label="Changer de style photographique"
+          className="flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-black/60 p-1 hover:border-amber-400 active:scale-95 transition-all shadow-sm"
         >
-          <ApertureIcon className="w-3.5 h-3.5 text-amber-400" />
-          <span className="max-w-[130px] truncate">{PRESETS.find((p) => p.id === presetId)?.label ?? "Personnalisé"}</span>
+          <FilmCanisterBadge
+            preset={PRESETS.find((p) => p.id === presetId) ?? null}
+            showIso={false}
+            className="!bg-transparent !border-0 !p-0"
+          />
         </button>
 
         {/* Right: Actions */}

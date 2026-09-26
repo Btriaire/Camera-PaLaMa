@@ -1,6 +1,7 @@
 "use client";
 
 import { HudSkin, Preset } from "@/lib/types";
+import { FilmCanisterBadge } from "@/components/FilmCanister";
 
 // The on-screen readouts a real camera viewfinder overlays on the image —
 // cosplay skins tied to a preset's `hud` field (film SLR, cinema digital,
@@ -60,11 +61,11 @@ export default function Hud({
       {skin === "film" && (
         <>
           <div
-            className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/70 ${mono}`}
+            className={`absolute left-3 flex items-center gap-2 text-[11px] text-white/90 ${mono}`}
             style={{ top: `calc(${topInset})` }}
           >
-            <Badge>ISO {iso}</Badge>
-            {preset?.era && <Badge>{preset.era}</Badge>}
+            <FilmCanisterBadge preset={preset} />
+            <Badge>EXP {shotCount}/36</Badge>
           </div>
           {battery && (
             <div

@@ -7,6 +7,7 @@ import { useCamera } from "@/lib/useCamera";
 import { NATURAL_KEY, usePresetThumbnails } from "@/lib/usePresetThumbnails";
 import { BackIcon, CheckIcon } from "@/components/Icons";
 import PresetThumb, { NATURAL_GRADIENT, PresetBeforeAfter, swatchGradient } from "@/components/PresetThumb";
+import { FilmCanister35mm } from "@/components/FilmCanister";
 
 const HUD_LABEL: Record<HudSkin, string> = {
   film: "Pellicule",
@@ -169,9 +170,13 @@ export default function CameraPicker({
 
         {/* Section 2: Pellicules Authentiques & Boîtiers Vintage */}
         {(activeTab === "all" || activeTab === "vintage") && (
-          <Section title="Pellicules Authentiques &amp; Boîtiers">
+          <Section title="Pellicules Authentiques &amp; Boîtiers 35mm">
             {vintage.map((p) => (
               <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
+                {/* Authentic 35mm Realistic Film Canister & Perforated Sprockets */}
+                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
+                  <FilmCanister35mm preset={p} />
+                </div>
                 <div className="relative">
                   <PresetBeforeAfter
                     beforeSrc={thumbs[NATURAL_KEY]}
@@ -183,15 +188,16 @@ export default function CameraPicker({
                 </div>
                 <div className="p-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">{p.label}</div>
-                    {p.brand && <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">{p.brand}</span>}
+                    <div className="text-sm font-semibold text-amber-300">{p.label}</div>
+                    {p.brand && <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/30">{p.brand}</span>}
                   </div>
-                  <div className="mt-0.5 text-xs text-white/50">{p.blurb}</div>
+                  <div className="mt-0.5 text-xs text-white/70">{p.blurb}</div>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
                     <Tag>{HUD_LABEL[p.hud]}</Tag>
                     {p.era && <Tag>{p.era}</Tag>}
                     {p.iso && <Tag>ISO {p.iso}</Tag>}
                     {p.kelvin && <Tag>{p.kelvin}K</Tag>}
+                    {p.aspectRatio && <Tag>{p.aspectRatio}</Tag>}
                   </div>
                 </div>
               </Card>
@@ -204,6 +210,9 @@ export default function CameraPicker({
           <Section title="Filtres Curieux &amp; Bizarres (Expérimental)">
             {curious.map((p) => (
               <Card key={p.id} active={activePresetId === p.id} onClick={() => onSelect(p.id)}>
+                <div className="p-2.5 pb-1 bg-black/40 border-b border-white/10">
+                  <FilmCanister35mm preset={p} />
+                </div>
                 <div className="relative">
                   <PresetBeforeAfter
                     beforeSrc={thumbs[NATURAL_KEY]}
@@ -216,7 +225,7 @@ export default function CameraPicker({
                 <div className="p-3">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-purple-300">{p.label}</div>
-                    <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded">EXPÉRIMENTAL</span>
+                    <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded border border-purple-400/30">EXPÉRIMENTAL</span>
                   </div>
                   <div className="mt-0.5 text-xs text-white/60">{p.blurb}</div>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-white/60">
