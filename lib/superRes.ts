@@ -154,6 +154,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 export type CroppedPhoto = { bitmap: ImageBitmap; width: number; height: number };
 
 export const SUPER_ZOOM_AI_MULTIPLIER = SUPER_RES_SCALE;
+export const ULTRA_ZOOM_MAX_MULTIPLIER = 100;
 
 export async function cropForDigitalZoom(bitmap: ImageBitmap, digitalFactor: number): Promise<CroppedPhoto> {
   if (digitalFactor <= 1.001) return { bitmap, width: bitmap.width, height: bitmap.height };
@@ -172,6 +173,73 @@ export async function cropForDigitalZoom(bitmap: ImageBitmap, digitalFactor: num
 
   const cropped = await createImageBitmap(canvas);
   return { bitmap: cropped, width: cropWidth, height: cropHeight };
+}
+
+export async function enhanceUltraZoom(
+  bitmap: ImageBitmap,
+  digitalFactor: number,
+  useNeuralAI: boolean = false,
+  onProgress?: (fraction: number) => void
+): Promise<CroppedPhoto> {
+  const cropped = await cropForDigitalZoom(bitmap, digitalFactor);
+  if (digitalFactor <= 1.5 && !useNeuralAI) return cropped;
+
+  onProgress?.(0.2);
+  const targetWidth = Math.min(2400, Math.max(cropped.width, Math.round(cropped.width * Math.min(4, Math.sqrt(digitalFactor)))));
+  const targetHeight = Math.min(2400, Math.max(cropped.height, Math.round(cropped.height * Math.min(4, Math.sqrt(digitalFactor)))));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return cropped;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(cropped.bitmap, 0, 0, targetWidth, targetHeight);
+  cropped.bitmap.close();
+
+  // Edge-directed high-pass micro-contrast detail boost
+  const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+  const d = imgData.data;
+  const w = targetWidth;
+  const h = targetHeight;
+  const copy = new Uint8ClampedArray(d);
+
+  const detailGain = Math.min(0.85, 0.35 + Math.log10(Math.max(1, digitalFactor)) * 0.25);
+  for (let y = 1; y < h - 1; y += 1) {
+    for (let x = 1; x < w - 1; x += 1) {
+      const idx = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        const center = copy[idx + c];
+        const neighbors =
+          (copy[((y - 1) * w + x) * 4 + c] +
+            copy[((y + 1) * w + x) * 4 + c] +
+            copy[(y * w + x - 1) * 4 + c] +
+            copy[(y * w + x + 1) * 4 + c]) *
+          0.25;
+        const diff = center - neighbors;
+        d[idx + c] = Math.min(255, Math.max(0, center + diff * detailGain));
+      }
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  onProgress?.(useNeuralAI ? 0.6 : 1.0);
+
+  if (!useNeuralAI) {
+    const finalBitmap = await createImageBitmap(canvas);
+    return { bitmap: finalBitmap, width: targetWidth, height: targetHeight };
+  }
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+  if (!blob) {
+    const finalBitmap = await createImageBitmap(canvas);
+    return { bitmap: finalBitmap, width: targetWidth, height: targetHeight };
+  }
+
+  const neural = await superResolve(blob, (f) => onProgress?.(0.6 + f * 0.4));
+  const neuralBitmap = await createImageBitmap(neural.blob);
+  return { bitmap: neuralBitmap, width: neural.width, height: neural.height };
 }
 
 export async function enhanceCroppedZoom(

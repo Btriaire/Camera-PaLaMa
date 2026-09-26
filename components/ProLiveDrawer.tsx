@@ -13,6 +13,7 @@ import {
   MonochromeAssistIcon,
   ProBadgeIcon,
   RatioFramingIcon,
+  UltraZoomIcon,
   VintageViewfinderIcon,
   WaveformIcon,
   ZebraIcon,
@@ -53,6 +54,8 @@ export default function ProLiveDrawer({
   setShowGrid,
   kelvinValue,
   onSelectKelvin,
+  ultraZoomMode = false,
+  setUltraZoomMode,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -86,6 +89,8 @@ export default function ProLiveDrawer({
   setShowGrid: React.Dispatch<React.SetStateAction<boolean>>;
   kelvinValue: number;
   onSelectKelvin: (k: number) => void;
+  ultraZoomMode?: boolean;
+  setUltraZoomMode?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   if (!isOpen) return null;
 
@@ -210,6 +215,29 @@ export default function ProLiveDrawer({
               </div>
               <span className="text-xs font-bold text-white mt-1">Oscilloscopes Live</span>
               <span className="text-[10px] leading-tight text-white/50">Histogramme / Waveform Parade / Vectorscope</span>
+            </button>
+
+            {/* Ultra-Zoom 100x */}
+            <button
+              onClick={() => setUltraZoomMode?.((v) => !v)}
+              className={`flex flex-col items-start gap-1 rounded-2xl p-3 border text-left transition-all col-span-2 ${
+                ultraZoomMode
+                  ? "border-fuchsia-400 bg-fuchsia-950/50 text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.35)] font-bold"
+                  : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <UltraZoomIcon className="w-5 h-5 text-fuchsia-400" />
+                  <span className="text-xs font-bold text-white">Ultra-Zoom 100× &amp; Téléobjectif Spatial</span>
+                </div>
+                <span className={`text-[9.5px] font-mono font-black px-1.5 py-0.5 rounded ${ultraZoomMode ? "bg-fuchsia-500 text-white" : "bg-white/10 text-white/60"}`}>
+                  {ultraZoomMode ? "ACTIVÉ (100×)" : "DÉSACTIVÉ"}
+                </span>
+              </div>
+              <span className="text-[10px] leading-tight text-white/50">
+                Radar PiP de cadrage, analyse de détails MTF en direct et stabilisation OIS renforcée
+              </span>
             </button>
           </div>
         </div>

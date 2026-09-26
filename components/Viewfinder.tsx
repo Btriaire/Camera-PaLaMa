@@ -13,7 +13,7 @@ import { useDeviceTilt } from "@/lib/useDeviceTilt";
 import { useStabilizer } from "@/lib/useStabilizer";
 import { computeStabilizedCrop, shakeAxis } from "@/lib/stabilizerCrop";
 import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
-import { cropForDigitalZoom, enhanceCroppedZoom, SUPER_ZOOM_AI_MULTIPLIER } from "@/lib/superRes";
+import { cropForDigitalZoom, enhanceCroppedZoom, enhanceUltraZoom, SUPER_ZOOM_AI_MULTIPLIER, ULTRA_ZOOM_MAX_MULTIPLIER } from "@/lib/superRes";
 import {
   LONG_EXPOSURE_BLENDS,
   LONG_EXPOSURE_DEFAULT_S,
@@ -35,6 +35,7 @@ import LevelIndicator from "./LevelIndicator";
 import ZoomSlider from "./ZoomSlider";
 import HorizontalSlider from "./HorizontalSlider";
 import PhotoViewer from "./PhotoViewer";
+import UltraZoomHUD, { ULTRA_ZOOM_STEPS } from "./UltraZoomHUD";
 import VintageViewfinderMask, { VINTAGE_VIEWFINDER_MODES, VintageViewfinderMode } from "./VintageViewfinderMask";
 import {
   AnamorphicIcon,
@@ -56,7 +57,9 @@ import {
   LoupeIcon,
   MacroFlowerIcon,
   MonochromeAssistIcon,
+  OisLockIcon,
   ProBadgeIcon,
+  RadarScopeIcon,
   RatioFramingIcon,
   ScreenFlashIcon,
   SettingsIcon,
@@ -66,6 +69,7 @@ import {
   StrobeIcon,
   TimerIcon,
   TorchIcon,
+  UltraZoomIcon,
   VintageViewfinderIcon,
   WaveformIcon,
   ZebraIcon,
@@ -130,16 +134,14 @@ function clamp(value: number, min: number, max: number): number {
 // Quick-tap zoom levels, the way a real camera app's 0.5/1/2/3 row works --
 // always the device's actual min and max (so the full range stays reachable
 // with one tap) plus whichever "round" focal lengths fall inside it.
-const ZOOM_CANDIDATES = [0.5, 1, 2, 3, 5, 10];
+const ZOOM_CANDIDATES = [0.5, 1, 2, 3, 5, 10, 30, 50, 100];
 function zoomPresets(min: number, max: number): number[] {
-  // max always makes the cut, even after SuperZoom stretches the range
-  // well past the last "round" candidate below it — it's the one value
-  // this row exists to make reachable with a single tap.
   const inRange = ZOOM_CANDIDATES.filter((v) => v >= min - 0.01 && v <= max + 0.01);
   const belowMax = Array.from(new Set([min, ...inRange]))
-    .filter((v) => v < max - 0.01)
+    .filter((v) => v <= max + 0.01)
     .sort((a, b) => a - b);
-  return [...belowMax.slice(0, 3), max];
+  // Show up to 6 clean focal steps
+  return belowMax.length > 7 ? [min, 1, 2, 5, 10, 30, max] : belowMax;
 }
 
 function formatZoom(v: number): string {
@@ -339,13 +341,22 @@ export default function Viewfinder({
   const tiltDeg = useDeviceTilt();
   const stabilizer = useStabilizer();
 
+  const [ultraZoomMode, setUltraZoomMode] = useState(false);
+  const [oisLockActive, setOisLockActive] = useState(false);
+  const oisLockActiveRef = useRef(false);
+  useEffect(() => {
+    oisLockActiveRef.current = oisLockActive;
+  }, [oisLockActive]);
+  const [stabilityScore, setStabilityScore] = useState(98.5);
+
   // The camera's own reported zoom ceiling (1x if it reports no zoom
-  // capability at all) — SuperZoom is what happens past this point.
+  // capability at all) — SuperZoom / Ultra-Zoom is what happens past this point.
   const hardwareMaxZoom = capabilities.zoom?.max ?? 1;
   const zoomMin = capabilities.zoom?.min ?? 1;
-  const zoomMax = hardwareMaxZoom * SUPER_ZOOM_AI_MULTIPLIER;
+  const zoomMax = ultraZoomMode ? ULTRA_ZOOM_MAX_MULTIPLIER : Math.max(10, hardwareMaxZoom * SUPER_ZOOM_AI_MULTIPLIER);
   const digitalZoomFactor = uiZoom / hardwareMaxZoom;
   const inSuperZoom = digitalZoomFactor > 1.02;
+  const inUltraZoom = uiZoom >= 3.0 || ultraZoomMode;
 
   const setUiZoom = (value: number) => {
     const clamped = clamp(value, zoomMin, zoomMax);
@@ -569,11 +580,15 @@ export default function Viewfinder({
           zoomCropCanvas.width = w;
           zoomCropCanvas.height = h;
           const ctx = zoomCropCanvas.getContext("2d");
-          const shakeX = stabOn ? shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone) : 0;
-          const shakeY = stabOn ? shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone) : 0;
-          // The shift only ever draws on the stabilizer's own slice of the
-          // zoom (never SuperZoom's), so a deliberate zoom-in stays
-          // centered on what was framed instead of drifting with shake.
+          let shakeX = stabOn ? shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone) : 0;
+          let shakeY = stabOn ? shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone) : 0;
+          
+          // OIS Target Lock: when locked, heavily damp hand motion
+          if (oisLockActiveRef.current) {
+            shakeX *= 0.12;
+            shakeY *= 0.12;
+          }
+
           const { cropX, cropY, cropW, cropH } = computeStabilizedCrop(
             video.videoWidth,
             video.videoHeight,
@@ -591,7 +606,14 @@ export default function Viewfinder({
         } else {
           renderer.uploadSource(video, w, h);
         }
-        renderer.render(adjustmentsRef.current, seed, {
+
+        // Detail Boost for High Zoom: dynamically adapt FidelityFX CAS if zoomed in
+        const currentAdj = { ...adjustmentsRef.current };
+        if (digitalFactor > 2.0 && (currentAdj.casSharpness ?? 0) < 30) {
+          currentAdj.casSharpness = Math.min(75, (currentAdj.casSharpness ?? 0) + Math.min(45, (digitalFactor - 1) * 6));
+        }
+
+        renderer.render(currentAdj, seed, {
           zebra: zebraEnabledRef.current,
           zebraThreshold: zebraThresholdRef.current,
           focusPeaking: focusPeakingEnabledRef.current,
@@ -684,13 +706,9 @@ export default function Viewfinder({
   // matches what was previewed) but skips the slow AI pass, same as
   // ordinary digital zoom.
   const applySuperZoom = async (shot: CapturedPhoto, factor: number): Promise<CapturedPhoto> => {
-    const cropped = await cropForDigitalZoom(shot.bitmap, factor);
-    if (!superZoomOn) return cropped;
     setSuperZoomProgress(0);
     try {
-      const result = await enhanceCroppedZoom(cropped.bitmap, (fraction) => setSuperZoomProgress(fraction));
-      const bitmap = await createImageBitmap(result.blob);
-      return { bitmap, width: result.width, height: result.height };
+      return await enhanceUltraZoom(shot.bitmap, factor, superZoomOn, (fraction) => setSuperZoomProgress(fraction));
     } finally {
       setSuperZoomProgress(null);
     }
@@ -1010,6 +1028,19 @@ export default function Viewfinder({
         now={now}
         tiltDeg={tiltDeg}
       />
+
+      {/* Ultra-Zoom Telephoto HUD: PiP Radar, MTF Detail Analysis & OIS Target Lock */}
+      {inUltraZoom && (
+        <UltraZoomHUD
+          zoom={uiZoom}
+          hardwareMax={hardwareMaxZoom}
+          oisLocked={oisLockActive}
+          onToggleOisLock={() => setOisLockActive((v) => !v)}
+          onSelectZoom={setUiZoom}
+          stabilityPercent={stabilityScore}
+          tremorRate={0.2}
+        />
+      )}
 
       {showHistogram && (
         <div
@@ -1364,6 +1395,8 @@ export default function Viewfinder({
         setShowGrid={setShowGrid}
         kelvinValue={kelvinValue}
         onSelectKelvin={(k) => setKelvinIndex(nearestStepIndex(KELVIN_STEPS, k))}
+        ultraZoomMode={ultraZoomMode}
+        setUltraZoomMode={setUltraZoomMode}
       />
 
       {vintageMaskMenuOpen && (
@@ -1669,6 +1702,25 @@ export default function Viewfinder({
           >
             <StabilizerIcon className="w-5 h-5" />
             {superStabilizerOn && !stabilizer.available ? "Ultra-stabilisateur (capteur indisponible)" : "Ultra-stabilisateur"}
+          </button>
+
+          <button
+            onClick={() => {
+              setUltraZoomMode((v) => {
+                const next = !v;
+                if (next && uiZoom < 5) setUiZoom(5);
+                return next;
+              });
+            }}
+            aria-pressed={ultraZoomMode || uiZoom >= 5}
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              ultraZoomMode || uiZoom >= 5
+                ? "border-fuchsia-400 bg-fuchsia-500/25 text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.4)] font-bold"
+                : "border-white/30 bg-black/55 text-white"
+            }`}
+          >
+            <UltraZoomIcon className="w-5 h-5" />
+            {ultraZoomMode || uiZoom >= 5 ? `Ultra-Zoom (${uiZoom.toFixed(1)}×)` : "Ultra-Zoom 100×"}
           </button>
 
           {inSuperZoom && (

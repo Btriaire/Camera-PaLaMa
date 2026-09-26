@@ -473,6 +473,40 @@ export function ProBadgeIcon({ className = base }: IconProps) {
   );
 }
 
+export function UltraZoomIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="10" cy="10" r="7" />
+      <line x1="21" y1="21" x2="15" y2="15" strokeLinecap="round" strokeWidth="2.2" />
+      <circle cx="10" cy="10" r="3.5" strokeDasharray="2 2" />
+      <path strokeLinecap="round" d="M10 7v6M7 10h6" />
+    </svg>
+  );
+}
+
+export function OisLockIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="4" fill="currentColor" fillOpacity="0.2" />
+      <path strokeLinecap="round" d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function RadarScopeIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" strokeDasharray="3 3" />
+      <line x1="12" y1="12" x2="19" y2="7" strokeLinecap="round" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+
 
 
 
