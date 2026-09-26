@@ -73,7 +73,7 @@ export class GLRenderer {
       "u_grain", "u_halation", "u_bloom", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
       "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra", "u_focusPeaking",
       "u_infrared", "u_thermal", "u_nightVision", "u_glitch", "u_kaleidoscope",
-      "u_solarize", "u_cyanotype", "u_dither",
+      "u_solarize", "u_cyanotype", "u_dither", "u_lomochrome", "u_crossProcess", "u_tiltShift", "u_macroBoost",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
@@ -132,7 +132,7 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_lightLeak, adjustments.lightLeak / 100);
     gl.uniform1f(this.uniforms.u_scanlines, adjustments.scanlines / 100);
 
-    // Curious effects
+    // Curious effects & Macro
     gl.uniform1f(this.uniforms.u_infrared, (adjustments.infrared ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_thermal, (adjustments.thermal ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_nightVision, (adjustments.nightVision ?? 0) / 100);
@@ -141,6 +141,10 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_solarize, (adjustments.solarize ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_cyanotype, (adjustments.cyanotype ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_dither, (adjustments.dither ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_lomochrome, (adjustments.lomochrome ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_crossProcess, (adjustments.crossProcess ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_tiltShift, (adjustments.tiltShift ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_macroBoost, (adjustments.macroBoost ?? 0) / 100);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }

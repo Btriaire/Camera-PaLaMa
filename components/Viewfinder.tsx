@@ -44,13 +44,19 @@ import {
   FocusPeakingIcon,
   GalleryGridIcon,
   GridIcon,
+  HistogramIcon,
   LongExposureIcon,
+  LoupeIcon,
+  MacroFlowerIcon,
+  RatioFramingIcon,
   ScreenFlashIcon,
   SettingsIcon,
+  SoundIcon,
   SparkleIcon,
   StabilizerIcon,
   StrobeIcon,
   TimerIcon,
+  TorchIcon,
   ZebraIcon,
 } from "@/components/Icons";
 
@@ -188,6 +194,7 @@ export default function Viewfinder({
     ready,
     error,
     capabilities,
+    torchOn,
     setTorch,
     setZoom: setHardwareZoom,
     flip,
@@ -204,6 +211,11 @@ export default function Viewfinder({
   const [showGrid, setShowGrid] = useState(false);
   const [zebraEnabled, setZebraEnabled] = useState(false);
   const [focusPeakingEnabled, setFocusPeakingEnabled] = useState(false);
+  const [macroModeOn, setMacroModeOn] = useState(false);
+  const [macroLoupeOn, setMacroLoupeOn] = useState(false);
+  const [liveAspectMask, setLiveAspectMask] = useState<"none" | "1:1" | "4:5" | "16:9" | "3:2" | "65:24">("none");
+  const [showHistogram, setShowHistogram] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(false);
   // On by default, like a phone's own EIS -- the button is there to turn
   // it off (e.g. on a tripod, where the crop margin only costs framing for
   // nothing), not to opt in.
@@ -322,6 +334,35 @@ export default function Viewfinder({
     setHardwareZoom(Math.min(clamped, hardwareMaxZoom));
   };
 
+  const cycleAspectMask = () => {
+    const steps: ("none" | "1:1" | "4:5" | "16:9" | "3:2" | "65:24")[] = [
+      "none",
+      "1:1",
+      "4:5",
+      "16:9",
+      "3:2",
+      "65:24",
+    ];
+    const idx = steps.indexOf(liveAspectMask);
+    setLiveAspectMask(steps[(idx + 1) % steps.length]);
+  };
+
+  const toggleSoundMute = () => {
+    const next = !soundMuted;
+    setSoundMuted(next);
+    soundEngine.setSoundEnabled(!next);
+  };
+
+  const toggleMacroMode = () => {
+    setMacroModeOn((prev) => {
+      const next = !prev;
+      if (next) {
+        setFocusPeakingEnabled(true);
+      }
+      return next;
+    });
+  };
+
   // Keeps uiZoom pinned to the device's actual native zoom once
   // capabilities load in (right after the camera starts, or after a flip).
   useEffect(() => {
@@ -358,10 +399,16 @@ export default function Viewfinder({
       exposure: clamp(baseAdjustments.exposure + evBias + isoExposureBias, -100, 100),
       grain: clamp(baseAdjustments.grain + isoGrainBias, 0, 100),
       temperature: clamp(baseAdjustments.temperature + kelvinTempBias, -100, 100),
-      superContrast: superContrastOn ? LIVE_SUPER_CONTRAST : baseAdjustments.superContrast,
+      superContrast: macroModeOn
+        ? Math.max(baseAdjustments.superContrast, 55)
+        : superContrastOn
+        ? LIVE_SUPER_CONTRAST
+        : baseAdjustments.superContrast,
+      sharpen: macroModeOn ? Math.max(baseAdjustments.sharpen, 60) : baseAdjustments.sharpen,
+      macroBoost: macroModeOn ? Math.max(baseAdjustments.macroBoost ?? 0, 80) : baseAdjustments.macroBoost ?? 0,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [presetId, evBias, isoIndex, kelvinIndex, superContrastOn]
+    [presetId, evBias, isoIndex, kelvinIndex, superContrastOn, macroModeOn]
   );
   const hudSkin = preset?.hud ?? "modern";
   const timerSeconds = TIMER_STEPS[timerIndex];
@@ -898,12 +945,111 @@ export default function Viewfinder({
         now={now}
       />
 
-      <div
-        className="pointer-events-none absolute left-1/2 -translate-x-1/2"
-        style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3rem)" }}
-      >
-        <Histogram canvasRef={canvasRef} />
-      </div>
+      {showHistogram && (
+        <div
+          className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-20"
+          style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.5rem)" }}
+        >
+          <Histogram canvasRef={canvasRef} />
+        </div>
+      )}
+
+      {/* Live Aspect Ratio Framing Letterbox Mask */}
+      {liveAspectMask !== "none" && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-2">
+          <div
+            className={`w-full max-w-full max-h-full border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.72)] transition-all ${
+              liveAspectMask === "1:1"
+                ? "aspect-square"
+                : liveAspectMask === "4:5"
+                ? "aspect-[4/5]"
+                : liveAspectMask === "16:9"
+                ? "aspect-[16/9]"
+                : liveAspectMask === "3:2"
+                ? "aspect-[3/2]"
+                : "aspect-[65/24]"
+            }`}
+          >
+            <div className="absolute bottom-2 right-2 rounded bg-black/75 px-2 py-0.5 font-mono text-[11px] font-bold text-white border border-white/20 backdrop-blur">
+              {liveAspectMask === "65:24" ? "2.7:1 XPAN" : liveAspectMask}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Macro Mode Dedicated Live HUD & Reticle */}
+      {macroModeOn && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-between p-4">
+          <div
+            className="flex items-center gap-2.5 rounded-full border-2 border-emerald-400/70 bg-black/85 px-4 py-2 backdrop-blur-xl shadow-[0_0_25px_rgba(52,211,153,0.4)]"
+            style={{ marginTop: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.6rem)" }}
+          >
+            <MacroFlowerIcon className="w-5 h-5 text-emerald-400 animate-pulse" />
+            <span className="font-mono text-xs font-black uppercase tracking-wider text-emerald-300">
+              MODE MACRO PRO · NETTETÉ MAX
+            </span>
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
+          </div>
+
+          <div className="relative flex items-center justify-center">
+            <div className="relative h-48 w-48 rounded-full border-2 border-dashed border-emerald-400/70 bg-emerald-950/15 backdrop-blur-[1px] shadow-[0_0_30px_rgba(52,211,153,0.3)] flex items-center justify-center">
+              <div className="absolute h-full w-[1px] bg-emerald-400/40" />
+              <div className="absolute w-full h-[1px] bg-emerald-400/40" />
+              <div className="h-12 w-12 rounded-full border border-emerald-300/80" />
+              <div className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="absolute bottom-2 text-[9px] font-mono font-bold tracking-tight text-emerald-300 bg-black/70 px-2 py-0.5 rounded border border-emerald-500/30">
+                MISE AU POINT PROCHE (3-15 CM)
+              </span>
+            </div>
+          </div>
+
+          <div className="pointer-events-auto mb-20 flex items-center gap-2 rounded-full border border-emerald-500/40 bg-black/85 p-1.5 backdrop-blur-xl shadow-xl">
+            <button
+              onClick={() => setUiZoom(1)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 1) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              1.0×
+            </button>
+            <button
+              onClick={() => setUiZoom(2)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 2) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              2.0×
+            </button>
+            <button
+              onClick={() => setUiZoom(3)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 3) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              3.0×
+            </button>
+            <button
+              onClick={() => setUiZoom(5)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 5) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              5.0×
+            </button>
+            {capabilities.torch && (
+              <button
+                onClick={() => setTorch(!torchOn)}
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                  torchOn ? "bg-amber-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                <TorchIcon className="w-4 h-4" on={torchOn} />
+                Torche
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <LevelIndicator tiltDeg={tiltDeg} />
 
@@ -958,7 +1104,7 @@ export default function Viewfinder({
       {burstCount > 0 && (
         <div className="pointer-events-none absolute top-[28%] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
           <div className="flex items-center gap-3 rounded-full border-2 border-amber-400 bg-black/85 px-5 py-2.5 backdrop-blur-xl shadow-[0_0_25px_rgba(245,158,11,0.5)]">
-            <BurstIcon className="w-6 h-6 text-amber-400" />
+            <BurstIcon className="w-7 h-7 text-amber-400" />
             <div className="flex items-baseline gap-1.5 font-mono">
               <span className="text-xs font-bold text-amber-400/90 tracking-wider">RAFALE</span>
               <span className="text-2xl font-black text-white tabular-nums">[{burstCount}]</span>
@@ -985,38 +1131,80 @@ export default function Viewfinder({
         </div>
       )}
 
+      {/* Top Controls Bar with Large Touch Icons */}
       <div
         className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 z-30 pointer-events-auto"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        {/* Left capsule: Gallery & Settings */}
-        <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/55 p-1 backdrop-blur-xl shadow-lg">
+        {/* Left capsule: Gallery, Settings & Audio */}
+        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/65 p-1.5 backdrop-blur-xl shadow-xl">
           <button
             onClick={onOpenGallery}
             aria-label="Galerie"
-            className="flex h-8.5 w-8.5 items-center justify-center rounded-full text-white/85 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
           >
-            <GalleryGridIcon className="w-5 h-5" />
+            <GalleryGridIcon className="w-6 h-6" />
           </button>
           <button
             onClick={() => setDashboardOpen(true)}
             aria-label="Tableau de bord"
-            className="flex h-8.5 w-8.5 items-center justify-center rounded-full text-white/85 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
           >
-            <SettingsIcon className="w-5 h-5" />
+            <SettingsIcon className="w-6 h-6" />
+          </button>
+          <button
+            onClick={toggleSoundMute}
+            aria-label={soundMuted ? "Activer les sons" : "Désactiver les sons (silencieux)"}
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              soundMuted ? "bg-red-500/30 text-red-300 border border-red-400/50" : "text-white/90 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            <SoundIcon className="w-5 h-5" mute={soundMuted} />
           </button>
         </div>
 
-        {/* Right capsule: Quick Shooting Tools */}
-        <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/55 p-1 backdrop-blur-xl shadow-lg">
+        {/* Right capsule: Quick Shooting Tools (Macro, Timer, Ratio, Grid, Zebra, Peaking, Burst, Flash, Flip) */}
+        <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/65 p-1.5 backdrop-blur-xl shadow-xl overflow-x-auto max-w-[70vw] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            onClick={toggleMacroMode}
+            aria-label="Mode Macro (Mise au point ultra-proche)"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              macroModeOn ? "bg-emerald-400 text-black font-bold shadow-[0_0_12px_rgba(52,211,153,0.5)] ring-2 ring-emerald-300" : "text-white/90 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            <MacroFlowerIcon className="w-6 h-6" />
+          </button>
+          <button
+            onClick={cycleAspectMask}
+            aria-label="Cadre de cadrage / Ratio"
+            className={`relative flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              liveAspectMask !== "none" ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            <RatioFramingIcon className="w-6 h-6" />
+            {liveAspectMask !== "none" && (
+              <span className="absolute -bottom-0.5 -right-0.5 text-[9px] font-mono font-black leading-none bg-black text-amber-400 px-0.5 rounded">
+                {liveAspectMask === "65:24" ? "XP" : liveAspectMask}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setShowHistogram((h) => !h)}
+            aria-label="Histogramme en direct"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              showHistogram ? "bg-cyan-400 text-black font-bold shadow-[0_0_10px_rgba(34,211,238,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            <HistogramIcon className="w-6 h-6" />
+          </button>
           <button
             onClick={() => setTimerIndex((i) => (i + 1) % TIMER_STEPS.length)}
             aria-label="Retardateur"
-            className={`relative flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
-              timerSeconds > 0 ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            className={`relative flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              timerSeconds > 0 ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <TimerIcon className="w-5 h-5" />
+            <TimerIcon className="w-6 h-6" />
             {timerSeconds > 0 && (
               <span className="absolute -bottom-0.5 -right-0.5 text-[10px] font-mono font-black leading-none bg-black text-amber-400 px-0.5 rounded">
                 {timerSeconds}s
@@ -1026,55 +1214,55 @@ export default function Viewfinder({
           <button
             onClick={() => setShowGrid((g) => !g)}
             aria-label="Grille"
-            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
-              showGrid ? "bg-white text-black font-bold shadow-sm" : "text-white/85 hover:bg-white/15 hover:text-white"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              showGrid ? "bg-white text-black font-bold shadow-sm" : "text-white/90 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <GridIcon className="w-5 h-5" />
+            <GridIcon className="w-6 h-6" />
           </button>
           <button
             onClick={() => setZebraEnabled((z) => !z)}
             aria-label="Alerte de surexposition (zébrures)"
-            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
-              zebraEnabled ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              zebraEnabled ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <ZebraIcon className="w-5 h-5" />
+            <ZebraIcon className="w-6 h-6" />
           </button>
           <button
             onClick={() => setFocusPeakingEnabled((fp) => !fp)}
             aria-label="Aide à la mise au point (Focus Peaking vert)"
-            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
-              focusPeakingEnabled ? "bg-emerald-400 text-black font-bold shadow-[0_0_8px_rgba(52,211,153,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              focusPeakingEnabled ? "bg-emerald-400 text-black font-bold shadow-[0_0_10px_rgba(52,211,153,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <FocusPeakingIcon className="w-5 h-5" />
+            <FocusPeakingIcon className="w-6 h-6" />
           </button>
           <button
             onClick={() => setBurstMenuOpen((v) => !v)}
             aria-label="Mode rafale"
-            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
-              burstModeArmed ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              burstModeArmed ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <BurstIcon className="w-5 h-5" />
+            <BurstIcon className="w-6 h-6" />
           </button>
           <button
             onClick={() => setFlashMenuOpen((v) => !v)}
             aria-label="Mode flash"
-            className={`flex h-8.5 w-8.5 items-center justify-center rounded-full active:scale-90 transition-all ${
-              flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "text-white/85 hover:bg-white/15 hover:text-white"
+            className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+              flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "text-white/90 hover:bg-white/20 hover:text-white"
             }`}
           >
-            <FlashModeIcon mode={flashMode} className="w-5 h-5" />
+            <FlashModeIcon mode={flashMode} className="w-6 h-6" />
           </button>
           {capabilities.canSwitch && (
             <button
               onClick={flip}
               aria-label="Changer de caméra"
-              className="flex h-8.5 w-8.5 items-center justify-center rounded-full text-white/85 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/20 hover:text-white active:scale-90 transition-all"
             >
-              <FlipCameraIcon className="w-5 h-5" />
+              <FlipCameraIcon className="w-6 h-6" />
             </button>
           )}
         </div>
@@ -1211,67 +1399,80 @@ export default function Viewfinder({
         >
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-4 py-2.5 text-sm font-medium text-white backdrop-blur"
+            className="flex flex-shrink-0 items-center gap-2.5 rounded-full border border-white/30 bg-black/55 px-4.5 py-3 text-sm font-semibold text-white backdrop-blur shadow-md active:scale-95 transition-all"
           >
-            <ApertureIcon className="w-5 h-5" />
+            <ApertureIcon className="w-5 h-5 text-amber-400" />
             {preset?.label ?? "Naturel"}
           </button>
 
-          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
+          <button
+            onClick={toggleMacroMode}
+            aria-pressed={macroModeOn}
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur shadow-md active:scale-95 transition-all ${
+              macroModeOn
+                ? "border-emerald-400 bg-emerald-400/25 text-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.4)]"
+                : "border-white/30 bg-black/55 text-white"
+            }`}
+          >
+            <MacroFlowerIcon className="w-5 h-5" />
+            Macro (Détails+)
+          </button>
+
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/30 bg-black/55 px-3.5 py-2.5 backdrop-blur shadow-md">
             <button
               onClick={() => cycleIso(-1)}
               disabled={isoIndex === 0}
               aria-label="Diminuer l'ISO"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
+              className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
             >
               −
             </button>
-            <span className="w-16 text-center text-sm font-mono tabular-nums text-white/70">ISO {isoValue}</span>
+            <span className="w-16 text-center text-sm font-mono font-bold tabular-nums text-white">ISO {isoValue}</span>
             <button
               onClick={() => cycleIso(1)}
               disabled={isoIndex === ISO_STEPS.length - 1}
               aria-label="Augmenter l'ISO"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
+              className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
             >
               +
             </button>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/30 bg-black/55 px-3.5 py-2.5 backdrop-blur shadow-md">
             <button
               onClick={() => cycleKelvin(-1)}
               disabled={kelvinIndex === 0}
               aria-label="Refroidir la balance des blancs"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
+              className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
             >
               −
             </button>
-            <span className="w-16 text-center text-sm font-mono tabular-nums text-white/70">{kelvinValue}K</span>
+            <span className="w-16 text-center text-sm font-mono font-bold tabular-nums text-white">{kelvinValue}K</span>
             <button
               onClick={() => cycleKelvin(1)}
               disabled={kelvinIndex === KELVIN_STEPS.length - 1}
               aria-label="Réchauffer la balance des blancs"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
+              className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
             >
               +
             </button>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
+          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/30 bg-black/55 px-3.5 py-2.5 backdrop-blur shadow-md">
             <button
               onClick={() => setEvBias((v) => Math.max(-2, Math.round((v - 0.5) * 10) / 10))}
               aria-label="Diminuer l'exposition"
-              className="px-2 text-lg leading-none text-white/80"
+              className="px-2 text-xl leading-none text-white/90 active:scale-90"
             >
               −
             </button>
-            <span className="w-12 text-center text-sm font-mono tabular-nums text-white/70">
+            <span className="w-12 text-center text-sm font-mono font-bold tabular-nums text-white">
               {evBias > 0 ? `+${evBias.toFixed(1)}` : evBias.toFixed(1)}
             </span>
             <button
               onClick={() => setEvBias((v) => Math.min(2, Math.round((v + 0.5) * 10) / 10))}
               aria-label="Augmenter l'exposition"
-              className="px-2 text-lg leading-none text-white/80"
+              className="px-2 text-xl leading-none text-white/90 active:scale-90"
             >
               +
             </button>
@@ -1281,11 +1482,11 @@ export default function Viewfinder({
             onClick={() => toggleStabilizer(setStabilizerOn)}
             aria-pressed={stabilizerOn}
             aria-label="Stabilisateur électronique"
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              stabilizerOn ? "border-emerald-300/70 bg-emerald-300/15 text-emerald-300" : "border-white/25 bg-black/40 text-white"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              stabilizerOn ? "border-emerald-300 bg-emerald-300/20 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]" : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <StabilizerIcon className="w-4 h-4" />
+            <StabilizerIcon className="w-5 h-5" />
             {stabilizerOn && !stabilizer.available ? "Stabilisateur (capteur indisponible)" : "Stabilisateur"}
           </button>
 
@@ -1293,27 +1494,23 @@ export default function Viewfinder({
             onClick={() => toggleStabilizer(setSuperStabilizerOn)}
             aria-pressed={superStabilizerOn}
             aria-label="Ultra-stabilisateur électronique"
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              superStabilizerOn ? "border-violet-300/70 bg-violet-300/15 text-violet-300" : "border-white/25 bg-black/40 text-white"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              superStabilizerOn ? "border-violet-300 bg-violet-300/20 text-violet-300 shadow-[0_0_10px_rgba(196,181,253,0.3)]" : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <StabilizerIcon className="w-4 h-4" />
+            <StabilizerIcon className="w-5 h-5" />
             {superStabilizerOn && !stabilizer.available ? "Ultra-stabilisateur (capteur indisponible)" : "Ultra-stabilisateur"}
           </button>
 
-          {/* Only shown once actually zoomed past the hardware max — this
-              is the one AI toggle that's about a mode the user has to
-              already be in for it to make sense, unlike the always-shown
-              toggles below which apply to any shot. */}
           {inSuperZoom && (
             <button
               onClick={() => setSuperZoomOn((v) => !v)}
               aria-pressed={superZoomOn}
-              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-                superZoomOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+              className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+                superZoomOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
               }`}
             >
-              <SparkleIcon className="w-4 h-4" />
+              <SparkleIcon className="w-5 h-5" />
               SuperZoom IA
             </button>
           )}
@@ -1321,55 +1518,55 @@ export default function Viewfinder({
           <button
             onClick={() => setSuperContrastOn((v) => !v)}
             aria-pressed={superContrastOn}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              superContrastOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              superContrastOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <ContrastIcon className="w-4 h-4" />
+            <ContrastIcon className="w-5 h-5" />
             Super Contraste
           </button>
 
           <button
             onClick={() => setDenoiseAIOn((v) => !v)}
             aria-pressed={denoiseAIOn}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              denoiseAIOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              denoiseAIOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <SparkleIcon className="w-4 h-4" />
+            <SparkleIcon className="w-5 h-5" />
             Débruitage IA
           </button>
 
           <button
             onClick={() => setSuperResOn((v) => !v)}
             aria-pressed={superResOn}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              superResOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              superResOn ? "border-cyan-300 bg-cyan-300/20 text-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.3)]" : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <SparkleIcon className="w-4 h-4" />
+            <SparkleIcon className="w-5 h-5" />
             Super-résolution IA
           </button>
 
           <button
             onClick={() => setBurstMenuOpen((v) => !v)}
             aria-pressed={burstModeArmed}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              burstModeArmed ? "border-amber-300/70 bg-amber-300/15 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]" : "border-white/25 bg-black/40 text-white"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              burstModeArmed ? "border-amber-300 bg-amber-300/20 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <BurstIcon className="w-4 h-4" />
+            <BurstIcon className="w-5 h-5" />
             {burstModeArmed ? `Rafale (${burstSpeed === "fast" ? "10fps" : burstSpeed === "eco" ? "3fps" : "5fps"})` : "Mode Rafale"}
           </button>
 
           <button
             onClick={() => setLongExposureMenuOpen((v) => !v)}
             aria-pressed={longExposureSeconds > 0}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              longExposureSeconds > 0 ? "border-amber-300/70 bg-amber-300/15 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]" : "border-white/25 bg-black/40 text-white"
+            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+              longExposureSeconds > 0 ? "border-amber-300 bg-amber-300/20 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/30 bg-black/55 text-white"
             }`}
           >
-            <LongExposureIcon className="w-4 h-4" />
+            <LongExposureIcon className="w-5 h-5" />
             {longExposureSeconds > 0 ? `Pose longue ${longExposureSeconds}s` : "Pose longue"}
           </button>
         </div>
@@ -1404,18 +1601,18 @@ export default function Viewfinder({
               <button
                 onClick={() => setViewerPhotoIndex(0)}
                 aria-label="Ouvrir la dernière photo en grand"
-                className="h-14 w-14 overflow-hidden rounded-2xl border-2 border-white/80 shadow-xl relative active:scale-90 transition-transform bg-black/50"
+                className="h-15 w-15 overflow-hidden rounded-2xl border-2 border-white/90 shadow-2xl relative active:scale-90 transition-transform bg-black/50"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photoUrl(lastPhoto.id)} alt="" className="h-full w-full object-cover" />
                 {recentPhotos.length > 1 && (
-                  <span className="absolute bottom-1 right-1 bg-black/75 backdrop-blur text-[9px] font-mono font-bold text-white px-1 rounded-sm border border-white/20">
+                  <span className="absolute bottom-1 right-1 bg-black/80 backdrop-blur text-[10px] font-mono font-bold text-white px-1.5 rounded-sm border border-white/30">
                     {recentPhotos.length}
                   </span>
                 )}
               </button>
             ) : (
-              <div className="h-14 w-14" aria-hidden />
+              <div className="h-15 w-15" aria-hidden />
             )}
           </div>
 
@@ -1426,11 +1623,11 @@ export default function Viewfinder({
               onPointerLeave={handleShutterUp}
               disabled={!ready}
               aria-label="Déclencher"
-              className={`flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 shadow-xl active:scale-95 transition-all disabled:opacity-40 ${
-                burstCount > 0 ? "border-amber-300 ring-4 ring-amber-400/40" : "border-white/80"
+              className={`flex h-[82px] w-[82px] items-center justify-center rounded-full border-4 shadow-2xl active:scale-95 transition-all disabled:opacity-40 ${
+                burstCount > 0 ? "border-amber-300 ring-4 ring-amber-400/50" : "border-white"
               }`}
             >
-              <span className={`h-15 w-15 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
+              <span className={`h-16 w-16 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
             </button>
             {burstCount > 0 && (
               <span className="absolute -top-2 -right-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-300 px-1.5 text-xs font-black text-black shadow-lg">
@@ -1439,7 +1636,7 @@ export default function Viewfinder({
             )}
           </div>
 
-          <div className="h-14 w-14" aria-hidden />
+          <div className="h-15 w-15" aria-hidden />
         </div>
       </div>
 

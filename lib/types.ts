@@ -24,7 +24,7 @@ export type Adjustments = {
   lightLeak: number; // 0..100
   scanlines: number; // 0..100
   
-  // Experimental & Bizarre Optical Effects
+  // Experimental & Bizarre Optical Effects & Macro Enhancers
   infrared: number; // 0..100, Kodak Aerochrome false-color infrared (greens -> deep red)
   thermal: number; // 0..100, FLIR / predator thermal heat vision false color
   nightVision: number; // 0..100, Gen-3 phosphor green NVG + tube flare
@@ -33,6 +33,10 @@ export type Adjustments = {
   solarize: number; // 0..100, Sabattier darkroom solarization reversal
   cyanotype: number; // 0..100, 1842 historic Prussian blue blueprint process
   dither: number; // 0..100, 2-bit bayer matrix retro pixelation
+  lomochrome: number; // 0..100, turquoise-shift foliage & warm amber skies
+  crossProcess: number; // 0..100, E-6 slide chemistry in C-41 color cross
+  tiltShift: number; // 0..100, miniature diorama focus band with progressive blur
+  macroBoost: number; // 0..100, extreme high-pass texture relief for close-ups
 
   dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
   aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
@@ -69,6 +73,10 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   solarize: 0,
   cyanotype: 0,
   dither: 0,
+  lomochrome: 0,
+  crossProcess: 0,
+  tiltShift: 0,
+  macroBoost: 0,
   dateStamp: false,
   aspectRatio: "original",
   filmBorder: "none",

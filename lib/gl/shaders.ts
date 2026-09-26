@@ -51,6 +51,10 @@ uniform float u_kaleidoscope;
 uniform float u_solarize;
 uniform float u_cyanotype;
 uniform float u_dither;
+uniform float u_lomochrome;
+uniform float u_crossProcess;
+uniform float u_tiltShift;
+uniform float u_macroBoost;
 
 // Live Viewfinder Shooting Aids
 uniform float u_zebra;
@@ -246,6 +250,49 @@ void main() {
     float level = floor(ditLuma * 4.0) / 4.0;
     vec3 gbColors = mix(vec3(0.06, 0.22, 0.06), vec3(0.61, 0.73, 0.06), level);
     color = mix(color, gbColors, clamp(u_dither, 0.0, 1.0));
+  }
+
+  // G. Lomography LomoChrome Turquoise (Greens/Yellows -> Turquoise/Cyan, Blues -> Warm Amber Gold)
+  if (u_lomochrome > 0.001) {
+    vec3 tc = color;
+    float r = color.r;
+    float g = color.g;
+    float b = color.b;
+    tc.r = mix(r, b * 1.2, 0.75);
+    tc.g = mix(g, (g + b) * 0.6, 0.85);
+    tc.b = mix(b, (r + g) * 0.4, 0.75);
+    color = mix(color, clamp(tc, 0.0, 1.0), clamp(u_lomochrome, 0.0, 1.0));
+  }
+
+  // H. Cross-Processing (E-6 Slide Film processed in C-41 Negative Chemistry)
+  if (u_crossProcess > 0.001) {
+    vec3 xp = color;
+    xp.r = pow(xp.r, 1.35) * 1.2;
+    xp.g = pow(xp.g, 0.92) * 1.05;
+    xp.b = pow(xp.b, 0.75) * 0.85;
+    // Boost cyan in shadows, yellow in highlights
+    xp.g += (1.0 - luma(color)) * 0.08;
+    xp.r += luma(color) * 0.12;
+    color = mix(color, clamp(xp, 0.0, 1.0), clamp(u_crossProcess, 0.0, 1.0));
+  }
+
+  // I. Tilt-Shift Miniature Diorama (Sharp center horizontal band, progressive top/bottom blur)
+  if (u_tiltShift > 0.001) {
+    float distFromCenter = abs(uv.y - 0.5);
+    float blurFactor = smoothstep(0.12, 0.42, distFromCenter) * clamp(u_tiltShift, 0.0, 1.0);
+    vec3 tsBlur = (
+      texture2D(u_image, uv + vec2(0.0, tx.y * 4.0)).rgb +
+      texture2D(u_image, uv - vec2(0.0, tx.y * 4.0)).rgb +
+      texture2D(u_image, uv + vec2(0.0, tx.y * 8.0)).rgb +
+      texture2D(u_image, uv - vec2(0.0, tx.y * 8.0)).rgb
+    ) * 0.25;
+    color = mix(color, tsBlur, blurFactor * 0.85);
+  }
+
+  // J. Macro High-Pass Texture Boost (Extreme micro-contrast for close-up structures)
+  if (u_macroBoost > 0.001) {
+    vec3 fineDetail = color - blurred;
+    color += fineDetail * u_macroBoost * 2.5;
   }
 
   // 13. Monochrome & Duotone tinting
