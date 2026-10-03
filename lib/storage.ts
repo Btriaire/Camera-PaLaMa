@@ -90,3 +90,17 @@ export async function deletePhoto(id: string): Promise<boolean> {
     return false;
   }
 }
+
+// Asks the browser not to evict this origin's IndexedDB under storage
+// pressure — the library lives only on this device, so an eviction would
+// silently delete saved photos. Best-effort: iOS Safari grants it on its
+// own heuristics (and more readily for an installed PWA).
+export async function requestPersistentStorage(): Promise<boolean> {
+  try {
+    if (!navigator.storage?.persist) return false;
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
+}

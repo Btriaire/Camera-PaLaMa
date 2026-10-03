@@ -9,7 +9,7 @@ import { useCamera } from "@/lib/useCamera";
 import { exportPhoto, exportPhotoForAI, restyleAfterAI } from "@/lib/export";
 import { aiDenoise, superResolve } from "@/lib/superRes";
 import { getSettings, hasSeenIntro, markIntroSeen } from "@/lib/settings";
-import { listPhotos, photoUrl, uploadPhoto } from "@/lib/storage";
+import { listPhotos, photoUrl, requestPersistentStorage, uploadPhoto } from "@/lib/storage";
 import { Adjustments, SavedPhotoMeta } from "@/lib/types";
 
 // Cap on how many recent shots the viewfinder's filmstrip (and the corner
@@ -49,6 +49,7 @@ export default function CameraApp() {
     if (hasSeenIntro()) camera.requestAccess();
     else setShowIntro(true);
     listPhotos().then(({ items }) => setRecentPhotos(items.slice(0, MAX_RECENT_PHOTOS)));
+    requestPersistentStorage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
