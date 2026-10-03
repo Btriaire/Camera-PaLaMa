@@ -1,8 +1,6 @@
 import { Adjustments } from "../types";
 import { FRAGMENT_SHADER, VERTEX_SHADER } from "./shaders";
 
-// Anything the browser can hand a WebGL texture from — a live <video>
-// frame or a decoded still.
 export type ImageSource = HTMLVideoElement | HTMLImageElement | ImageBitmap | HTMLCanvasElement;
 
 function compile(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
@@ -18,11 +16,17 @@ function compile(gl: WebGLRenderingContext, type: number, source: string): WebGL
   return shader;
 }
 
-// Wraps the WebGL1 context + uber-shader that renders every filter/preset.
-// One instance is reused for both the live viewfinder preview (called every
-// animation frame) and the full-resolution export (called once, against an
-// offscreen canvas sized to the original capture) — same GPU program, same
-// output, no drift between preview and final.
+export type LiveAssistOptions = {
+  zebra?: boolean;
+  zebraThreshold?: number;
+  focusPeaking?: boolean;
+  focusPeakingColor?: number;
+  falseColor?: boolean;
+  liveDro?: boolean;
+  monoAssist?: boolean;
+  anamorphicDesqueeze?: number;
+};
+
 export class GLRenderer {
   private gl: WebGLRenderingContext;
   private program: WebGLProgram;
@@ -47,8 +51,6 @@ export class GLRenderer {
     this.program = program;
     gl.useProgram(program);
 
-    // Fullscreen quad, two triangles, with matching UVs (flipped in Y since
-    // video/image sources are top-down but WebGL texture space is bottom-up).
     const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
     const texCoords = new Float32Array([0, 1, 1, 1, 0, 0, 1, 0]);
 
@@ -79,15 +81,22 @@ export class GLRenderer {
       "u_image", "u_texelSize", "u_resolution", "u_seed",
       "u_exposure", "u_contrast", "u_saturation", "u_temperature", "u_tint",
       "u_highlights", "u_shadows", "u_sharpen", "u_superContrast", "u_denoise", "u_vignette",
-      "u_grain", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
-      "u_chromaticAberration", "u_lightLeak", "u_scanlines", "u_zebra",
+      "u_grain", "u_halation", "u_bloom", "u_fade", "u_monochrome", "u_tintColor", "u_tintStrength",
+      "u_chromaticAberration", "u_lightLeak", "u_scanlines",
+      "u_zebra", "u_zebraThreshold", "u_focusPeaking", "u_focusPeakingColor",
+      "u_falseColor", "u_liveDro", "u_monoAssist", "u_anamorphicDesqueeze",
+      "u_infrared", "u_thermal", "u_nightVision", "u_glitch", "u_kaleidoscope",
+      "u_solarize", "u_cyanotype", "u_dither", "u_lomochrome", "u_crossProcess", "u_tiltShift", "u_macroBoost",
+      "u_anamorphicFlare", "u_toneCurve", "u_shadowTint", "u_highlightTint", "u_dehaze", "u_skinSmooth",
+      "u_acesToneMap", "u_casSharpness", "u_remjetHalation", "u_printFilmStock",
+      "u_jwstSpikes", "u_kirlianAura", "u_lidarMesh", "u_quantumEvent", "u_solarHAlpha", "u_electronMicro",
+      "u_dofBlur", "u_focusDistance", "u_focusPoint", "u_apertureFStop", "u_focusPlaneMode",
+      "u_bokehAspect", "u_petzvalSwirl", "u_highlightKnee",
     ]) {
       this.uniforms[name] = gl.getUniformLocation(program, name);
     }
   }
 
-  // Uploads a new frame/image. Call every frame for live video, once per
-  // still image. Resizes the drawing buffer to match if needed.
   uploadSource(source: ImageSource, width: number, height: number) {
     const gl = this.gl;
     this.sourceWidth = width;
@@ -100,14 +109,20 @@ export class GLRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   }
 
-  // `zebra` is deliberately not part of Adjustments: it's a live-viewfinder
-  // shooting aid (overexposure warning), never something that should get
-  // baked into an exported photo. Callers that export (lib/export.ts,
-  // preset thumbnails) simply never pass it, so it defaults off there.
-  render(adjustments: Adjustments, seed = 0, zebra = false) {
+  render(
+    adjustments: Adjustments,
+    seed = 0,
+    liveAssist: LiveAssistOptions | boolean = false,
+    legacyPeaking = false
+  ) {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.useProgram(this.program);
+
+    const opts: LiveAssistOptions =
+      typeof liveAssist === "boolean"
+        ? { zebra: liveAssist, focusPeaking: legacyPeaking }
+        : liveAssist;
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -115,7 +130,16 @@ export class GLRenderer {
     gl.uniform2f(this.uniforms.u_texelSize, 1 / Math.max(this.sourceWidth, 1), 1 / Math.max(this.sourceHeight, 1));
     gl.uniform2f(this.uniforms.u_resolution, this.sourceWidth, this.sourceHeight);
     gl.uniform1f(this.uniforms.u_seed, seed);
-    gl.uniform1f(this.uniforms.u_zebra, zebra ? 1.0 : 0.0);
+
+    // Live Shooting Aids & Pro Tools
+    gl.uniform1f(this.uniforms.u_zebra, opts.zebra ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_zebraThreshold, opts.zebraThreshold ?? 0.92);
+    gl.uniform1f(this.uniforms.u_focusPeaking, opts.focusPeaking ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_focusPeakingColor, opts.focusPeakingColor ?? 0.0);
+    gl.uniform1f(this.uniforms.u_falseColor, opts.falseColor ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_liveDro, opts.liveDro ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_monoAssist, opts.monoAssist ? 1.0 : 0.0);
+    gl.uniform1f(this.uniforms.u_anamorphicDesqueeze, opts.anamorphicDesqueeze ?? 1.0);
 
     gl.uniform1f(this.uniforms.u_exposure, adjustments.exposure / 50);
     gl.uniform1f(this.uniforms.u_contrast, adjustments.contrast / 100);
@@ -129,6 +153,8 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_denoise, adjustments.denoise / 100);
     gl.uniform1f(this.uniforms.u_vignette, adjustments.vignette / 100);
     gl.uniform1f(this.uniforms.u_grain, adjustments.grain / 100);
+    gl.uniform1f(this.uniforms.u_halation, (adjustments.halation ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_bloom, (adjustments.bloom ?? 0) / 100);
     gl.uniform1f(this.uniforms.u_fade, adjustments.fade / 100);
     gl.uniform1f(this.uniforms.u_monochrome, adjustments.monochrome / 100);
     gl.uniform3f(
@@ -142,7 +168,81 @@ export class GLRenderer {
     gl.uniform1f(this.uniforms.u_lightLeak, adjustments.lightLeak / 100);
     gl.uniform1f(this.uniforms.u_scanlines, adjustments.scanlines / 100);
 
+    // Curious effects & Macro
+    gl.uniform1f(this.uniforms.u_infrared, (adjustments.infrared ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_thermal, (adjustments.thermal ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_nightVision, (adjustments.nightVision ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_glitch, (adjustments.glitch ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_kaleidoscope, (adjustments.kaleidoscope ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_solarize, (adjustments.solarize ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_cyanotype, (adjustments.cyanotype ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_dither, (adjustments.dither ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_lomochrome, (adjustments.lomochrome ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_crossProcess, (adjustments.crossProcess ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_tiltShift, (adjustments.tiltShift ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_macroBoost, (adjustments.macroBoost ?? 0) / 100);
+
+    // Pro Cinema & Color Science
+    gl.uniform1f(this.uniforms.u_anamorphicFlare, (adjustments.anamorphicFlare ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_toneCurve, (adjustments.toneCurve ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_shadowTint, (adjustments.shadowTint ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_highlightTint, (adjustments.highlightTint ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_dehaze, (adjustments.dehaze ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_skinSmooth, (adjustments.skinSmooth ?? 0) / 100);
+
+    // Cutting-Edge Computational Photography
+    gl.uniform1f(this.uniforms.u_acesToneMap, (adjustments.acesToneMap ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_casSharpness, (adjustments.casSharpness ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_remjetHalation, (adjustments.remjetHalation ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_printFilmStock, adjustments.printFilmStock ?? 0);
+
+    // Exotic & Scientific Computational Sensors
+    gl.uniform1f(this.uniforms.u_jwstSpikes, (adjustments.jwstSpikes ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_kirlianAura, (adjustments.kirlianAura ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_lidarMesh, (adjustments.lidarMesh ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_quantumEvent, (adjustments.quantumEvent ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_solarHAlpha, (adjustments.solarHAlpha ?? 0) / 100);
+    gl.uniform1f(this.uniforms.u_electronMicro, (adjustments.electronMicro ?? 0) / 100);
+
+    // Optical Depth of Field, Autofocus & Bokeh Simulator
+    gl.uniform1f(this.uniforms.u_dofBlur, (adjustments.dofBlur ?? 0));
+    gl.uniform1f(this.uniforms.u_focusDistance, (adjustments.focusDistance ?? 30));
+    gl.uniform2f(
+      this.uniforms.u_focusPoint,
+      adjustments.focusPoint ? adjustments.focusPoint[0] : 0.5,
+      adjustments.focusPoint ? adjustments.focusPoint[1] : 0.5
+    );
+    gl.uniform1f(this.uniforms.u_apertureFStop, (adjustments.apertureFStop ?? 1.8));
+    gl.uniform1f(this.uniforms.u_focusPlaneMode, (adjustments.focusPlaneMode ?? 0));
+    gl.uniform1f(this.uniforms.u_bokehAspect, (adjustments.bokehAspect ?? 1.0));
+    gl.uniform1f(this.uniforms.u_petzvalSwirl, (adjustments.petzvalSwirl ?? 0));
+    gl.uniform1f(this.uniforms.u_highlightKnee, (adjustments.highlightKnee ?? 0));
+
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  renderSplit(
+    neutralAdj: Adjustments,
+    activeAdj: Adjustments,
+    splitRatio = 0.5,
+    seed = 0,
+    liveAssist: LiveAssistOptions | boolean = false,
+    legacyPeaking = false
+  ) {
+    const gl = this.gl;
+    const splitX = Math.round(this.canvas.width * Math.max(0.01, Math.min(0.99, splitRatio)));
+
+    gl.enable(gl.SCISSOR_TEST);
+
+    // Left: Unfiltered Neutral Sensor
+    gl.scissor(0, 0, splitX, this.canvas.height);
+    this.render(neutralAdj, seed, liveAssist, legacyPeaking);
+
+    // Right: Active Emulsion
+    gl.scissor(splitX, 0, this.canvas.width - splitX, this.canvas.height);
+    this.render(activeAdj, seed, liveAssist, legacyPeaking);
+
+    gl.disable(gl.SCISSOR_TEST);
   }
 
   dispose() {

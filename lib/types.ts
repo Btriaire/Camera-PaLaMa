@@ -14,6 +14,8 @@ export type Adjustments = {
   denoise: number; // 0..100, cheap blur-blend
   vignette: number; // 0..100
   grain: number; // 0..100, film grain
+  halation: number; // 0..100, red highlight diffusion / glow (CineStill / vintage emulsion)
+  bloom: number; // 0..100, pro-mist dreamy highlight diffusion
   fade: number; // 0..100, lifts blacks for a matte/faded look
   monochrome: number; // 0..100, mix toward grayscale
   tintColor: [number, number, number]; // 0..255, color the mono/duotone leans on
@@ -21,6 +23,56 @@ export type Adjustments = {
   chromaticAberration: number; // 0..100
   lightLeak: number; // 0..100
   scanlines: number; // 0..100
+  
+  // Experimental & Bizarre Optical Effects & Macro Enhancers
+  infrared: number; // 0..100, Kodak Aerochrome false-color infrared (greens -> deep red)
+  thermal: number; // 0..100, FLIR / predator thermal heat vision false color
+  nightVision: number; // 0..100, Gen-3 phosphor green NVG + tube flare
+  glitch: number; // 0..100, VHS tracking error & digital displacement
+  kaleidoscope: number; // 0..100, optical prism facet reflections
+  solarize: number; // 0..100, Sabattier darkroom solarization reversal
+  cyanotype: number; // 0..100, 1842 historic Prussian blue blueprint process
+  dither: number; // 0..100, 2-bit bayer matrix retro pixelation
+  lomochrome: number; // 0..100, turquoise-shift foliage & warm amber skies
+  crossProcess: number; // 0..100, E-6 slide chemistry in C-41 color cross
+  tiltShift: number; // 0..100, miniature diorama focus band with progressive blur
+  macroBoost: number; // 0..100, extreme high-pass texture relief for close-ups
+
+  // Professional Cinema & Color Science Adjustments
+  anamorphicFlare: number; // 0..100, Hollywood anamorphic blue horizontal streak flare
+  toneCurve: number; // 0..100, Cineon / Arri Log film S-curve tone mapping
+  shadowTint: number; // 0..100, Teal / Slate cool shadow split toning
+  highlightTint: number; // 0..100, Amber / Gold warm highlight split toning
+  dehaze: number; // 0..100, atmospheric dehaze & color contrast recovery
+  skinSmooth: number; // 0..100, portrait skin texture softening & tone preservation
+
+  // Advanced Computational Photography Engine (ACES, AMD CAS, Physical Remjet, Print LUTs)
+  acesToneMap: number; // 0..100, Academy Color Encoding System ACES 1.3 Fitted RRT+ODT
+  casSharpness: number; // 0..100, AMD FidelityFX Contrast-Adaptive Sharpening
+  remjetHalation: number; // 0..100, Physical Remjet layer Gaussian PSF photon scatter
+  printFilmStock: number; // 0 = none, 1 = Kodak 2383, 2 = Technicolor 3-Strip, 3 = Bleach Bypass
+
+  // Ultra-Modern & Exotic Optical Sensors
+  jwstSpikes: number; // 0..100, JWST 6-point hexagonal beryllium diffraction spikes & cosmic false color
+  kirlianAura: number; // 0..100, Kirlian bio-photonic corona discharge ionization glow
+  lidarMesh: number; // 0..100, LiDAR spatial time-of-flight depth gradient & point cloud mesh
+  quantumEvent: number; // 0..100, Relativistic Doppler beaming & gravitational lensing vortex
+  solarHAlpha: number; // 0..100, 656.3nm Hydrogen-Alpha solar plasma chromosphere filter
+  electronMicro: number; // 0..100, Scanning Electron Microscope secondary electron topological contrast
+
+  // Optical Depth of Field, Autofocus & Bokeh Simulator
+  dofBlur?: number; // 0..100, Aperture bokeh blur intensity
+  focusDistance?: number; // 0..100 (0 = foreground / 0.1m, 50 = 1.5m, 100 = infinity ∞)
+  focusPoint?: [number, number]; // [0..1, 0..1], normalized tap-to-focus point [x, y]
+  apertureFStop?: number; // 1.2, 1.4, 1.8, 2.8, 4.0, 5.6, 8.0, 16.0
+  focusPlaneMode?: number; // 0 = standard/off, 1 = foreground sharp/bg blur, 2 = bg sharp/foreground blur, 3 = tap point AF, 4 = manual MF
+  bokehAspect?: number; // 1.0 = spherical 35mm, 1.5 = 1.5x anamorphic oval, 2.0 = 2.0x scope oval
+  petzvalSwirl?: number; // 0..100, Helios 44-2 / Petzval peripheral optical swirly vortex
+  highlightKnee?: number; // 0..100, Kodak Vision3 500T analog soft-clip highlight compression knee
+
+  dateStamp?: boolean; // overlay vintage orange LED timestamp on photo
+  aspectRatio?: "original" | "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
+  filmBorder?: "none" | "35mm" | "polaroid";
 };
 
 export const NEUTRAL_ADJUSTMENTS: Adjustments = {
@@ -36,6 +88,8 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   denoise: 0,
   vignette: 0,
   grain: 0,
+  halation: 0,
+  bloom: 0,
   fade: 0,
   monochrome: 0,
   tintColor: [255, 255, 255],
@@ -43,28 +97,109 @@ export const NEUTRAL_ADJUSTMENTS: Adjustments = {
   chromaticAberration: 0,
   lightLeak: 0,
   scanlines: 0,
+  infrared: 0,
+  thermal: 0,
+  nightVision: 0,
+  glitch: 0,
+  kaleidoscope: 0,
+  solarize: 0,
+  cyanotype: 0,
+  dither: 0,
+  lomochrome: 0,
+  crossProcess: 0,
+  tiltShift: 0,
+  macroBoost: 0,
+  anamorphicFlare: 0,
+  toneCurve: 0,
+  shadowTint: 0,
+  highlightTint: 0,
+  dehaze: 0,
+  skinSmooth: 0,
+  acesToneMap: 0,
+  casSharpness: 0,
+  remjetHalation: 0,
+  printFilmStock: 0,
+  jwstSpikes: 0,
+  kirlianAura: 0,
+  lidarMesh: 0,
+  quantumEvent: 0,
+  solarHAlpha: 0,
+  electronMicro: 0,
+  dofBlur: 0,
+  focusDistance: 30,
+  focusPoint: [0.5, 0.5],
+  apertureFStop: 1.8,
+  focusPlaneMode: 0,
+  bokehAspect: 1.0,
+  petzvalSwirl: 0,
+  highlightKnee: 0,
+  dateStamp: false,
+  aspectRatio: "original",
+  filmBorder: "none",
 };
 
-// Which viewfinder HUD chrome a preset wears while shooting (see
-// components/Hud.tsx). "modern" means no cosplay overlay — these presets
-// are contemporary-filter looks, not a specific historic device.
-// dashcam/doorbell/webcam are the same idea as cctv/camcorder (cosplaying a
-// specific real device's on-screen chrome) but for today's devices instead
-// of a period one.
-export type HudSkin = "film" | "cinema" | "camcorder" | "cctv" | "modern" | "dashcam" | "doorbell" | "webcam";
+// Viewfinder HUD skins
+export type HudSkin =
+  | "film"
+  | "cinema"
+  | "camcorder"
+  | "cctv"
+  | "modern"
+  | "dashcam"
+  | "doorbell"
+  | "webcam"
+  | "leica"
+  | "hasselblad"
+  | "rolleiflex"
+  | "polaroid"
+  | "gameboy"
+  | "mavica"
+  | "arriflex"
+  | "sony-alpha"
+  | "canon-eos"
+  | "red-cinema"
+  | "arri-alexa"
+  | "digicam"
+  | "xpan"
+  | "pro"
+  | "thermal"
+  | "nvg"
+  | "glitch"
+  | "linhof"
+  | "contax"
+  | "mamiya"
+  | "nikon"
+  | "holga"
+  | "olympus"
+  | "jwst"
+  | "phase-one"
+  | "sem"
+  | "kirlian"
+  | "lidar"
+  | "blackhole"
+  | "solar-halpha"
+  | "lytro"
+  | "sonogram"
+  | "drone-hud";
+
+export type PresetCategory = "color-film" | "bw-film" | "cinema" | "vintage-digi" | "curious" | "modern" | "pro-scenes";
 
 export type Preset = {
   id: string;
   label: string;
+  brand?: "Kodak" | "Fujifilm" | "Ilford" | "CineStill" | "Polaroid" | "Agfa" | "Leica" | "Hasselblad" | "Rolleiflex" | "ARRI" | "RED" | "Lomography" | "Specialty" | "Pro Master" | "Canon" | "Sony" | "Nikon" | "Contax" | "Olympus" | "Mamiya" | "Minolta" | "Voigtländer" | "Linhof" | "NASA" | "Phase One" | "Zeiss" | "Scientific" | "Lytro";
   blurb: string; // one line of flavor text shown under the name
-  category: "vintage" | "modern"; // grouping in the camera picker
+  history?: string; // historical background & origin of the film or camera
+  useCase?: string; // best use case (portrait, street, landscape, war reportage, etc.)
+  famousArtists?: string[]; // famous photographers, filmmakers, or works known for using it
+  category: "vintage" | "modern" | "curious" | "pro-scenes"; // grouping in the camera picker
   hud: HudSkin;
-  era?: string; // e.g. "1968" — shown as a spec badge, vintage presets only
-  // Flavor "spec" badges shown in the HUD. Real numbers where one exists —
-  // film stocks' ISO/white-balance are their actual historical ratings, not
-  // invented — approximate stand-ins elsewhere (documented in presets.ts).
+  era?: string; // e.g. "1968" — shown as a spec badge
   iso?: number;
   kelvin?: number;
+  aspectRatio?: "3:2" | "4:3" | "1:1" | "16:9" | "65:24";
+  filmBorder?: "none" | "35mm" | "polaroid";
+  dateStampDefault?: boolean;
   adjustments: Partial<Adjustments>;
 };
 

@@ -24,17 +24,28 @@ export default function ZoomSlider({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const range = Math.max(0.0001, max - min);
-  const pct = Math.min(1, Math.max(0, (value - min) / range));
-  const snap = step > 0 ? step : 0.1;
+  const useLog = max >= 10;
+  
+  // Calculate visual percentage with log curve if max >= 10
+  const pct = useLog
+    ? Math.min(1, Math.max(0, Math.log(Math.max(0.001, value) / Math.max(0.001, min)) / Math.log(max / Math.max(0.001, min))))
+    : Math.min(1, Math.max(0, (value - min) / Math.max(0.0001, max - min)));
 
   const valueFromClientY = (clientY: number) => {
     const el = trackRef.current;
     if (!el) return value;
     const rect = el.getBoundingClientRect();
     const t = Math.min(1, Math.max(0, 1 - (clientY - rect.top) / rect.height));
-    const raw = min + t * range;
-    return Math.round(raw / snap) * snap;
+    
+    if (useLog) {
+      const raw = min * Math.pow(max / min, t);
+      const snap = raw < 10 ? 0.1 : raw < 30 ? 0.5 : 1.0;
+      return Math.min(max, Math.max(min, Math.round(raw / snap) * snap));
+    } else {
+      const snap = step > 0 ? step : 0.1;
+      const raw = min + t * (max - min);
+      return Math.min(max, Math.max(min, Math.round(raw / snap) * snap));
+    }
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {

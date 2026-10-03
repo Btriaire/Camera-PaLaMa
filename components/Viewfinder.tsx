@@ -13,7 +13,7 @@ import { useDeviceTilt } from "@/lib/useDeviceTilt";
 import { useStabilizer } from "@/lib/useStabilizer";
 import { computeStabilizedCrop, shakeAxis } from "@/lib/stabilizerCrop";
 import { burstIntervalMs, FLASH_MODES, FlashMode, isStrobing } from "@/lib/flashModes";
-import { cropForDigitalZoom, enhanceCroppedZoom, SUPER_ZOOM_AI_MULTIPLIER } from "@/lib/superRes";
+import { cropForDigitalZoom, enhanceCroppedZoom, enhanceUltraZoom, SUPER_ZOOM_AI_MULTIPLIER, ULTRA_ZOOM_MAX_MULTIPLIER } from "@/lib/superRes";
 import {
   LONG_EXPOSURE_BLENDS,
   LONG_EXPOSURE_DEFAULT_S,
@@ -23,30 +23,66 @@ import {
   LongExposureAccumulator,
   LongExposureBlend,
 } from "@/lib/longExposure";
+import { soundEngine } from "@/lib/audio";
+import { useOrientation } from "@/lib/useOrientation";
+import { useAiCoach } from "@/lib/useAiCoach";
 import Hud from "./Hud";
 import CameraPicker from "./CameraPicker";
 import Dashboard from "./Dashboard";
+import { FilmCanisterBadge } from "./FilmCanister";
 import BurstReview from "./BurstReview";
-import Histogram from "./Histogram";
+import ProLiveDrawer from "./ProLiveDrawer";
+import ProScopesMonitor, { ScopeMode } from "./ProScopesMonitor";
 import LevelIndicator from "./LevelIndicator";
 import ZoomSlider from "./ZoomSlider";
 import HorizontalSlider from "./HorizontalSlider";
+import PhotoViewer from "./PhotoViewer";
+import UltraZoomHUD, { ULTRA_ZOOM_STEPS } from "./UltraZoomHUD";
+import VintageViewfinderMask, { VINTAGE_VIEWFINDER_MODES, VintageViewfinderMode } from "./VintageViewfinderMask";
+import AutofocusControls, { FocusMode } from "./AutofocusControls";
+import LiveAutofocusBar from "./LiveAutofocusBar";
+import AutofocusReticle, { ReticleData } from "./AutofocusReticle";
+import MasterControlDial, { DialParameter } from "./MasterControlDial";
+import LiveSplitCompare from "./LiveSplitCompare";
 import {
+  AiCoachIcon,
+  AnamorphicIcon,
   ApertureIcon,
+  AutofocusTargetIcon,
+  BokehDepthIcon,
+  BurstIcon,
   CameraIcon,
   CheckIcon,
   ContrastIcon,
+  DroHdrIcon,
+  FalseColorIcon,
   FlashIcon,
   FlipCameraIcon,
+  FocusPeakingIcon,
   GalleryGridIcon,
   GridIcon,
+  HistogramIcon,
+  Horizon3DIcon,
   LongExposureIcon,
+  LoupeIcon,
+  MacroFlowerIcon,
+  MonochromeAssistIcon,
+  OisLockIcon,
+  ProBadgeIcon,
+  RadarScopeIcon,
+  RatioFramingIcon,
   ScreenFlashIcon,
   SettingsIcon,
+  SoundIcon,
   SparkleIcon,
+  SparklesIcon,
   StabilizerIcon,
   StrobeIcon,
   TimerIcon,
+  TorchIcon,
+  UltraZoomIcon,
+  VintageViewfinderIcon,
+  WaveformIcon,
   ZebraIcon,
 } from "@/components/Icons";
 
@@ -109,16 +145,14 @@ function clamp(value: number, min: number, max: number): number {
 // Quick-tap zoom levels, the way a real camera app's 0.5/1/2/3 row works --
 // always the device's actual min and max (so the full range stays reachable
 // with one tap) plus whichever "round" focal lengths fall inside it.
-const ZOOM_CANDIDATES = [0.5, 1, 2, 3, 5, 10];
+const ZOOM_CANDIDATES = [0.5, 1, 2, 3, 5, 10, 30, 50, 100];
 function zoomPresets(min: number, max: number): number[] {
-  // max always makes the cut, even after SuperZoom stretches the range
-  // well past the last "round" candidate below it — it's the one value
-  // this row exists to make reachable with a single tap.
   const inRange = ZOOM_CANDIDATES.filter((v) => v >= min - 0.01 && v <= max + 0.01);
   const belowMax = Array.from(new Set([min, ...inRange]))
-    .filter((v) => v < max - 0.01)
+    .filter((v) => v <= max + 0.01)
     .sort((a, b) => a - b);
-  return [...belowMax.slice(0, 3), max];
+  // Show up to 6 clean focal steps
+  return belowMax.length > 7 ? [min, 1, 2, 5, 10, 30, max] : belowMax;
 }
 
 function formatZoom(v: number): string {
@@ -184,6 +218,7 @@ export default function Viewfinder({
     ready,
     error,
     capabilities,
+    torchOn,
     setTorch,
     setZoom: setHardwareZoom,
     flip,
@@ -191,6 +226,7 @@ export default function Viewfinder({
     capture,
     captureFast,
   } = camera;
+  const isLandscape = useOrientation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<GLRenderer | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -199,6 +235,44 @@ export default function Viewfinder({
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [zebraEnabled, setZebraEnabled] = useState(false);
+  const [zebraThreshold, setZebraThreshold] = useState<number>(0.92);
+  const [focusPeakingEnabled, setFocusPeakingEnabled] = useState(false);
+  const [peakingColor, setPeakingColor] = useState<number>(0);
+  const [falseColorOn, setFalseColorOn] = useState(false);
+  const [liveDroOn, setLiveDroOn] = useState(false);
+  const [monoAssistOn, setMonoAssistOn] = useState(false);
+  const [anamorphicDesqueeze, setAnamorphicDesqueeze] = useState<number>(1.0);
+  const [scopeMode, setScopeMode] = useState<ScopeMode>("histogram");
+  const [proDrawerOpen, setProDrawerOpen] = useState(false);
+  const [wbQuickOpen, setWbQuickOpen] = useState(false);
+  const [macroModeOn, setMacroModeOn] = useState(false);
+  const [macroLoupeOn, setMacroLoupeOn] = useState(false);
+  const [liveAspectMask, setLiveAspectMask] = useState<"none" | "1:1" | "4:5" | "16:9" | "3:2" | "65:24">("none");
+  const [showHistogram, setShowHistogram] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [afControlsOpen, setAfControlsOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState<FocusMode>("auto");
+  const [apertureFStop, setApertureFStop] = useState<number>(1.8);
+  const [focusDistance, setFocusDistance] = useState<number>(30);
+  const [dofBlur, setDofBlur] = useState<number>(75);
+  const [bokehAspect, setBokehAspect] = useState<number>(1.0);
+  const [petzvalSwirl, setPetzvalSwirl] = useState<number>(0);
+  const [focusPoint, setFocusPoint] = useState<[number, number]>([0.5, 0.5]);
+  const [afReticle, setAfReticle] = useState<ReticleData | null>(null);
+
+  // Master Control Dial & Live Split Compare
+  const [masterDialOpen, setMasterDialOpen] = useState(false);
+  const [dialActiveParam, setDialActiveParam] = useState<DialParameter>("aperture");
+  const [splitCompareOn, setSplitCompareOn] = useState(false);
+  const [splitPosition, setSplitPosition] = useState(50);
+  const splitCompareOnRef = useRef(false);
+  const splitPositionRef = useRef(50);
+  useEffect(() => {
+    splitCompareOnRef.current = splitCompareOn;
+  }, [splitCompareOn]);
+  useEffect(() => {
+    splitPositionRef.current = splitPosition;
+  }, [splitPosition]);
   // On by default, like a phone's own EIS -- the button is there to turn
   // it off (e.g. on a tripod, where the crop margin only costs framing for
   // nothing), not to opt in.
@@ -265,6 +339,10 @@ export default function Viewfinder({
   const [longExposureRemainingS, setLongExposureRemainingS] = useState<number | null>(null);
   const longExposureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const longExposureStop = useRef(false);
+  const [burstModeArmed, setBurstModeArmed] = useState(false);
+  const [burstSpeed, setBurstSpeed] = useState<"fast" | "normal" | "eco">("normal");
+  const [burstMenuOpen, setBurstMenuOpen] = useState(false);
+  const [viewerPhotoIndex, setViewerPhotoIndex] = useState<number | null>(null);
   const [stayOnCapture, setStayOnCapture] = useState(false);
   const [evBias, setEvBias] = useState(0);
   const [isoIndex, setIsoIndex] = useState(() => nearestStepIndex(ISO_STEPS, getPreset(presetId)?.iso ?? 400));
@@ -298,19 +376,66 @@ export default function Viewfinder({
   const tiltDeg = useDeviceTilt();
   const stabilizer = useStabilizer();
 
+  const [ultraZoomMode, setUltraZoomMode] = useState(false);
+  const [oisLockActive, setOisLockActive] = useState(false);
+  const oisLockActiveRef = useRef(false);
+  useEffect(() => {
+    oisLockActiveRef.current = oisLockActive;
+  }, [oisLockActive]);
+  const [stabilityScore, setStabilityScore] = useState(98.5);
+
   // The camera's own reported zoom ceiling (1x if it reports no zoom
-  // capability at all) — SuperZoom is what happens past this point.
+  // capability at all) — SuperZoom / Ultra-Zoom is what happens past this point.
   const hardwareMaxZoom = capabilities.zoom?.max ?? 1;
   const zoomMin = capabilities.zoom?.min ?? 1;
-  const zoomMax = hardwareMaxZoom * SUPER_ZOOM_AI_MULTIPLIER;
+  const zoomMax = ultraZoomMode ? ULTRA_ZOOM_MAX_MULTIPLIER : Math.max(10, hardwareMaxZoom * SUPER_ZOOM_AI_MULTIPLIER);
   const digitalZoomFactor = uiZoom / hardwareMaxZoom;
   const inSuperZoom = digitalZoomFactor > 1.02;
+  const inUltraZoom = uiZoom >= 3.0 || ultraZoomMode;
 
   const setUiZoom = (value: number) => {
     const clamped = clamp(value, zoomMin, zoomMax);
     setUiZoomState(clamped);
     uiZoomRef.current = clamped;
     setHardwareZoom(Math.min(clamped, hardwareMaxZoom));
+  };
+
+  const [vintageMask, setVintageMask] = useState<VintageViewfinderMode>("none");
+  const [vintageMaskMenuOpen, setVintageMaskMenuOpen] = useState(false);
+
+  const cycleVintageMask = () => {
+    const steps: VintageViewfinderMode[] = ["none", "slr-prism", "tlr-6x6", "lens-circle", "film-sprockets"];
+    const idx = steps.indexOf(vintageMask);
+    setVintageMask(steps[(idx + 1) % steps.length]);
+  };
+
+  const cycleAspectMask = () => {
+    const steps: ("none" | "1:1" | "4:5" | "16:9" | "3:2" | "65:24")[] = [
+      "none",
+      "1:1",
+      "4:5",
+      "16:9",
+      "3:2",
+      "65:24",
+    ];
+    const idx = steps.indexOf(liveAspectMask);
+    setLiveAspectMask(steps[(idx + 1) % steps.length]);
+  };
+
+  const toggleSoundMute = () => {
+    const next = !soundMuted;
+    setSoundMuted(next);
+    soundEngine.setSoundEnabled(!next);
+  };
+
+  const toggleMacroMode = () => {
+    setMacroModeOn((prev) => {
+      const next = !prev;
+      if (next) {
+        setFocusPeakingEnabled(true);
+      }
+      return next;
+    });
   };
 
   // Keeps uiZoom pinned to the device's actual native zoom once
@@ -321,6 +446,7 @@ export default function Viewfinder({
   }, [zoomMin, hardwareMaxZoom]);
 
   const preset = getPreset(presetId);
+  const aiCoach = useAiCoach(canvasRef, presetId ?? "portra-400");
   const baseAdjustments: Adjustments = { ...NEUTRAL_ADJUSTMENTS, ...preset?.adjustments };
   const isoValue = ISO_STEPS[isoIndex];
   const kelvinValue = KELVIN_STEPS[kelvinIndex];
@@ -349,10 +475,47 @@ export default function Viewfinder({
       exposure: clamp(baseAdjustments.exposure + evBias + isoExposureBias, -100, 100),
       grain: clamp(baseAdjustments.grain + isoGrainBias, 0, 100),
       temperature: clamp(baseAdjustments.temperature + kelvinTempBias, -100, 100),
-      superContrast: superContrastOn ? LIVE_SUPER_CONTRAST : baseAdjustments.superContrast,
+      superContrast: macroModeOn
+        ? Math.max(baseAdjustments.superContrast, 55)
+        : superContrastOn
+        ? LIVE_SUPER_CONTRAST
+        : baseAdjustments.superContrast,
+      sharpen: macroModeOn ? Math.max(baseAdjustments.sharpen, 60) : baseAdjustments.sharpen,
+      macroBoost: macroModeOn ? Math.max(baseAdjustments.macroBoost ?? 0, 80) : baseAdjustments.macroBoost ?? 0,
+      dofBlur: focusMode === "auto" ? 0 : dofBlur,
+      focusDistance: focusDistance,
+      focusPoint: focusPoint,
+      apertureFStop: apertureFStop,
+      bokehAspect: bokehAspect,
+      petzvalSwirl: petzvalSwirl,
+      highlightKnee: baseAdjustments.highlightKnee ?? 0,
+      focusPlaneMode:
+        focusMode === "foreground"
+          ? 1
+          : focusMode === "background"
+          ? 2
+          : focusMode === "point"
+          ? 3
+          : focusMode === "manual"
+          ? 4
+          : 0,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [presetId, evBias, isoIndex, kelvinIndex, superContrastOn]
+    [
+      presetId,
+      evBias,
+      isoIndex,
+      kelvinIndex,
+      superContrastOn,
+      macroModeOn,
+      focusMode,
+      dofBlur,
+      focusDistance,
+      focusPoint,
+      apertureFStop,
+      bokehAspect,
+      petzvalSwirl,
+    ]
   );
   const hudSkin = preset?.hud ?? "modern";
   const timerSeconds = TIMER_STEPS[timerIndex];
@@ -374,13 +537,42 @@ export default function Viewfinder({
   // listened for a lost context either.
   const adjustmentsRef = useRef(adjustments);
   const zebraEnabledRef = useRef(zebraEnabled);
+  const zebraThresholdRef = useRef(zebraThreshold);
+  const focusPeakingEnabledRef = useRef(focusPeakingEnabled);
+  const peakingColorRef = useRef(peakingColor);
+  const falseColorOnRef = useRef(falseColorOn);
+  const liveDroOnRef = useRef(liveDroOn);
+  const monoAssistOnRef = useRef(monoAssistOn);
+  const anamorphicDesqueezeRef = useRef(anamorphicDesqueeze);
   const capabilitiesRef = useRef(capabilities);
+
   useEffect(() => {
     adjustmentsRef.current = adjustments;
   }, [adjustments]);
   useEffect(() => {
     zebraEnabledRef.current = zebraEnabled;
   }, [zebraEnabled]);
+  useEffect(() => {
+    zebraThresholdRef.current = zebraThreshold;
+  }, [zebraThreshold]);
+  useEffect(() => {
+    focusPeakingEnabledRef.current = focusPeakingEnabled;
+  }, [focusPeakingEnabled]);
+  useEffect(() => {
+    peakingColorRef.current = peakingColor;
+  }, [peakingColor]);
+  useEffect(() => {
+    falseColorOnRef.current = falseColorOn;
+  }, [falseColorOn]);
+  useEffect(() => {
+    liveDroOnRef.current = liveDroOn;
+  }, [liveDroOn]);
+  useEffect(() => {
+    monoAssistOnRef.current = monoAssistOn;
+  }, [monoAssistOn]);
+  useEffect(() => {
+    anamorphicDesqueezeRef.current = anamorphicDesqueeze;
+  }, [anamorphicDesqueeze]);
   useEffect(() => {
     capabilitiesRef.current = capabilities;
   }, [capabilities]);
@@ -397,7 +589,8 @@ export default function Viewfinder({
 
     try {
       rendererRef.current = new GLRenderer(canvas);
-    } catch {
+    } catch (err) {
+      console.error("GLRenderer creation error:", err);
       return;
     }
 
@@ -417,7 +610,8 @@ export default function Viewfinder({
     const handleContextRestored = () => {
       try {
         rendererRef.current = new GLRenderer(canvas);
-      } catch {
+      } catch (err) {
+        console.error("GLRenderer restore error:", err);
         rendererRef.current = null;
       }
     };
@@ -453,11 +647,15 @@ export default function Viewfinder({
           zoomCropCanvas.width = w;
           zoomCropCanvas.height = h;
           const ctx = zoomCropCanvas.getContext("2d");
-          const shakeX = stabOn ? shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone) : 0;
-          const shakeY = stabOn ? shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone) : 0;
-          // The shift only ever draws on the stabilizer's own slice of the
-          // zoom (never SuperZoom's), so a deliberate zoom-in stays
-          // centered on what was framed instead of drifting with shake.
+          let shakeX = stabOn ? shakeAxis(stabilizer.deltaXDegRef.current, stabDeadzone) : 0;
+          let shakeY = stabOn ? shakeAxis(stabilizer.deltaYDegRef.current, stabDeadzone) : 0;
+          
+          // OIS Target Lock: when locked, heavily damp hand motion
+          if (oisLockActiveRef.current) {
+            shakeX *= 0.12;
+            shakeY *= 0.12;
+          }
+
           const { cropX, cropY, cropW, cropH } = computeStabilizedCrop(
             video.videoWidth,
             video.videoHeight,
@@ -475,7 +673,42 @@ export default function Viewfinder({
         } else {
           renderer.uploadSource(video, w, h);
         }
-        renderer.render(adjustmentsRef.current, seed, zebraEnabledRef.current);
+
+        // Detail Boost for High Zoom: dynamically adapt FidelityFX CAS if zoomed in
+        const currentAdj = { ...adjustmentsRef.current };
+        if (digitalFactor > 2.0 && (currentAdj.casSharpness ?? 0) < 30) {
+          currentAdj.casSharpness = Math.min(75, (currentAdj.casSharpness ?? 0) + Math.min(45, (digitalFactor - 1) * 6));
+        }
+
+        if (splitCompareOnRef.current) {
+          renderer.renderSplit(
+            NEUTRAL_ADJUSTMENTS,
+            currentAdj,
+            splitPositionRef.current / 100,
+            seed,
+            {
+              zebra: zebraEnabledRef.current,
+              zebraThreshold: zebraThresholdRef.current,
+              focusPeaking: focusPeakingEnabledRef.current,
+              focusPeakingColor: peakingColorRef.current,
+              falseColor: falseColorOnRef.current,
+              liveDro: liveDroOnRef.current,
+              monoAssist: monoAssistOnRef.current,
+              anamorphicDesqueeze: anamorphicDesqueezeRef.current,
+            }
+          );
+        } else {
+          renderer.render(currentAdj, seed, {
+            zebra: zebraEnabledRef.current,
+            zebraThreshold: zebraThresholdRef.current,
+            focusPeaking: focusPeakingEnabledRef.current,
+            focusPeakingColor: peakingColorRef.current,
+            falseColor: falseColorOnRef.current,
+            liveDro: liveDroOnRef.current,
+            monoAssist: monoAssistOnRef.current,
+            anamorphicDesqueeze: anamorphicDesqueezeRef.current,
+          });
+        }
         seed += 0.016;
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -525,6 +758,19 @@ export default function Viewfinder({
 
   const captureOnce = async () => {
     setCapturing(true);
+    const pid = presetId ?? "";
+    if (pid.includes("hasselblad") || pid.includes("rolleiflex") || pid.includes("portra-400-120") || pid.includes("fuji-gfx")) {
+      soundEngine.playHasselbladShutter();
+    } else if (pid.includes("polaroid") || pid.includes("instax") || pid.includes("sx-70")) {
+      soundEngine.playPolaroidEject();
+    } else if (pid.includes("leica") || pid.includes("tri-x") || pid.includes("rangefinder")) {
+      soundEngine.playLeicaWinding();
+    } else {
+      soundEngine.playShutter();
+    }
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate([35, 25, 35]);
+    }
     // "Flash écran" needs the screen genuinely lit *while* the shot is
     // taken (it's the light source, for a front camera with no physical
     // flash) -- so it stays on through the capture, not a 150ms blink like
@@ -555,13 +801,9 @@ export default function Viewfinder({
   // matches what was previewed) but skips the slow AI pass, same as
   // ordinary digital zoom.
   const applySuperZoom = async (shot: CapturedPhoto, factor: number): Promise<CapturedPhoto> => {
-    const cropped = await cropForDigitalZoom(shot.bitmap, factor);
-    if (!superZoomOn) return cropped;
     setSuperZoomProgress(0);
     try {
-      const result = await enhanceCroppedZoom(cropped.bitmap, (fraction) => setSuperZoomProgress(fraction));
-      const bitmap = await createImageBitmap(result.blob);
-      return { bitmap, width: result.width, height: result.height };
+      return await enhanceUltraZoom(shot.bitmap, factor, superZoomOn, (fraction) => setSuperZoomProgress(fraction));
     } finally {
       setSuperZoomProgress(null);
     }
@@ -694,13 +936,8 @@ export default function Viewfinder({
   const runBurstLoop = async () => {
     setCapturing(true);
     const strobing = isStrobing(flashMode) && capabilities.torch;
-    const interval = burstIntervalMs(flashMode);
-    // Fixed for the whole burst, not re-read per shot — the framing
-    // shouldn't shift mid-roll just because a slider tick landed between
-    // frames. Every shot gets cropped to match what SuperZoom previewed;
-    // the (slow) AI enhancement itself only ever runs on a single shot,
-    // resolved below in handleShutterUp — multiplying it across a burst
-    // would turn "hold for a roll" into "hold for several minutes."
+    const baseInterval = burstIntervalMs(flashMode);
+    const interval = burstSpeed === "fast" ? 90 : burstSpeed === "eco" ? 320 : baseInterval;
     const factor = digitalZoomFactor;
     let strobeOn = false;
     try {
@@ -714,6 +951,7 @@ export default function Viewfinder({
         if (shot) {
           burstShots.current.push(shot);
           setBurstCount(burstShots.current.length);
+          soundEngine.playShutter();
         }
         if (!burstActive.current) break;
         await new Promise((r) => setTimeout(r, interval));
@@ -838,6 +1076,58 @@ export default function Viewfinder({
             ? Math.min(PRESET_ORDER.length - 1, currentIndex + 1)
             : Math.max(0, currentIndex - 1);
         if (nextIndex !== currentIndex) onSelectPreset(PRESET_ORDER[nextIndex]);
+      } else if (Math.abs(delta) < 15) {
+        // Tap-to-Focus trigger!
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const fx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const fy = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+          // Estimated distance based on framing
+          const estDist = fy > 0.65 ? "0.35m" : fy > 0.4 ? "1.20m" : "∞";
+
+          // Sound & Haptic confirmation
+          soundEngine.playAutofocusLock();
+          if (typeof navigator !== "undefined" && navigator.vibrate) {
+            try {
+              navigator.vibrate([15, 30, 20]);
+            } catch {}
+          }
+
+          setAfReticle({
+            x: e.clientX,
+            y: e.clientY,
+            fx,
+            fy,
+            aperture: apertureFStop,
+            distanceMeters: estDist,
+            timestamp: Date.now(),
+          });
+
+          // Invert Y for WebGL texture coordinate system
+          setFocusPoint([fx, 1 - fy]);
+          if (focusMode === "auto" || focusMode === "point") {
+            setFocusMode("point");
+            if (dofBlur < 20) setDofBlur(65);
+          }
+
+          // Hardware autofocus point of interest constraint
+          try {
+            const track = (videoRef.current?.srcObject as MediaStream)?.getVideoTracks()[0];
+            const capabilities = track?.getCapabilities?.() as any;
+            if (capabilities?.pointsOfInterest || capabilities?.focusMode?.includes("continuous")) {
+              (track as any)?.applyConstraints?.({
+                advanced: [
+                  {
+                    focusMode: "continuous",
+                    pointsOfInterest: [{ x: fx, y: fy }],
+                  },
+                ],
+              })?.catch(() => {});
+            }
+          } catch {}
+        }
       }
     }
     swipeStart.current = null;
@@ -883,16 +1173,251 @@ export default function Viewfinder({
         elapsedSeconds={elapsedSeconds}
         batteryLevel={battery}
         now={now}
+        tiltDeg={tiltDeg}
       />
 
-      <div
-        className="pointer-events-none absolute left-1/2 -translate-x-1/2"
-        style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3rem)" }}
-      >
-        <Histogram canvasRef={canvasRef} />
-      </div>
+      {/* Live Interactive Autofocus Target Reticle */}
+      <AutofocusReticle reticle={afReticle} />
+
+      {/* Real-Time Split-Screen Emulsion Comparison Slider */}
+      <LiveSplitCompare
+        isActive={splitCompareOn}
+        onToggleActive={() => setSplitCompareOn((v) => !v)}
+        splitPosition={splitPosition}
+        onChangeSplitPosition={setSplitPosition}
+        presetName={preset?.label ?? "Pellicule"}
+      />
+
+      {/* Ultra-Zoom Telephoto HUD: PiP Radar, MTF Detail Analysis & OIS Target Lock */}
+      {inUltraZoom && (
+        <UltraZoomHUD
+          zoom={uiZoom}
+          hardwareMax={hardwareMaxZoom}
+          oisLocked={oisLockActive}
+          onToggleOisLock={() => setOisLockActive((v) => !v)}
+          onSelectZoom={setUiZoom}
+          stabilityPercent={stabilityScore}
+          tremorRate={0.2}
+        />
+      )}
+
+      {showHistogram && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-20"
+          style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.5rem)" }}
+        >
+          <ProScopesMonitor
+            canvasRef={canvasRef}
+            mode={scopeMode}
+            onCycleMode={() =>
+              setScopeMode((m) => (m === "histogram" ? "waveform" : m === "waveform" ? "vectorscope" : "histogram"))
+            }
+          />
+        </div>
+      )}
+
+      {/* Professional False Color IRE Exposure Heatmap Scale */}
+      {falseColorOn && (
+        <div
+          className="pointer-events-none absolute left-3 z-30 flex flex-col items-start gap-1 rounded-xl border border-white/20 bg-black/85 p-2 backdrop-blur-md shadow-2xl font-mono text-[9px]"
+          style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 4rem)" }}
+        >
+          <span className="text-[10px] font-bold text-white mb-0.5 tracking-wider uppercase border-b border-white/20 pb-0.5 w-full">
+            IRE SCALE
+          </span>
+          <div className="flex items-center gap-1.5"><span className="w-3.5 h-2.5 rounded-xs bg-[#ff0000]" /><span className="text-red-400 font-bold">&gt;98 Clip</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-3.5 h-2.5 rounded-xs bg-[#ff8c00]" /><span className="text-amber-400">90 High</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-3.5 h-2.5 rounded-xs bg-[#ebc740]" /><span className="text-yellow-300">70 Skin M</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-3.5 h-2.5 rounded-xs bg-[#ff6bad]" /><span className="text-pink-300">55 Skin L</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-3.5 h-2.5 rounded-xs bg-[#2ec059]" /><span className="text-emerald-400">40 18% Gr</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-3.5 h-2.5 rounded-xs bg-[#0040d9]" /><span className="text-blue-400">10 Shad</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-3.5 h-2.5 rounded-xs bg-[#8c00a6]" /><span className="text-purple-400">0 Crush</span></div>
+        </div>
+      )}
+
+      {/* Live Aspect Ratio Framing Letterbox Mask */}
+      {liveAspectMask !== "none" && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-2">
+          <div
+            className={`w-full max-w-full max-h-full border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.72)] transition-all ${
+              liveAspectMask === "1:1"
+                ? "aspect-square"
+                : liveAspectMask === "4:5"
+                ? "aspect-[4/5]"
+                : liveAspectMask === "16:9"
+                ? "aspect-[16/9]"
+                : liveAspectMask === "3:2"
+                ? "aspect-[3/2]"
+                : "aspect-[65/24]"
+            }`}
+          >
+            <div className="absolute bottom-2 right-2 rounded bg-black/75 px-2 py-0.5 font-mono text-[11px] font-bold text-white border border-white/20 backdrop-blur">
+              {liveAspectMask === "65:24" ? "2.7:1 XPAN" : liveAspectMask}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Optional Vintage Optical Viewfinder Lens Mask */}
+      <VintageViewfinderMask
+        mode={vintageMask}
+        evBias={evBias}
+        iso={isoValue}
+        shotCount={shotCount}
+      />
+
+      {/* Macro Mode Dedicated Live HUD & Reticle */}
+      {macroModeOn && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-between p-4">
+          <div
+            className="flex items-center gap-2.5 rounded-full border-2 border-emerald-400/70 bg-black/85 px-4 py-2 backdrop-blur-xl shadow-[0_0_25px_rgba(52,211,153,0.4)]"
+            style={{ marginTop: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.6rem)" }}
+          >
+            <MacroFlowerIcon className="w-5 h-5 text-emerald-400 animate-pulse" />
+            <span className="font-mono text-xs font-black uppercase tracking-wider text-emerald-300">
+              MODE MACRO PRO · NETTETÉ MAX
+            </span>
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
+          </div>
+
+          {/* Macro Preset Quick Selector */}
+          <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto max-w-[95vw] rounded-full border border-emerald-500/40 bg-black/85 px-3 py-1.5 backdrop-blur-xl shadow-lg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <span className="text-[10px] font-mono font-bold text-emerald-400 mr-1 uppercase">Style :</span>
+            {[
+              { id: "macro-plus-ultra", label: "Ultra-Précision" },
+              { id: "macro-botanique-vivid", label: "Botanique" },
+              { id: "macro-mineral-textures", label: "Minéral" },
+              { id: "macro-insect-eye", label: "Œil Insecte" },
+              { id: "macro-microscope-40x", label: "Microscope" },
+            ].map((m) => (
+              <button
+                key={m.id}
+                onClick={() => onSelectPreset(m.id)}
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-all ${
+                  presetId === m.id
+                    ? "bg-emerald-400 text-black shadow-md font-bold"
+                    : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex items-center justify-center">
+            <div className="relative h-48 w-48 rounded-full border-2 border-dashed border-emerald-400/70 bg-emerald-950/15 backdrop-blur-[1px] shadow-[0_0_30px_rgba(52,211,153,0.3)] flex items-center justify-center">
+              <div className="absolute h-full w-[1px] bg-emerald-400/40" />
+              <div className="absolute w-full h-[1px] bg-emerald-400/40" />
+              <div className="h-12 w-12 rounded-full border border-emerald-300/80" />
+              <div className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="absolute bottom-2 text-[9px] font-mono font-bold tracking-tight text-emerald-300 bg-black/70 px-2 py-0.5 rounded border border-emerald-500/30">
+                MISE AU POINT PROCHE (3-15 CM)
+              </span>
+            </div>
+          </div>
+
+          <div className="pointer-events-auto mb-20 flex items-center gap-2 rounded-full border border-emerald-500/40 bg-black/85 p-1.5 backdrop-blur-xl shadow-xl">
+            <button
+              onClick={() => setUiZoom(1)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 1) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              1.0×
+            </button>
+            <button
+              onClick={() => setUiZoom(2)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 2) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              2.0×
+            </button>
+            <button
+              onClick={() => setUiZoom(3)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 3) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              3.0×
+            </button>
+            <button
+              onClick={() => setUiZoom(5)}
+              className={`rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                Math.abs(uiZoom - 5) < 0.1 ? "bg-emerald-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              5.0×
+            </button>
+            {capabilities.torch && (
+              <button
+                onClick={() => setTorch(!torchOn)}
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-mono text-xs font-black transition-all ${
+                  torchOn ? "bg-amber-400 text-black shadow-md" : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                <TorchIcon className="w-4 h-4" on={torchOn} />
+                Torche
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <LevelIndicator tiltDeg={tiltDeg} />
+
+      {/* Live AI Coach HUD Pill */}
+      {aiCoach.isEnabled && (
+        <div
+          className={`pointer-events-auto absolute left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-emerald-400/40 bg-black/85 px-3 py-1.5 backdrop-blur-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all ${
+            isLandscape ? "top-[calc(max(0.5rem,env(safe-area-inset-top))+3.5rem)]" : "top-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)]"
+          }`}
+        >
+          <div className="flex items-center gap-1.5 font-mono text-[10.5px]">
+            <SparklesIcon className={`w-4 h-4 text-emerald-400 ${aiCoach.isAnalyzing ? "animate-spin" : ""}`} />
+            <span className="font-bold text-emerald-300 uppercase tracking-wider text-[9.5px]">
+              IA Coach
+            </span>
+          </div>
+
+          {aiCoach.isAnalyzing ? (
+            <span className="text-[10px] font-mono text-emerald-200/80 animate-pulse">
+              Analyse du cadrage...
+            </span>
+          ) : aiCoach.advice ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[10.5px] text-white font-medium truncate max-w-[150px] sm:max-w-[240px]">
+                {aiCoach.advice.compositionAdvice}
+              </span>
+              {aiCoach.advice.recommendedFilmId !== presetId && (
+                <button
+                  onClick={() => onSelectPreset(aiCoach.advice!.recommendedFilmId)}
+                  className="flex items-center gap-1 rounded-full bg-emerald-400 hover:bg-emerald-300 px-2 py-0.5 text-[9.5px] font-bold text-black active:scale-95 transition-all shadow-md"
+                >
+                  <span>{aiCoach.advice.recommendedFilmName.split(" ")[0]}</span>
+                  <span className="text-[8px] uppercase tracking-wide">Appliquer</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={aiCoach.scanNow}
+              className="text-[10px] font-mono text-white/70 hover:text-white underline"
+            >
+              Scanner la scène
+            </button>
+          )}
+
+          <button
+            onClick={aiCoach.scanNow}
+            disabled={aiCoach.isAnalyzing}
+            aria-label="Relancer scan IA"
+            className="p-1 rounded-full text-white/50 hover:text-white transition-colors"
+          >
+            <AiCoachIcon className="w-3.5 h-3.5 text-emerald-300/80" />
+          </button>
+        </div>
+      )}
 
       <div
         className={`absolute inset-0 z-30 bg-white pointer-events-none transition-opacity duration-150 ${
@@ -917,11 +1442,42 @@ export default function Viewfinder({
 
       {longExposureRemainingS !== null && (
         <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3">
-          <span className="text-7xl font-light tabular-nums text-amber-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-            {longExposureRemainingS}
-          </span>
-          <span className="rounded-full bg-black/60 px-3 py-1.5 text-xs text-white/70 backdrop-blur">
-            Temps restant — retapez pour arrêter
+          <div className="flex flex-col items-center gap-2 rounded-3xl border border-amber-400/40 bg-black/80 px-6 py-5 backdrop-blur-xl shadow-[0_0_30px_rgba(245,158,11,0.3)]">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping" />
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-300">
+                Pose Longue en Cours
+              </span>
+            </div>
+            <span className="text-6xl font-extralight font-mono tabular-nums text-amber-300 drop-shadow-[0_2px_12px_rgba(245,158,11,0.5)]">
+              {longExposureRemainingS}s
+            </span>
+            <div className="w-48 h-1.5 rounded-full bg-white/20 overflow-hidden mt-1">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-yellow-300 transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, Math.max(0, ((longExposureSeconds - longExposureRemainingS) / (longExposureSeconds || 1)) * 100))}%`,
+                }}
+              />
+            </div>
+            <span className="text-[11px] text-white/70 mt-1">
+              Accumulation de lumière · Retapez pour figer
+            </span>
+          </div>
+        </div>
+      )}
+
+      {burstCount > 0 && (
+        <div className="pointer-events-none absolute top-[28%] left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
+          <div className="flex items-center gap-3 rounded-full border-2 border-amber-400 bg-black/85 px-5 py-2.5 backdrop-blur-xl shadow-[0_0_25px_rgba(245,158,11,0.5)]">
+            <BurstIcon className="w-7 h-7 text-amber-400" />
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-xs font-bold text-amber-400/90 tracking-wider">RAFALE</span>
+              <span className="text-2xl font-black text-white tabular-nums">[{burstCount}]</span>
+            </div>
+          </div>
+          <span className="rounded-full bg-black/60 px-3 py-1 text-[10px] font-medium text-white/80 backdrop-blur">
+            Relâchez pour enregistrer la série
           </span>
         </div>
       )}
@@ -941,64 +1497,305 @@ export default function Viewfinder({
         </div>
       )}
 
-      <div
-        className="absolute top-0 left-0 right-0 flex items-center justify-between px-4"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
-      >
-        <div className="flex items-center gap-3">
-          <button onClick={onOpenGallery} aria-label="Galerie" className="p-1 text-white drop-shadow-lg">
-            <GalleryGridIcon className="w-9 h-9" />
-          </button>
-          <button
-            onClick={() => setDashboardOpen(true)}
-            aria-label="Tableau de bord"
-            className="p-1 text-white drop-shadow-lg"
-          >
-            <SettingsIcon className="w-9 h-9" />
-          </button>
-        </div>
+      {/* Portrait Top Controls Bar with Clean Touch Ergonomics */}
+      {!isLandscape && (
+        <div
+          className="absolute top-0 left-0 right-0 flex items-center justify-between px-3.5 z-30 pointer-events-auto"
+          style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        >
+          {/* Left capsule: Gallery, Settings & Audio */}
+          <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/80 p-1.5 backdrop-blur-2xl shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
+            <button
+              onClick={onOpenGallery}
+              aria-label="Galerie"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+            >
+              <GalleryGridIcon className="w-5.5 h-5.5" />
+            </button>
+            <button
+              onClick={() => setDashboardOpen(true)}
+              aria-label="Tableau de bord"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+            >
+              <SettingsIcon className="w-5.5 h-5.5" />
+            </button>
+            <button
+              onClick={toggleSoundMute}
+              aria-label={soundMuted ? "Activer les sons" : "Désactiver les sons (silencieux)"}
+              className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+                soundMuted ? "bg-red-500/25 text-red-300 border border-red-400/40" : "text-white/90 hover:bg-white/15 hover:text-white"
+              }`}
+            >
+              <SoundIcon className="w-5 h-5" mute={soundMuted} />
+            </button>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setTimerIndex((i) => (i + 1) % TIMER_STEPS.length)}
-            aria-label="Retardateur"
-            className={`relative p-1 drop-shadow-lg ${timerSeconds > 0 ? "text-amber-300" : "text-white"}`}
-          >
-            <TimerIcon className="w-9 h-9" />
-            {timerSeconds > 0 && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-[11px] font-bold leading-none">
-                {timerSeconds}
+          {/* Right capsule: AF/Bokeh, PRO Drawer Trigger, Macro, Flash & Flip */}
+          <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/80 p-1.5 backdrop-blur-2xl shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
+            {/* AF & Bokeh Depth-of-field button */}
+            <button
+              onClick={() => setAfControlsOpen((v) => !v)}
+              aria-label="Autofocus & Profondeur de champ"
+              className={`flex h-10 px-2.5 items-center gap-1.5 rounded-full border transition-all active:scale-90 ${
+                focusMode !== "auto" || afControlsOpen
+                  ? "bg-emerald-400 text-black font-black border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                  : "border-emerald-400/40 bg-emerald-400/15 text-emerald-300 hover:bg-emerald-400/25"
+              }`}
+            >
+              <AutofocusTargetIcon className="w-4 h-4" />
+              <span className="text-[10px] font-mono font-bold tracking-wider">
+                {focusMode === "foreground"
+                  ? "AVANT"
+                  : focusMode === "background"
+                  ? "FOND"
+                  : focusMode === "point"
+                  ? "POINT"
+                  : focusMode === "manual"
+                  ? "MF"
+                  : "AF"}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setProDrawerOpen((v) => !v)}
+              aria-label="Outils Pro Live & Traitement d'image"
+              className={`flex h-10 px-2.5 items-center gap-1 rounded-full border transition-all active:scale-90 ${
+                proDrawerOpen || falseColorOn || liveDroOn || monoAssistOn || anamorphicDesqueeze > 1.0 || showHistogram || zebraEnabled || focusPeakingEnabled
+                  ? "bg-amber-400 text-black font-black border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+                  : "border-amber-400/40 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25"
+              }`}
+            >
+              <ProBadgeIcon className="w-4 h-4" />
+              <span className="text-[10.5px] font-mono font-bold tracking-wider">PRO</span>
+            </button>
+            <button
+              onClick={toggleMacroMode}
+              aria-label="Mode Macro"
+              className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+                macroModeOn ? "bg-emerald-400 text-black font-bold shadow-[0_0_15px_rgba(52,211,153,0.5)] ring-2 ring-emerald-300" : "text-white/90 hover:bg-white/15 hover:text-white"
+              }`}
+            >
+              <MacroFlowerIcon className="w-5.5 h-5.5" />
+            </button>
+            <button
+              onClick={() => setFlashMenuOpen((v) => !v)}
+              aria-label="Mode flash"
+              className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all ${
+                flashMode !== "off" ? "bg-amber-400 text-black font-bold shadow-[0_0_12px_rgba(245,158,11,0.5)] ring-2 ring-amber-300" : "text-white/90 hover:bg-white/15 hover:text-white"
+              }`}
+            >
+              <FlashModeIcon mode={flashMode} className="w-5.5 h-5.5" />
+            </button>
+            {capabilities.canSwitch && (
+              <button
+                onClick={flip}
+                aria-label="Changer de caméra"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/15 hover:text-white active:scale-90 transition-all"
+              >
+                <FlipCameraIcon className="w-5.5 h-5.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Landscape Top Telemetry & Controls Strip */}
+      {isLandscape && (
+        <div
+          className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 pointer-events-none"
+          style={{ paddingTop: "max(0.4rem, env(safe-area-inset-top))" }}
+        >
+          {/* Left corner active film badge */}
+          <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/20 bg-black/75 px-3 py-1 backdrop-blur-xl shadow-xl font-mono text-xs text-white">
+            <FilmCanisterBadge preset={preset ?? null} />
+            <span className="font-bold text-amber-300 truncate max-w-[120px]">{preset?.label ?? "Pellicule"}</span>
+          </div>
+
+          {/* Center Telemetry & Quick Steppers */}
+          <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 backdrop-blur-xl shadow-xl font-mono text-xs">
+            {/* ISO */}
+            <div className="flex items-center gap-0.5 bg-white/10 px-1.5 py-0.5 rounded-lg border border-white/10">
+              <button
+                onClick={() => cycleIso(-1)}
+                disabled={isoIndex === 0}
+                aria-label="Diminuer ISO"
+                className="text-white/80 hover:text-white disabled:opacity-30 px-1 font-bold"
+              >
+                −
+              </button>
+              <span className="font-bold text-amber-400 min-w-[48px] text-center text-[11px]">ISO {isoValue}</span>
+              <button
+                onClick={() => cycleIso(1)}
+                disabled={isoIndex === ISO_STEPS.length - 1}
+                aria-label="Augmenter ISO"
+                className="text-white/80 hover:text-white disabled:opacity-30 px-1 font-bold"
+              >
+                +
+              </button>
+            </div>
+
+            {/* Kelvin */}
+            <div className="flex items-center gap-0.5 bg-white/10 px-1.5 py-0.5 rounded-lg border border-white/10">
+              <button
+                onClick={() => cycleKelvin(-1)}
+                disabled={kelvinIndex === 0}
+                aria-label="Refroidir WB"
+                className="text-white/80 hover:text-white disabled:opacity-30 px-1 font-bold"
+              >
+                −
+              </button>
+              <span className="font-bold text-cyan-300 min-w-[42px] text-center text-[11px]">{kelvinValue}K</span>
+              <button
+                onClick={() => cycleKelvin(1)}
+                disabled={kelvinIndex === KELVIN_STEPS.length - 1}
+                aria-label="Réchauffer WB"
+                className="text-white/80 hover:text-white disabled:opacity-30 px-1 font-bold"
+              >
+                +
+              </button>
+            </div>
+
+            {/* EV */}
+            <div className="flex items-center gap-0.5 bg-white/10 px-1.5 py-0.5 rounded-lg border border-white/10">
+              <button
+                onClick={() => setEvBias((v) => Math.max(-2, Math.round((v - 0.5) * 10) / 10))}
+                aria-label="Diminuer EV"
+                className="text-white/80 hover:text-white px-1 font-bold"
+              >
+                −
+              </button>
+              <span className="font-bold text-emerald-400 min-w-[38px] text-center text-[11px]">
+                {evBias > 0 ? `+${evBias.toFixed(1)}` : evBias.toFixed(1)}
+              </span>
+              <button
+                onClick={() => setEvBias((v) => Math.min(2, Math.round((v + 0.5) * 10) / 10))}
+                aria-label="Augmenter EV"
+                className="text-white/80 hover:text-white px-1 font-bold"
+              >
+                +
+              </button>
+            </div>
+
+            {/* Resolution */}
+            {trackSettings.width && (
+              <span className="text-[9.5px] text-white/50 px-1 hidden md:inline">
+                {trackSettings.width}×{trackSettings.height} {trackSettings.frameRate ? `${Math.round(trackSettings.frameRate)}fps` : ""}
               </span>
             )}
-          </button>
-          <button
-            onClick={() => setShowGrid((g) => !g)}
-            aria-label="Grille"
-            className={`p-1 drop-shadow-lg ${showGrid ? "text-amber-300" : "text-white"}`}
-          >
-            <GridIcon className="w-9 h-9" />
-          </button>
-          <button
-            onClick={() => setZebraEnabled((z) => !z)}
-            aria-label="Alerte de surexposition (zébrures)"
-            className={`p-1 drop-shadow-lg ${zebraEnabled ? "text-amber-300" : "text-white"}`}
-          >
-            <ZebraIcon className="w-9 h-9" />
-          </button>
-          <button
-            onClick={() => setFlashMenuOpen((v) => !v)}
-            aria-label="Mode flash"
-            className={`p-1 drop-shadow-lg ${flashMode !== "off" ? "text-amber-300" : "text-white"}`}
-          >
-            <FlashModeIcon mode={flashMode} className="w-9 h-9" />
-          </button>
-          {capabilities.canSwitch && (
-            <button onClick={flip} aria-label="Changer de caméra" className="p-1 text-white drop-shadow-lg">
-              <FlipCameraIcon className="w-9 h-9" />
+          </div>
+
+          {/* Right corner quick controls */}
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/20 bg-black/75 p-1 backdrop-blur-xl shadow-xl">
+            <button
+              onClick={toggleSoundMute}
+              aria-label={soundMuted ? "Activer les sons" : "Désactiver les sons"}
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${
+                soundMuted ? "bg-red-500/30 text-red-300" : "text-white/90 hover:bg-white/20"
+              }`}
+            >
+              <SoundIcon className="w-4 h-4" mute={soundMuted} />
             </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Pro Live Tools Drawer Component */}
+      <ProLiveDrawer
+        isOpen={proDrawerOpen}
+        onClose={() => setProDrawerOpen(false)}
+        falseColorOn={falseColorOn}
+        setFalseColorOn={setFalseColorOn}
+        liveDroOn={liveDroOn}
+        setLiveDroOn={setLiveDroOn}
+        monoAssistOn={monoAssistOn}
+        setMonoAssistOn={setMonoAssistOn}
+        showHistogram={showHistogram}
+        setShowHistogram={setShowHistogram}
+        scopeMode={scopeMode}
+        setScopeMode={setScopeMode}
+        focusPeakingEnabled={focusPeakingEnabled}
+        setFocusPeakingEnabled={setFocusPeakingEnabled}
+        peakingColor={peakingColor}
+        setPeakingColor={setPeakingColor}
+        zebraEnabled={zebraEnabled}
+        setZebraEnabled={setZebraEnabled}
+        zebraThreshold={zebraThreshold}
+        setZebraThreshold={setZebraThreshold}
+        anamorphicDesqueeze={anamorphicDesqueeze}
+        setAnamorphicDesqueeze={setAnamorphicDesqueeze}
+        liveAspectMask={liveAspectMask}
+        setLiveAspectMask={setLiveAspectMask}
+        vintageMask={vintageMask}
+        setVintageMask={setVintageMask}
+        macroModeOn={macroModeOn}
+        toggleMacroMode={toggleMacroMode}
+        showGrid={showGrid}
+        setShowGrid={setShowGrid}
+        kelvinValue={kelvinValue}
+        onSelectKelvin={(k) => setKelvinIndex(nearestStepIndex(KELVIN_STEPS, k))}
+        ultraZoomMode={ultraZoomMode}
+        setUltraZoomMode={setUltraZoomMode}
+        focusMode={focusMode}
+        setFocusMode={setFocusMode}
+        aperture={apertureFStop}
+        setAperture={setApertureFStop}
+        focusDistance={focusDistance}
+        setFocusDistance={setFocusDistance}
+        dofBlur={dofBlur}
+        setDofBlur={setDofBlur}
+        aiCoachEnabled={aiCoach.isEnabled}
+        setAiCoachEnabled={aiCoach.setIsEnabled}
+        isAnalyzingAi={aiCoach.isAnalyzing}
+        onScanAiNow={aiCoach.scanNow}
+        aiAdvice={aiCoach.advice}
+        onApplyRecommendedFilm={(id) => onSelectPreset(id)}
+      />
+
+      {vintageMaskMenuOpen && (
+        <>
+          <button className="fixed inset-0 z-30" aria-label="Fermer le menu viseur optique" onClick={() => setVintageMaskMenuOpen(false)} />
+          <div
+            className="absolute right-4 z-40 w-80 rounded-2xl border border-white/15 bg-zinc-950/95 p-2 backdrop-blur shadow-2xl"
+            style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 3.25rem)" }}
+          >
+            <div className="px-3 py-1.5 border-b border-white/10 mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400">
+                Masque Viseur Rétro &amp; Dépoli
+              </span>
+              <span className="text-[10px] text-white/50">Optionnel</span>
+            </div>
+            {VINTAGE_VIEWFINDER_MODES.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setVintageMask(m.id);
+                  setVintageMaskMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all ${
+                  vintageMask === m.id ? "bg-amber-400/15 border border-amber-400/40" : "hover:bg-white/5"
+                }`}
+              >
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-mono text-[10px] font-black border ${
+                    vintageMask === m.id
+                      ? "bg-amber-400 text-black border-amber-300 shadow-sm"
+                      : "bg-white/10 text-white/70 border-white/10"
+                  }`}
+                >
+                  {m.shortLabel}
+                </div>
+                <span className="flex-1">
+                  <span className={`block text-xs font-bold ${vintageMask === m.id ? "text-amber-300" : "text-white"}`}>
+                    {m.label}
+                  </span>
+                  <span className="block text-[10px] leading-tight text-white/50">{m.blurb}</span>
+                </span>
+                {vintageMask === m.id && <CheckIcon className="h-4 w-4 shrink-0 text-amber-400" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {flashMenuOpen && (
         <>
@@ -1090,266 +1887,862 @@ export default function Viewfinder({
         </>
       )}
 
-      <div className="absolute right-16 top-1/2 -translate-y-1/2">
-        <ZoomSlider min={zoomMin} max={zoomMax} step={capabilities.zoom?.step || 0.1} value={uiZoom} onChange={setUiZoom} />
-      </div>
-
-      <div className="absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-full bg-black/40 px-1.5 py-2 backdrop-blur">
-        {zoomPresets(zoomMin, zoomMax)
-          .slice()
-          .reverse()
-          .map((level) => (
-            <button
-              key={level}
-              onClick={() => setUiZoom(level)}
-              aria-label={`Zoom ${formatZoom(level)}${
-                level > hardwareMaxZoom + 0.01 ? (superZoomOn ? " (SuperZoom IA)" : " (zoom numérique)") : ""
-              }`}
-              className={`flex h-8 w-8 flex-col items-center justify-center rounded-full text-[11px] font-mono tabular-nums leading-none transition-colors ${
-                Math.abs(uiZoom - level) < 0.05 ? "bg-white text-black font-semibold" : "text-white/80"
-              }`}
-            >
-              {formatZoom(level)}
-              {level > hardwareMaxZoom + 0.01 && superZoomOn && <SparkleIcon className="w-2.5 h-2.5" />}
-            </button>
-          ))}
-      </div>
-
-      <div
-        className={`pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-sm font-mono tabular-nums text-white backdrop-blur transition-opacity duration-300 ${
-          zoomBadgeVisible ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        {formatZoom(uiZoom)}
-        {inSuperZoom && superZoomOn && <SparkleIcon className="w-3.5 h-3.5 text-cyan-300" />}
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div
-          className="flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-4 py-2.5 text-sm font-medium text-white backdrop-blur"
-          >
-            <ApertureIcon className="w-5 h-5" />
-            {preset?.label ?? "Naturel"}
-          </button>
-
-          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
-            <button
-              onClick={() => cycleIso(-1)}
-              disabled={isoIndex === 0}
-              aria-label="Diminuer l'ISO"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
-            >
-              −
-            </button>
-            <span className="w-16 text-center text-sm font-mono tabular-nums text-white/70">ISO {isoValue}</span>
-            <button
-              onClick={() => cycleIso(1)}
-              disabled={isoIndex === ISO_STEPS.length - 1}
-              aria-label="Augmenter l'ISO"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
-            >
-              +
-            </button>
+      {/* ========================================================= */}
+      {/* PORTRAIT LAYOUT CONTROLS (!isLandscape) */}
+      {/* ========================================================= */}
+      {!isLandscape && (
+        <>
+          <div className="absolute right-16 top-1/2 -translate-y-1/2">
+            <ZoomSlider min={zoomMin} max={zoomMax} step={capabilities.zoom?.step || 0.1} value={uiZoom} onChange={setUiZoom} />
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
-            <button
-              onClick={() => cycleKelvin(-1)}
-              disabled={kelvinIndex === 0}
-              aria-label="Refroidir la balance des blancs"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
-            >
-              −
-            </button>
-            <span className="w-16 text-center text-sm font-mono tabular-nums text-white/70">{kelvinValue}K</span>
-            <button
-              onClick={() => cycleKelvin(1)}
-              disabled={kelvinIndex === KELVIN_STEPS.length - 1}
-              aria-label="Réchauffer la balance des blancs"
-              className="px-2 text-lg leading-none text-white/80 disabled:opacity-30"
-            >
-              +
-            </button>
+          <div className="absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-full bg-black/40 px-1.5 py-2 backdrop-blur">
+            {zoomPresets(zoomMin, zoomMax)
+              .slice()
+              .reverse()
+              .map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setUiZoom(level)}
+                  aria-label={`Zoom ${formatZoom(level)}${
+                    level > hardwareMaxZoom + 0.01 ? (superZoomOn ? " (SuperZoom IA)" : " (zoom numérique)") : ""
+                  }`}
+                  className={`flex h-8 w-8 flex-col items-center justify-center rounded-full text-[11px] font-mono tabular-nums leading-none transition-colors ${
+                    Math.abs(uiZoom - level) < 0.05 ? "bg-white text-black font-semibold" : "text-white/80"
+                  }`}
+                >
+                  {formatZoom(level)}
+                  {level > hardwareMaxZoom + 0.01 && superZoomOn && <SparkleIcon className="w-2.5 h-2.5" />}
+                </button>
+              ))}
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/25 bg-black/40 px-3 py-2 backdrop-blur">
-            <button
-              onClick={() => setEvBias((v) => Math.max(-2, Math.round((v - 0.5) * 10) / 10))}
-              aria-label="Diminuer l'exposition"
-              className="px-2 text-lg leading-none text-white/80"
-            >
-              −
-            </button>
-            <span className="w-12 text-center text-sm font-mono tabular-nums text-white/70">
-              {evBias > 0 ? `+${evBias.toFixed(1)}` : evBias.toFixed(1)}
-            </span>
-            <button
-              onClick={() => setEvBias((v) => Math.min(2, Math.round((v + 0.5) * 10) / 10))}
-              aria-label="Augmenter l'exposition"
-              className="px-2 text-lg leading-none text-white/80"
-            >
-              +
-            </button>
+          <div
+            className={`pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-sm font-mono tabular-nums text-white backdrop-blur transition-opacity duration-300 ${
+              zoomBadgeVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {formatZoom(uiZoom)}
+            {inSuperZoom && superZoomOn && <SparkleIcon className="w-3.5 h-3.5 text-cyan-300" />}
           </div>
 
-          <button
-            onClick={() => toggleStabilizer(setStabilizerOn)}
-            aria-pressed={stabilizerOn}
-            aria-label="Stabilisateur électronique"
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              stabilizerOn ? "border-emerald-300/70 bg-emerald-300/15 text-emerald-300" : "border-white/25 bg-black/40 text-white"
-            }`}
+          {/* Live On-Screen Autofocus & Bokeh Quick Bar */}
+          <div
+            className="absolute left-0 right-0 z-25 flex flex-col items-center pointer-events-none"
+            style={{ bottom: "calc(max(1.5rem, env(safe-area-inset-bottom)) + 5.6rem)" }}
           >
-            <StabilizerIcon className="w-4 h-4" />
-            {stabilizerOn && !stabilizer.available ? "Stabilisateur (capteur indisponible)" : "Stabilisateur"}
-          </button>
+            <LiveAutofocusBar
+              focusMode={focusMode}
+              onChangeFocusMode={setFocusMode}
+              aperture={apertureFStop}
+              onChangeAperture={setApertureFStop}
+              focusDistance={focusDistance}
+              onChangeFocusDistance={setFocusDistance}
+              dofBlur={dofBlur}
+              onChangeDofBlur={setDofBlur}
+              bokehAspect={bokehAspect}
+              onChangeBokehAspect={setBokehAspect}
+              petzvalSwirl={petzvalSwirl}
+              onChangePetzvalSwirl={setPetzvalSwirl}
+              focusPeaking={focusPeakingEnabled}
+              onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
+              peakingColor={peakingColor}
+              onChangePeakingColor={setPeakingColor}
+              isOpen={afControlsOpen}
+              onToggleOpen={() => setAfControlsOpen((v) => !v)}
+            />
+          </div>
 
-          <button
-            onClick={() => toggleStabilizer(setSuperStabilizerOn)}
-            aria-pressed={superStabilizerOn}
-            aria-label="Ultra-stabilisateur électronique"
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              superStabilizerOn ? "border-violet-300/70 bg-violet-300/15 text-violet-300" : "border-white/25 bg-black/40 text-white"
-            }`}
-          >
-            <StabilizerIcon className="w-4 h-4" />
-            {superStabilizerOn && !stabilizer.available ? "Ultra-stabilisateur (capteur indisponible)" : "Ultra-stabilisateur"}
-          </button>
-
-          {/* Only shown once actually zoomed past the hardware max — this
-              is the one AI toggle that's about a mode the user has to
-              already be in for it to make sense, unlike the always-shown
-              toggles below which apply to any shot. */}
-          {inSuperZoom && (
-            <button
-              onClick={() => setSuperZoomOn((v) => !v)}
-              aria-pressed={superZoomOn}
-              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-                superZoomOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
-              }`}
+          <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <div
+              className="flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{ WebkitOverflowScrolling: "touch" }}
             >
-              <SparkleIcon className="w-4 h-4" />
-              SuperZoom IA
-            </button>
-          )}
-
-          <button
-            onClick={() => setSuperContrastOn((v) => !v)}
-            aria-pressed={superContrastOn}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              superContrastOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
-            }`}
-          >
-            <ContrastIcon className="w-4 h-4" />
-            Super Contraste
-          </button>
-
-          <button
-            onClick={() => setDenoiseAIOn((v) => !v)}
-            aria-pressed={denoiseAIOn}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              denoiseAIOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
-            }`}
-          >
-            <SparkleIcon className="w-4 h-4" />
-            Débruitage IA
-          </button>
-
-          <button
-            onClick={() => setSuperResOn((v) => !v)}
-            aria-pressed={superResOn}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              superResOn ? "border-cyan-300/70 bg-cyan-300/15 text-cyan-300" : "border-white/25 bg-black/40 text-white"
-            }`}
-          >
-            <SparkleIcon className="w-4 h-4" />
-            Super-résolution IA
-          </button>
-
-          <button
-            onClick={() => setLongExposureMenuOpen((v) => !v)}
-            aria-pressed={longExposureSeconds > 0}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium backdrop-blur transition-colors ${
-              longExposureSeconds > 0 ? "border-amber-300/70 bg-amber-300/15 text-amber-300" : "border-white/25 bg-black/40 text-white"
-            }`}
-          >
-            <LongExposureIcon className="w-4 h-4" />
-            {longExposureSeconds > 0 ? `Pose longue ${longExposureSeconds}s` : "Pose longue"}
-          </button>
-        </div>
-
-        {stayOnCapture && (pendingSaves > 0 || recentPhotos.length > 0) && (
-          <div className="flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {Array.from({ length: pendingSaves }).map((_, i) => (
-              <div
-                key={`pending-${i}`}
-                aria-label="Enregistrement en cours"
-                className="h-12 w-12 shrink-0 animate-pulse rounded-lg border border-white/25 bg-white/10"
+              {/* Master Control Dial */}
+              <MasterControlDial
+                activeParam={dialActiveParam}
+                onSelectParam={setDialActiveParam}
+                aperture={apertureFStop}
+                onChangeAperture={setApertureFStop}
+                focusDistance={focusDistance}
+                onChangeFocusDistance={setFocusDistance}
+                dofBlur={dofBlur}
+                onChangeDofBlur={setDofBlur}
+                exposure={evBias}
+                onChangeExposure={setEvBias}
+                temperature={kelvinValue - 5500}
+                onChangeTemperature={(t) => {
+                  const targetK = 5500 + t;
+                  setKelvinIndex(nearestStepIndex(KELVIN_STEPS, targetK));
+                }}
+                petzvalSwirl={petzvalSwirl}
+                onChangePetzvalSwirl={setPetzvalSwirl}
+                isOpen={masterDialOpen}
+                onToggleOpen={() => setMasterDialOpen((v) => !v)}
               />
-            ))}
-            {recentPhotos.slice(0, 15).map((p) => (
+
+              {/* Live Split-Compare Quick Toggle */}
               <button
-                key={p.id}
-                onClick={() => onOpenPhoto(p)}
-                aria-label="Photo prise"
-                className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/25"
+                onClick={() => setSplitCompareOn((v) => !v)}
+                aria-label="Comparer avant/après le rendu argentique en temps réel"
+                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+                  splitCompareOn
+                    ? "border-amber-400 bg-amber-400 text-black shadow-[0_0_15px_rgba(251,191,36,0.5)]"
+                    : "border-white/30 bg-black/55 text-white hover:bg-black/75"
+                }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photoUrl(p.id)} alt="" className="h-full w-full object-cover" />
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 3v18M3 12h18M3 3h18v18H3z" />
+                </svg>
+                <span className="text-xs font-mono tracking-wide">{splitCompareOn ? "SPLIT (ACTIF)" : "SPLIT VUE"}</span>
               </button>
-            ))}
-          </div>
-        )}
 
-        <div className="grid grid-cols-3 items-center pb-2 px-6">
-          <div className="flex justify-start">
-            {lastPhoto && !stayOnCapture ? (
+              {/* Autofocus & Depth-of-Field Quick Pill */}
               <button
-                onClick={onOpenGallery}
-                aria-label="Dernière photo"
-                className="h-11 w-11 overflow-hidden rounded-xl border-2 border-white/70"
+                onClick={() => setAfControlsOpen((v) => !v)}
+                aria-label="Autofocus et Profondeur de champ"
+                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+                  focusMode !== "auto" || afControlsOpen
+                    ? "border-emerald-400 bg-emerald-400 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                    : "border-emerald-400/50 bg-emerald-400/20 text-emerald-300 hover:bg-emerald-400/30"
+                }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photoUrl(lastPhoto.id)} alt="" className="h-full w-full object-cover" />
+                <AutofocusTargetIcon className="w-4.5 h-4.5" />
+                <span className="text-xs font-mono tracking-wide">
+                  {focusMode === "foreground"
+                    ? "AF : AVANT-PLAN"
+                    : focusMode === "background"
+                    ? "AF : ARRIÈRE-PLAN"
+                    : focusMode === "point"
+                    ? "AF : TACTILE"
+                    : focusMode === "manual"
+                    ? "MF : BAGUE"
+                    : "AUTOFOCUS"}
+                </span>
               </button>
-            ) : (
-              <div className="h-11 w-11" aria-hidden />
+
+              <button
+                onClick={() => setPickerOpen(true)}
+                aria-label="Sélecteur d'émulsion et styles photographiques"
+                className="flex flex-shrink-0 items-center gap-2 rounded-full border border-amber-400 bg-black/85 px-3.5 py-2 backdrop-blur shadow-lg active:scale-95 transition-all hover:border-amber-300"
+              >
+                <FilmCanisterBadge preset={preset ?? null} />
+                <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
+                  Pelliculothèque
+                </span>
+              </button>
+
+              <button
+                onClick={() => setProDrawerOpen(true)}
+                aria-label="Ouvrir le panneau Outils Pro Live"
+                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+                  falseColorOn || liveDroOn || monoAssistOn || anamorphicDesqueeze > 1.0 || showHistogram || zebraEnabled || focusPeakingEnabled
+                    ? "border-amber-400 bg-amber-400 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+                    : "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
+                }`}
+              >
+                <ProBadgeIcon className="w-4.5 h-4.5" />
+                <span className="text-xs font-mono tracking-wide">OUTILS PRO</span>
+              </button>
+
+              <button
+                onClick={cycleVintageMask}
+                aria-pressed={vintageMask !== "none"}
+                aria-label="Changer de masque de viseur optique rétro"
+                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold backdrop-blur shadow-md active:scale-95 transition-all ${
+                  vintageMask !== "none"
+                    ? "border-amber-400 bg-amber-400/25 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] font-bold"
+                    : "border-white/30 bg-black/55 text-white"
+                }`}
+              >
+                <VintageViewfinderIcon className="w-4.5 h-4.5" />
+                {vintageMask === "none"
+                  ? "Viseur Rétro (OFF)"
+                  : vintageMask === "slr-prism"
+                  ? "Viseur SLR 1970"
+                  : vintageMask === "tlr-6x6"
+                  ? "Viseur 6×6 Dépoli"
+                  : vintageMask === "lens-circle"
+                  ? "Viseur Lentille"
+                  : "Cadre 35mm"}
+              </button>
+
+              <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/30 bg-black/55 px-3.5 py-2.5 backdrop-blur shadow-md">
+                <button
+                  onClick={() => cycleIso(-1)}
+                  disabled={isoIndex === 0}
+                  aria-label="Diminuer l'ISO"
+                  className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
+                >
+                  −
+                </button>
+                <span className="w-16 text-center text-sm font-mono font-bold tabular-nums text-white">ISO {isoValue}</span>
+                <button
+                  onClick={() => cycleIso(1)}
+                  disabled={isoIndex === ISO_STEPS.length - 1}
+                  aria-label="Augmenter l'ISO"
+                  className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/30 bg-black/55 px-3.5 py-2.5 backdrop-blur shadow-md">
+                <button
+                  onClick={() => cycleKelvin(-1)}
+                  disabled={kelvinIndex === 0}
+                  aria-label="Refroidir la balance des blancs"
+                  className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
+                >
+                  −
+                </button>
+                <span className="w-16 text-center text-sm font-mono font-bold tabular-nums text-white">{kelvinValue}K</span>
+                <button
+                  onClick={() => cycleKelvin(1)}
+                  disabled={kelvinIndex === KELVIN_STEPS.length - 1}
+                  aria-label="Réchauffer la balance des blancs"
+                  className="px-2 text-xl leading-none text-white/90 disabled:opacity-30 active:scale-90"
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-white/30 bg-black/55 px-3.5 py-2.5 backdrop-blur shadow-md">
+                <button
+                  onClick={() => setEvBias((v) => Math.max(-2, Math.round((v - 0.5) * 10) / 10))}
+                  aria-label="Diminuer l'exposition"
+                  className="px-2 text-xl leading-none text-white/90 active:scale-90"
+                >
+                  −
+                </button>
+                <span className="w-12 text-center text-sm font-mono font-bold tabular-nums text-white">
+                  {evBias > 0 ? `+${evBias.toFixed(1)}` : evBias.toFixed(1)}
+                </span>
+                <button
+                  onClick={() => setEvBias((v) => Math.min(2, Math.round((v + 0.5) * 10) / 10))}
+                  aria-label="Augmenter l'exposition"
+                  className="px-2 text-xl leading-none text-white/90 active:scale-90"
+                >
+                  +
+                </button>
+              </div>
+
+              <button
+                onClick={() => toggleStabilizer(setStabilizerOn)}
+                aria-pressed={stabilizerOn}
+                aria-label="Stabilisateur électronique"
+                className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold backdrop-blur transition-all ${
+                  stabilizerOn ? "border-emerald-300 bg-emerald-300/20 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]" : "border-white/30 bg-black/55 text-white"
+                }`}
+              >
+                <StabilizerIcon className="w-5 h-5" />
+                {stabilizerOn && !stabilizer.available ? "Stabilisateur (capteur indisponible)" : "Stabilisateur"}
+              </button>
+
+              <button
+                onClick={() => toggleStabilizer(setSuperStabilizerOn)}
+                aria-pressed={superStabilizerOn}
+                aria-label="Ultra-stabilisateur électronique"
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  superStabilizerOn
+                    ? "border-violet-300 bg-violet-400/25 text-violet-300 shadow-[0_0_12px_rgba(196,181,253,0.35)]"
+                    : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                }`}
+              >
+                <StabilizerIcon className="w-4 h-4" />
+                {superStabilizerOn && !stabilizer.available ? "Ultra-Stab (Indispo)" : "Ultra-Stabilisateur"}
+              </button>
+
+              <button
+                onClick={() => {
+                  setUltraZoomMode((v) => {
+                    const next = !v;
+                    if (next && uiZoom < 5) setUiZoom(5);
+                    return next;
+                  });
+                }}
+                aria-pressed={ultraZoomMode || uiZoom >= 5}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  ultraZoomMode || uiZoom >= 5
+                    ? "border-fuchsia-400 bg-fuchsia-500/25 text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.4)]"
+                    : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                }`}
+              >
+                <UltraZoomIcon className="w-4 h-4" />
+                {ultraZoomMode || uiZoom >= 5 ? `Ultra-Zoom (${uiZoom.toFixed(1)}×)` : "Ultra-Zoom 100×"}
+              </button>
+
+              {inSuperZoom && (
+                <button
+                  onClick={() => setSuperZoomOn((v) => !v)}
+                  aria-pressed={superZoomOn}
+                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                    superZoomOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                  }`}
+                >
+                  <SparkleIcon className="w-4 h-4" />
+                  SuperZoom IA
+                </button>
+              )}
+
+              <button
+                onClick={() => setSuperContrastOn((v) => !v)}
+                aria-pressed={superContrastOn}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  superContrastOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                }`}
+              >
+                <ContrastIcon className="w-4 h-4" />
+                Super Contraste
+              </button>
+
+              <button
+                onClick={() => setDenoiseAIOn((v) => !v)}
+                aria-pressed={denoiseAIOn}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  denoiseAIOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                }`}
+              >
+                <SparkleIcon className="w-4 h-4" />
+                Débruitage IA
+              </button>
+
+              <button
+                onClick={() => setSuperResOn((v) => !v)}
+                aria-pressed={superResOn}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  superResOn ? "border-cyan-300 bg-cyan-300/25 text-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.35)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                }`}
+              >
+                <SparkleIcon className="w-4 h-4" />
+                Super-résolution IA
+              </button>
+
+              <button
+                onClick={() => setBurstMenuOpen((v) => !v)}
+                aria-pressed={burstModeArmed}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  burstModeArmed ? "border-amber-300 bg-amber-400/25 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                }`}
+              >
+                <BurstIcon className="w-4 h-4" />
+                {burstModeArmed ? `Rafale (${burstSpeed === "fast" ? "10fps" : burstSpeed === "eco" ? "3fps" : "5fps"})` : "Mode Rafale"}
+              </button>
+
+              <button
+                onClick={() => setLongExposureMenuOpen((v) => !v)}
+                aria-pressed={longExposureSeconds > 0}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  longExposureSeconds > 0 ? "border-amber-300 bg-amber-400/25 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "border-white/15 bg-black/60 text-white/80 hover:bg-black/80"
+                }`}
+              >
+                <LongExposureIcon className="w-4 h-4" />
+                {longExposureSeconds > 0 ? `Pose longue ${longExposureSeconds}s` : "Pose longue"}
+              </button>
+            </div>
+
+            {stayOnCapture && (pendingSaves > 0 || recentPhotos.length > 0) && (
+              <div className="flex gap-2.5 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {Array.from({ length: pendingSaves }).map((_, i) => (
+                  <div
+                    key={`pending-${i}`}
+                    aria-label="Enregistrement en cours"
+                    className="h-16 w-16 shrink-0 animate-pulse rounded-2xl border-2 border-white/25 bg-white/10 shadow-md"
+                  />
+                ))}
+                {recentPhotos.slice(0, 15).map((p, i) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setViewerPhotoIndex(i)}
+                    aria-label="Ouvrir la photo en grand"
+                    className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 border-white/30 shadow-md active:scale-90 transition-transform bg-black/50"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoUrl(p.id)} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
             )}
+
+            {/* Shutter Bar with Much Larger Preview Box */}
+            <div className="grid grid-cols-3 items-center pb-2 px-6">
+              <div className="flex justify-start">
+                {lastPhoto && !stayOnCapture ? (
+                  <button
+                    onClick={() => setViewerPhotoIndex(0)}
+                    aria-label="Ouvrir la dernière photo en grand"
+                    className="h-17 w-17 overflow-hidden rounded-2xl border-2 border-white/95 shadow-2xl relative active:scale-90 transition-transform bg-black/60 ring-2 ring-white/20"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoUrl(lastPhoto.id)} alt="" className="h-full w-full object-cover" />
+                    {recentPhotos.length > 1 && (
+                      <span className="absolute bottom-1 right-1 bg-black/85 backdrop-blur text-[11px] font-mono font-black text-amber-300 px-1.5 rounded-sm border border-white/30">
+                        {recentPhotos.length}
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                  <div className="h-17 w-17" aria-hidden />
+                )}
+              </div>
+
+              <div className="relative justify-self-center flex items-center justify-center">
+                <button
+                  onPointerDown={handleShutterDown}
+                  onPointerUp={handleShutterUp}
+                  onPointerLeave={handleShutterUp}
+                  disabled={!ready}
+                  aria-label="Déclencher"
+                  className={`relative flex h-[92px] w-[92px] items-center justify-center rounded-full border-4 shadow-[0_8px_30px_rgba(0,0,0,0.8)] active:scale-92 transition-all duration-100 disabled:opacity-40 p-1.5 ${
+                    burstCount > 0
+                      ? "border-amber-400 bg-amber-950/40 ring-4 ring-amber-400/50 shadow-[0_0_30px_rgba(245,158,11,0.6)]"
+                      : "border-white/90 bg-zinc-900/60 ring-4 ring-white/20 backdrop-blur-md"
+                  }`}
+                >
+                  <span
+                    className={`h-full w-full rounded-full bg-gradient-to-b from-white via-zinc-100 to-zinc-300 shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.4)] transition-all duration-150 ${
+                      capturing ? "scale-85 brightness-90" : "scale-100"
+                    }`}
+                  />
+                </button>
+                {burstCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-400 px-2 text-xs font-black font-mono text-black shadow-xl ring-2 ring-black">
+                    {burstCount}
+                  </span>
+                )}
+              </div>
+
+              <div className="h-17 w-17" aria-hidden />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ========================================================= */}
+      {/* LANDSCAPE LAYOUT CONTROLS (isLandscape) */}
+      {/* ========================================================= */}
+      {isLandscape && (
+        <>
+          {/* Left Hand Sidebar Tools Strip */}
+          <div
+            className="absolute left-0 top-0 bottom-0 z-30 pointer-events-auto flex flex-col justify-between items-start py-3 pl-[max(0.75rem,env(safe-area-inset-left))] pr-2.5 bg-gradient-to-r from-black/85 via-black/40 to-transparent"
+            style={{ paddingTop: "calc(max(0.5rem, env(safe-area-inset-top)) + 2.8rem)", paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+          >
+            {/* Top group: Film Preset & Pro Drawer */}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setPickerOpen(true)}
+                aria-label="Sélecteur d'émulsion et styles photographiques"
+                className="flex items-center gap-1.5 rounded-full border border-amber-400 bg-black/85 px-3 py-1.5 backdrop-blur shadow-lg active:scale-95 transition-all hover:border-amber-300"
+              >
+                <FilmCanisterBadge preset={preset ?? null} />
+                <span className="text-[10px] font-mono font-bold text-amber-300 hidden md:inline">
+                  Pellicules
+                </span>
+              </button>
+
+              <button
+                onClick={() => setProDrawerOpen(true)}
+                aria-label="Ouvrir le panneau Outils Pro Live"
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+                  falseColorOn || liveDroOn || monoAssistOn || anamorphicDesqueeze > 1.0 || showHistogram || zebraEnabled || focusPeakingEnabled
+                    ? "border-amber-400 bg-amber-400 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+                    : "border-amber-400/50 bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
+                }`}
+              >
+                <ProBadgeIcon className="w-4 h-4" />
+                <span className="text-[10px] font-mono tracking-wide hidden md:inline">OUTILS PRO</span>
+              </button>
+
+              <button
+                onClick={() => setAfControlsOpen((v) => !v)}
+                aria-label="Autofocus et Profondeur de champ"
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 backdrop-blur shadow-md active:scale-95 transition-all font-bold ${
+                  focusMode !== "auto" || afControlsOpen
+                    ? "border-emerald-400 bg-emerald-400 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                    : "border-emerald-400/50 bg-emerald-400/20 text-emerald-300 hover:bg-emerald-400/30"
+                }`}
+              >
+                <AutofocusTargetIcon className="w-4 h-4" />
+                <span className="text-[10px] font-mono tracking-wide hidden md:inline">
+                  {focusMode === "foreground"
+                    ? "AF: AVANT"
+                    : focusMode === "background"
+                    ? "AF: FOND"
+                    : focusMode === "point"
+                    ? "AF: POINT"
+                    : focusMode === "manual"
+                    ? "MF"
+                    : "AF AUTO"}
+                </span>
+              </button>
+            </div>
+
+            {/* Middle group: Master Control Dial & Split Compare */}
+            <div className="flex flex-col gap-2">
+              <MasterControlDial
+                activeParam={dialActiveParam}
+                onSelectParam={setDialActiveParam}
+                aperture={apertureFStop}
+                onChangeAperture={setApertureFStop}
+                focusDistance={focusDistance}
+                onChangeFocusDistance={setFocusDistance}
+                dofBlur={dofBlur}
+                onChangeDofBlur={setDofBlur}
+                exposure={evBias}
+                onChangeExposure={setEvBias}
+                temperature={kelvinValue - 5500}
+                onChangeTemperature={(t) => {
+                  const targetK = 5500 + t;
+                  setKelvinIndex(nearestStepIndex(KELVIN_STEPS, targetK));
+                }}
+                petzvalSwirl={petzvalSwirl}
+                onChangePetzvalSwirl={setPetzvalSwirl}
+                isOpen={masterDialOpen}
+                onToggleOpen={() => setMasterDialOpen((v) => !v)}
+              />
+
+              <button
+                onClick={() => setSplitCompareOn((v) => !v)}
+                aria-label="Comparer avant/après"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-mono font-bold backdrop-blur-xl transition-all ${
+                  splitCompareOn
+                    ? "bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.5)]"
+                    : "bg-black/70 border-white/20 text-white/90 hover:bg-black/90 shadow-lg"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 3v18M3 12h18M3 3h18v18H3z" />
+                </svg>
+                <span className="hidden md:inline">{splitCompareOn ? "SPLIT (ON)" : "SPLIT"}</span>
+              </button>
+            </div>
+
+            {/* Bottom group: Viseur Rétro & Stabilizer */}
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={cycleVintageMask}
+                aria-label="Masque de viseur optique rétro"
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold backdrop-blur shadow-md active:scale-95 transition-all ${
+                  vintageMask !== "none"
+                    ? "border-amber-400 bg-amber-400/25 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)] font-bold"
+                    : "border-white/30 bg-black/55 text-white/80"
+                }`}
+              >
+                <VintageViewfinderIcon className="w-4 h-4" />
+                <span className="text-[9.5px] hidden md:inline">VISEUR</span>
+              </button>
+
+              <button
+                onClick={() => toggleStabilizer(setStabilizerOn)}
+                aria-label="Stabilisateur"
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold backdrop-blur transition-all ${
+                  stabilizerOn ? "border-emerald-300 bg-emerald-300/20 text-emerald-300" : "border-white/30 bg-black/55 text-white/80"
+                }`}
+              >
+                <StabilizerIcon className="w-4 h-4" />
+                <span className="text-[9.5px] hidden md:inline">STAB</span>
+              </button>
+            </div>
           </div>
 
-          <div className="relative justify-self-center">
-            <button
-              onPointerDown={handleShutterDown}
-              onPointerUp={handleShutterUp}
-              onPointerLeave={handleShutterUp}
-              disabled={!ready}
-              aria-label="Déclencher"
-              className={`flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 disabled:opacity-40 ${
-                burstCount > 0 ? "border-amber-300" : "border-white/80"
-              }`}
-            >
-              <span className={`h-14 w-14 rounded-full bg-white transition-transform ${capturing ? "scale-75" : ""}`} />
-            </button>
-            {burstCount > 0 && (
-              <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-300 px-1 text-[11px] font-bold text-black">
-                {burstCount}
-              </span>
-            )}
+          {/* Right Hand Shutter & Grip Bar */}
+          <div
+            className="absolute right-0 top-0 bottom-0 z-30 pointer-events-auto flex flex-col justify-between items-center py-3 pr-[max(0.75rem,env(safe-area-inset-right))] pl-2.5 bg-gradient-to-l from-black/85 via-black/40 to-transparent"
+            style={{ paddingTop: "calc(max(0.5rem, env(safe-area-inset-top)) + 0.5rem)", paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+          >
+            {/* Top Right: Flip Camera, Flash, Macro */}
+            <div className="flex flex-col items-center gap-2">
+              {capabilities.canSwitch && (
+                <button
+                  onClick={flip}
+                  aria-label="Changer de caméra"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/75 border border-white/20 text-white/95 hover:bg-white/20 active:scale-90 transition-all backdrop-blur shadow-lg"
+                >
+                  <FlipCameraIcon className="w-5.5 h-5.5" />
+                </button>
+              )}
+
+              <button
+                onClick={() => setFlashMenuOpen((v) => !v)}
+                aria-label="Mode flash"
+                className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all backdrop-blur shadow-lg border ${
+                  flashMode !== "off"
+                    ? "bg-amber-400 text-black font-bold border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.6)]"
+                    : "bg-black/75 border-white/20 text-white/95 hover:bg-white/20"
+                }`}
+              >
+                <FlashModeIcon mode={flashMode} className="w-5.5 h-5.5" />
+              </button>
+
+              <button
+                onClick={toggleMacroMode}
+                aria-label="Mode Macro"
+                className={`flex h-10 w-10 items-center justify-center rounded-full active:scale-90 transition-all backdrop-blur shadow-lg border ${
+                  macroModeOn
+                    ? "bg-emerald-400 text-black font-bold border-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.6)]"
+                    : "bg-black/75 border-white/20 text-white/95 hover:bg-white/20"
+                }`}
+              >
+                <MacroFlowerIcon className="w-5.5 h-5.5" />
+              </button>
+            </div>
+
+            {/* Center: Tactile Shutter Button for Right Thumb */}
+            <div className="relative flex flex-col items-center justify-center my-auto">
+              <button
+                onPointerDown={handleShutterDown}
+                onPointerUp={handleShutterUp}
+                onPointerLeave={handleShutterUp}
+                disabled={!ready}
+                aria-label="Déclencher"
+                className={`relative flex h-[90px] w-[90px] items-center justify-center rounded-full border-4 shadow-[0_8px_30px_rgba(0,0,0,0.8)] active:scale-92 transition-all duration-100 disabled:opacity-40 p-1.5 ${
+                  burstCount > 0
+                    ? "border-amber-400 bg-amber-950/40 ring-4 ring-amber-400/50 shadow-[0_0_30px_rgba(245,158,11,0.6)]"
+                    : "border-white/90 bg-zinc-900/60 ring-4 ring-white/20 backdrop-blur-md"
+                }`}
+              >
+                <span
+                  className={`h-full w-full rounded-full bg-gradient-to-b from-white via-zinc-100 to-zinc-300 shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.4)] transition-all duration-150 ${
+                    capturing ? "scale-85 brightness-90" : "scale-100"
+                  }`}
+                />
+              </button>
+              {burstCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-400 px-2 text-xs font-black font-mono text-black shadow-xl ring-2 ring-black">
+                  {burstCount}
+                </span>
+              )}
+            </div>
+
+            {/* Bottom Right: Photo Preview Box, Gallery & Settings */}
+            <div className="flex flex-col items-center gap-2">
+              {lastPhoto && !stayOnCapture ? (
+                <button
+                  onClick={() => setViewerPhotoIndex(0)}
+                  aria-label="Ouvrir la dernière photo"
+                  className="h-13 w-13 overflow-hidden rounded-xl border-2 border-white/95 shadow-xl relative active:scale-90 transition-transform bg-black/60 ring-2 ring-white/20"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoUrl(lastPhoto.id)} alt="" className="h-full w-full object-cover" />
+                  {recentPhotos.length > 1 && (
+                    <span className="absolute bottom-0.5 right-0.5 bg-black/85 backdrop-blur text-[9px] font-mono font-black text-amber-300 px-1 rounded-xs border border-white/30">
+                      {recentPhotos.length}
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={onOpenGallery}
+                  aria-label="Galerie"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/75 border border-white/20 text-white/95 hover:bg-white/20 active:scale-90 transition-all backdrop-blur shadow-lg"
+                >
+                  <GalleryGridIcon className="w-5.5 h-5.5" />
+                </button>
+              )}
+
+              <button
+                onClick={() => setDashboardOpen(true)}
+                aria-label="Tableau de bord"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-black/75 border border-white/20 text-white/95 hover:bg-white/20 active:scale-90 transition-all backdrop-blur shadow-lg"
+              >
+                <SettingsIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="h-11 w-11" aria-hidden />
-        </div>
-      </div>
+          {/* Center Bottom Area: Live Autofocus Dock & Zoom Stepper */}
+          <div
+            className="absolute bottom-2 left-28 right-28 z-25 flex flex-col items-center gap-1.5 pointer-events-none"
+            style={{ paddingBottom: "max(0.4rem, env(safe-area-inset-bottom))" }}
+          >
+            {/* Live Autofocus Bar (if open) */}
+            {afControlsOpen && (
+              <div className="w-full max-w-lg mb-2 pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <LiveAutofocusBar
+                  focusMode={focusMode}
+                  onChangeFocusMode={setFocusMode}
+                  aperture={apertureFStop}
+                  onChangeAperture={setApertureFStop}
+                  focusDistance={focusDistance}
+                  onChangeFocusDistance={setFocusDistance}
+                  dofBlur={dofBlur}
+                  onChangeDofBlur={setDofBlur}
+                  bokehAspect={bokehAspect}
+                  onChangeBokehAspect={setBokehAspect}
+                  petzvalSwirl={petzvalSwirl}
+                  onChangePetzvalSwirl={setPetzvalSwirl}
+                  focusPeaking={focusPeakingEnabled}
+                  onToggleFocusPeaking={() => setFocusPeakingEnabled((v) => !v)}
+                  peakingColor={peakingColor}
+                  onChangePeakingColor={setPeakingColor}
+                  isOpen={afControlsOpen}
+                  onToggleOpen={() => setAfControlsOpen((v) => !v)}
+                />
+              </div>
+            )}
+
+            {/* Horizontal Zoom Stepper Bar */}
+            <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/20 bg-black/80 px-2.5 py-1 backdrop-blur-xl shadow-xl">
+              {zoomPresets(zoomMin, zoomMax).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setUiZoom(level)}
+                  aria-label={`Zoom ${formatZoom(level)}`}
+                  className={`flex h-7 px-2.5 items-center justify-center rounded-full text-xs font-mono tabular-nums font-bold transition-all ${
+                    Math.abs(uiZoom - level) < 0.05 ? "bg-white text-black shadow-md scale-105" : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  {formatZoom(level)}
+                </button>
+              ))}
+
+              <button
+                onClick={() => {
+                  setUltraZoomMode((v) => {
+                    const next = !v;
+                    if (next && uiZoom < 5) setUiZoom(5);
+                    return next;
+                  });
+                }}
+                className={`flex h-7 px-2.5 items-center gap-1 rounded-full text-xs font-mono font-bold transition-all border ${
+                  ultraZoomMode || uiZoom >= 5
+                    ? "bg-fuchsia-500 text-black border-fuchsia-400 shadow-md scale-105"
+                    : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <UltraZoomIcon className="w-3.5 h-3.5" />
+                <span>100×</span>
+              </button>
+
+              {inSuperZoom && (
+                <button
+                  onClick={() => setSuperZoomOn((v) => !v)}
+                  aria-pressed={superZoomOn}
+                  className={`flex h-7 px-2.5 items-center gap-1 rounded-full text-xs font-mono font-bold transition-all border ${
+                    superZoomOn ? "bg-cyan-400 text-black border-cyan-300 shadow-md" : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  <SparkleIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">SuperZoom IA</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setSuperContrastOn((v) => !v)}
+                className={`flex h-7 px-2 items-center gap-1 rounded-full text-xs font-mono font-bold transition-all border ${
+                  superContrastOn ? "bg-cyan-400 text-black border-cyan-300" : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <ContrastIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Contraste</span>
+              </button>
+
+              <button
+                onClick={() => setBurstMenuOpen((v) => !v)}
+                className={`flex h-7 px-2 items-center gap-1 rounded-full text-xs font-mono font-bold transition-all border ${
+                  burstModeArmed ? "bg-amber-400 text-black border-amber-300" : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <BurstIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Rafale</span>
+              </button>
+
+              <button
+                onClick={() => setLongExposureMenuOpen((v) => !v)}
+                className={`flex h-7 px-2 items-center gap-1 rounded-full text-xs font-mono font-bold transition-all border ${
+                  longExposureSeconds > 0 ? "bg-amber-400 text-black border-amber-300" : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <LongExposureIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Pose L.</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {!ready && !error && (
         <div className="absolute inset-0 flex items-center justify-center text-white/50">
           <CameraIcon className="w-10 h-10 animate-pulse" />
         </div>
+      )}
+
+      {burstMenuOpen && (
+        <>
+          <button
+            className="fixed inset-0 z-30"
+            aria-label="Fermer le menu rafale"
+            onClick={() => setBurstMenuOpen(false)}
+          />
+          <div
+            className="absolute left-4 right-4 z-40 rounded-2xl border border-white/15 bg-zinc-950/95 p-3.5 backdrop-blur shadow-2xl"
+            style={{ bottom: "calc(max(1.5rem, env(safe-area-inset-bottom)) + 9rem)" }}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <BurstIcon className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Mode Prise Rafale</span>
+              </div>
+              <span className="text-[10px] font-mono text-white/50">CADENCE</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-3">
+              <button
+                onClick={() => {
+                  setBurstSpeed("fast");
+                  setBurstModeArmed(true);
+                  setBurstMenuOpen(false);
+                }}
+                className={`flex flex-col items-center gap-1 rounded-xl p-2.5 border transition-all ${
+                  burstSpeed === "fast" && burstModeArmed ? "border-amber-400 bg-amber-400/20 text-white" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-sm font-bold text-amber-300">10 fps</span>
+                <span className="text-[10px] text-white/50">Ultra Rapide</span>
+              </button>
+              <button
+                onClick={() => {
+                  setBurstSpeed("normal");
+                  setBurstModeArmed(true);
+                  setBurstMenuOpen(false);
+                }}
+                className={`flex flex-col items-center gap-1 rounded-xl p-2.5 border transition-all ${
+                  burstSpeed === "normal" && burstModeArmed ? "border-amber-400 bg-amber-400/20 text-white" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-sm font-bold text-amber-300">5 fps</span>
+                <span className="text-[10px] text-white/50">Standard</span>
+              </button>
+              <button
+                onClick={() => {
+                  setBurstSpeed("eco");
+                  setBurstModeArmed(true);
+                  setBurstMenuOpen(false);
+                }}
+                className={`flex flex-col items-center gap-1 rounded-xl p-2.5 border transition-all ${
+                  burstSpeed === "eco" && burstModeArmed ? "border-amber-400 bg-amber-400/20 text-white" : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                }`}
+              >
+                <span className="text-sm font-bold text-amber-300">3 fps</span>
+                <span className="text-[10px] text-white/50">Éco / Précision</span>
+              </button>
+            </div>
+            <div className="pt-3 flex justify-between items-center border-t border-white/10 mt-3 text-xs">
+              <button
+                onClick={() => {
+                  setBurstModeArmed((v) => !v);
+                  setBurstMenuOpen(false);
+                }}
+                className={`px-3 py-1 rounded-full font-medium transition-colors ${
+                  burstModeArmed ? "bg-amber-400 text-black font-bold" : "bg-white/10 text-white/70"
+                }`}
+              >
+                {burstModeArmed ? "Armé" : "Désactivé"}
+              </button>
+              <span className="text-[11px] text-white/50">Maintenez le déclencheur</span>
+            </div>
+          </div>
+        </>
       )}
 
       {pickerOpen && (
@@ -1392,6 +2785,24 @@ export default function Viewfinder({
             onDone={(lastSaved) => {
               setBurstReview(null);
               if (lastSaved) onBurstSaved(lastSaved);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Full-Screen Ultra-High-Res Lightbox when clicking on the preview box */}
+      {viewerPhotoIndex !== null && recentPhotos.length > 0 && (
+        <div className="fixed inset-0 z-50">
+          <PhotoViewer
+            items={recentPhotos}
+            initialIndex={viewerPhotoIndex}
+            onClose={() => setViewerPhotoIndex(null)}
+            onEdit={(m) => {
+              setViewerPhotoIndex(null);
+              onOpenPhoto(m);
+            }}
+            onDeleted={() => {
+              setViewerPhotoIndex(null);
             }}
           />
         </div>
