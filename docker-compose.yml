@@ -8,9 +8,4 @@ services:
     container_name: camera-palama
     ports:
       - "127.0.0.1:${HOST_PORT:-3501}:3000"
-    environment:
-      - PHOTOS_DIR=/data/photos
-    volumes:
-      # Persiste les photos enregistrées entre deux rebuilds — voir lib/photoStore.server.ts.
-      - ./data/photos:/data/photos
     restart: unless-stopped

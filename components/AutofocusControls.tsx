@@ -138,8 +138,8 @@ export default function AutofocusControls({
             <span className="text-[10px] font-mono font-bold text-amber-400">AF TACTILE</span>
             {focusMode === "point" && <CheckIcon className="w-3.5 h-3.5 text-amber-400" />}
           </div>
-          <span className="text-[11px] font-semibold text-white">Toucher l'Écran</span>
-          <span className="text-[9px] text-white/50">Ciblez n'importe quel objet</span>
+          <span className="text-[11px] font-semibold text-white">Toucher l&apos;Écran</span>
+          <span className="text-[9px] text-white/50">Ciblez n&apos;importe quel objet</span>
         </button>
 
         {/* Preset 4: Manuel (Tout Net / Réglable) */}
@@ -159,7 +159,7 @@ export default function AutofocusControls({
             {focusMode === "manual" && <CheckIcon className="w-3.5 h-3.5 text-purple-400" />}
           </div>
           <span className="text-[11px] font-semibold text-white">Bague Focus</span>
-          <span className="text-[9px] text-white/50">Réglage fin 0.1m à l'Infini ∞</span>
+          <span className="text-[9px] text-white/50">Réglage fin 0.1m à l&apos;Infini ∞</span>
         </button>
       </div>
 

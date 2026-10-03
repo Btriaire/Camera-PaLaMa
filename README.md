@@ -2,7 +2,7 @@
 
 A camera + non-destructive photo editor meant to replace the stock iPhone
 camera app for day-to-day shooting. Next.js App Router, installable as a
-PWA, self-hosted on a VPS via Docker.
+PWA, deployable on Vercel or a VPS via Docker.
 
 ## Getting started
 
@@ -39,36 +39,24 @@ dev server won't get permission to use `getUserMedia`.
   (Kodachrome, Polaroid SX-70, Agfa Vista, Ilford HP5, CineStill 800T, Lomo
   LC-A, Holga, VHS, security-cam, daguerreotype…), each just a set of the
   same adjustment values, so every look stays tweakable afterwards.
-- **Library** — `app/api/photos/route.ts` stores saved shots as plain files
-  on disk (`PHOTOS_DIR`), each with a JSON sidecar holding the adjustment
-  stack that produced it. No database — just files you can back up or rsync.
+- **Library** — saved shots live in the browser's own IndexedDB
+  (`lib/photoDb.ts`, `lib/storage.ts`), each with the adjustment stack that
+  produced it. No server storage: nothing to configure, and photos never
+  leave the device.
 
 ## Deploying
 
-**VPS (the way that actually persists photos):**
+Capture, live preview, editing and the photo library are all client-side,
+so any host works.
 
-```bash
-docker compose up -d --build
-```
+**Vercel:** connect the repo — no environment variables needed.
 
-Ships a `Dockerfile` + `docker-compose.yml` producing a standalone Next.js
-server, with `./data/photos` mounted into the container so saved shots
-survive rebuilds. Defaults to port 3501 on the host (127.0.0.1, behind
-whatever reverse proxy you already run).
-
-**Vercel:** works for trying out the camera and editor — capture, live
-filtered preview, and every adjustment are all client-side WebGL, no server
-needed. **Saving a photo will not persist there**: `app/api/photos/route.ts`
-writes to local disk via Node's `fs`, and Vercel's serverless functions have
-an ephemeral filesystem that doesn't survive between requests. Treat a
-Vercel deploy as a UI preview, not where your library lives.
+**VPS (Docker):** `docker compose up -d --build`. The image build sets
+`DOCKER_BUILD=1`, which turns on Next's `output: "standalone"` (Vercel
+doesn't want it). Listens on 127.0.0.1:3501 behind your reverse proxy.
 
 ## Not done yet
 
-- No offline service worker — a hand-rolled one for a hashed Next.js build
-  risks serving stale chunks after a deploy; a proper one wants
-  `next-pwa`/Serwist.
 - No tap-to-focus — `focusMode` support is too inconsistent across browsers
   to be worth it yet.
-- No cross-device sync — the library is whatever files sit in `PHOTOS_DIR`
-  on the one server you deployed to.
+- No cross-device sync — the library lives in this browser only.

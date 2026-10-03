@@ -15,16 +15,20 @@ export default function LevelIndicator({
 }) {
   const wasLevelRef = useRef(false);
 
-  if (tiltDeg === null) return null;
-  const clamped = Math.max(-45, Math.min(45, tiltDeg));
-  const isLevel = Math.abs(tiltDeg) < 0.8;
+  const isLevel = tiltDeg !== null && Math.abs(tiltDeg) < 0.8;
 
+  // Must run before the early return below — a hook after it is skipped on
+  // renders where tiltDeg is null, which React rejects ("rendered more
+  // hooks") the moment the sensor reading comes or goes.
   useEffect(() => {
     if (isLevel && !wasLevelRef.current) {
       playLevelLock();
     }
     wasLevelRef.current = isLevel;
   }, [isLevel]);
+
+  if (tiltDeg === null) return null;
+  const clamped = Math.max(-45, Math.min(45, tiltDeg));
 
   return (
     <div className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none z-20 ${className}`}>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PRESETS, PRO_SCENE_PRESETS, VINTAGE_PRESETS, CURIOUS_PRESETS, MODERN_PRESETS } from "@/lib/presets";
-import { HudSkin } from "@/lib/types";
+import { HudSkin, Preset } from "@/lib/types";
 import { useCamera } from "@/lib/useCamera";
 import { NATURAL_KEY, usePresetThumbnails } from "@/lib/usePresetThumbnails";
 import { BackIcon, CheckIcon } from "@/components/Icons";
@@ -284,7 +284,7 @@ function PresetDetailCard({
   naturalThumb,
   presetThumb,
 }: {
-  preset: any;
+  preset: Preset;
   active: boolean;
   onSelect: () => void;
   naturalThumb?: string;

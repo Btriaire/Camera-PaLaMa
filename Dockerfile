@@ -8,6 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci || npm install
 COPY . .
+ENV DOCKER_BUILD=1
 RUN npm run build
 
 # ---- runtime stage : serveur minimal ----

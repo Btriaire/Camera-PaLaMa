@@ -29,14 +29,14 @@ function toMeta(record: StoredPhoto): SavedPhotoMeta {
   };
 }
 
-export async function listPhotos(): Promise<{ items: SavedPhotoMeta[]; storageWarning: string | null }> {
+export async function listPhotos(): Promise<{ items: SavedPhotoMeta[] }> {
   try {
     const records = await dbListPhotos();
     records.forEach((r) => cacheUrl(r.id, r.blob));
     const items = records.map(toMeta).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return { items, storageWarning: null };
+    return { items };
   } catch {
-    return { items: [], storageWarning: null };
+    return { items: [] };
   }
 }
 

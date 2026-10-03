@@ -450,17 +450,17 @@ export default function ProLiveDrawer({
         <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-3">
           <span className="text-xs font-bold text-white block mb-2">Ratios de Cadrage &amp; Décompression Anamorphique</span>
           <div className="grid grid-cols-6 gap-1.5 mb-2.5">
-            {[
+            {([
               { id: "none", label: "Plein" },
               { id: "1:1", label: "1:1" },
               { id: "4:5", label: "4:5" },
               { id: "16:9", label: "16:9" },
               { id: "3:2", label: "3:2" },
               { id: "65:24", label: "XPAN" },
-            ].map((r) => (
+            ] as const).map((r) => (
               <button
                 key={r.id}
-                onClick={() => setLiveAspectMask(r.id as any)}
+                onClick={() => setLiveAspectMask(r.id)}
                 className={`py-1.5 text-center rounded-lg border font-mono text-[11px] font-bold transition-all ${
                   liveAspectMask === r.id
                     ? "border-amber-400 bg-amber-400 text-black shadow-sm"

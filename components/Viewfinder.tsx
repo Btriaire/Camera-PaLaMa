@@ -1115,9 +1115,9 @@ export default function Viewfinder({
           // Hardware autofocus point of interest constraint
           try {
             const track = (videoRef.current?.srcObject as MediaStream)?.getVideoTracks()[0];
-            const capabilities = track?.getCapabilities?.() as any;
+            const capabilities = track?.getCapabilities?.() as (MediaTrackCapabilities & { pointsOfInterest?: unknown; focusMode?: string[] }) | undefined;
             if (capabilities?.pointsOfInterest || capabilities?.focusMode?.includes("continuous")) {
-              (track as any)?.applyConstraints?.({
+              (track as unknown as { applyConstraints?: (c: unknown) => Promise<void> })?.applyConstraints?.({
                 advanced: [
                   {
                     focusMode: "continuous",
